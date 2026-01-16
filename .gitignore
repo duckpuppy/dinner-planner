@@ -6,6 +6,7 @@ vendor/
 dist/
 build/
 *.egg-info/
+.turbo/
 
 # Environment
 .env
@@ -29,3 +30,19 @@ logs/
 # Coverage
 coverage/
 .nyc_output/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# Drizzle
+drizzle/meta/
+
+# Vite
+*.local
+
+# TypeScript
+*.tsbuildinfo

@@ -15,6 +15,7 @@ RESTful API using JSON. All endpoints (except auth) require authentication via J
 Authenticate user and receive tokens.
 
 **Request:**
+
 ```json
 {
   "username": "string",
@@ -23,6 +24,7 @@ Authenticate user and receive tokens.
 ```
 
 **Response: 200 OK**
+
 ```json
 {
   "user": {
@@ -37,6 +39,7 @@ Authenticate user and receive tokens.
 ```
 
 **Notes:**
+
 - Refresh token set as httpOnly cookie
 - Access token expires in 15 minutes
 
@@ -45,6 +48,7 @@ Authenticate user and receive tokens.
 Refresh access token using refresh token cookie.
 
 **Response: 200 OK**
+
 ```json
 {
   "accessToken": "string",
@@ -63,6 +67,7 @@ Invalidate refresh token.
 Change current user's password.
 
 **Request:**
+
 ```json
 {
   "currentPassword": "string",
@@ -78,9 +83,10 @@ Change current user's password.
 
 ### GET `/users`
 
-List all users. *Admin only.*
+List all users. _Admin only._
 
 **Response: 200 OK**
+
 ```json
 {
   "users": [
@@ -97,9 +103,10 @@ List all users. *Admin only.*
 
 ### POST `/users`
 
-Create new user. *Admin only.*
+Create new user. _Admin only._
 
 **Request:**
+
 ```json
 {
   "username": "string",
@@ -110,6 +117,7 @@ Create new user. *Admin only.*
 ```
 
 **Response: 201 Created**
+
 ```json
 {
   "id": "string",
@@ -125,6 +133,7 @@ Create new user. *Admin only.*
 Get user details.
 
 **Response: 200 OK**
+
 ```json
 {
   "id": "string",
@@ -137,9 +146,10 @@ Get user details.
 
 ### PATCH `/users/:id`
 
-Update user. *Admin only, or self for limited fields.*
+Update user. _Admin only, or self for limited fields._
 
 **Request:**
+
 ```json
 {
   "displayName": "string",
@@ -151,7 +161,7 @@ Update user. *Admin only, or self for limited fields.*
 
 ### DELETE `/users/:id`
 
-Delete user. *Admin only. Cannot delete self.*
+Delete user. _Admin only. Cannot delete self._
 
 **Response: 204 No Content**
 
@@ -166,6 +176,7 @@ Get current authenticated user.
 Update current user's preferences.
 
 **Request:**
+
 ```json
 {
   "theme": "light" | "dark",
@@ -174,6 +185,7 @@ Update current user's preferences.
 ```
 
 **Response: 200 OK**
+
 ```json
 {
   "theme": "light" | "dark",
@@ -190,6 +202,7 @@ Update current user's preferences.
 List all dishes with optional filtering.
 
 **Query Parameters:**
+
 - `type`: `main` | `side` - filter by dish type
 - `tag`: string - filter by tag (can repeat for multiple)
 - `archived`: `true` | `false` - include archived (default: false)
@@ -198,6 +211,7 @@ List all dishes with optional filtering.
 - `order`: `asc` | `desc` (default: asc)
 
 **Response: 200 OK**
+
 ```json
 {
   "dishes": [
@@ -232,6 +246,7 @@ List all dishes with optional filtering.
 Create new dish.
 
 **Request:**
+
 ```json
 {
   "name": "string",
@@ -262,6 +277,7 @@ Create new dish.
 Get dish with full details including ingredients.
 
 **Response: 200 OK**
+
 ```json
 {
   "id": "string",
@@ -302,6 +318,7 @@ Get dish with full details including ingredients.
 Update dish.
 
 **Request:** (partial update, any fields from POST)
+
 ```json
 {
   "name": "string",
@@ -313,7 +330,7 @@ Update dish.
 
 ### DELETE `/dishes/:id`
 
-Permanently delete dish. *Admin only.*
+Permanently delete dish. _Admin only._
 
 **Response: 204 No Content**
 
@@ -334,10 +351,12 @@ Restore an archived dish.
 Get preparation history for a dish.
 
 **Query Parameters:**
+
 - `limit`: number (default: 20)
 - `offset`: number (default: 0)
 
 **Response: 200 OK**
+
 ```json
 {
   "preparations": [...],
@@ -354,10 +373,12 @@ Get preparation history for a dish.
 Get menus for a date range.
 
 **Query Parameters:**
+
 - `startDate`: ISO8601 date (required)
 - `endDate`: ISO8601 date (required)
 
 **Response: 200 OK**
+
 ```json
 {
   "menus": [
@@ -392,6 +413,7 @@ Get menu for the week containing the given date.
 Get today's dinner entry.
 
 **Response: 200 OK**
+
 ```json
 {
   "entry": {
@@ -425,6 +447,7 @@ Get single dinner entry with full details.
 Update a dinner entry.
 
 **Request:**
+
 ```json
 {
   "type": "assembled" | "fend_for_self" | "dining_out" | "custom",
@@ -457,6 +480,7 @@ Mark entry as not completed.
 List preparations with optional filtering.
 
 **Query Parameters:**
+
 - `dishId`: string - filter by dish
 - `userId`: string - filter by preparer
 - `startDate`: ISO8601
@@ -465,6 +489,7 @@ List preparations with optional filtering.
 - `offset`: number (default: 0)
 
 **Response: 200 OK**
+
 ```json
 {
   "preparations": [
@@ -493,9 +518,10 @@ List preparations with optional filtering.
 
 ### POST `/preparations`
 
-Log a new preparation. *Auto-completes the dinner entry.*
+Log a new preparation. _Auto-completes the dinner entry._
 
 **Request:**
+
 ```json
 {
   "dinnerEntryId": "string",
@@ -518,6 +544,7 @@ Get preparation details.
 Update preparation notes.
 
 **Request:**
+
 ```json
 {
   "notes": "string"
@@ -541,6 +568,7 @@ Delete a preparation.
 Add rating to a preparation.
 
 **Request:**
+
 ```json
 {
   "stars": 1-5,
@@ -549,6 +577,7 @@ Add rating to a preparation.
 ```
 
 **Response: 201 Created**
+
 ```json
 {
   "id": "string",
@@ -566,6 +595,7 @@ Add rating to a preparation.
 Update own rating.
 
 **Request:**
+
 ```json
 {
   "stars": 5,
@@ -590,6 +620,7 @@ Delete own rating.
 List all tags with usage counts.
 
 **Response: 200 OK**
+
 ```json
 {
   "tags": [
@@ -609,17 +640,19 @@ List all tags with usage counts.
 Get app settings.
 
 **Response: 200 OK**
+
 ```json
 {
-  "weekStartDay": 0,  // 0=Sunday, 1=Monday, etc.
+  "weekStartDay": 0 // 0=Sunday, 1=Monday, etc.
 }
 ```
 
 ### PATCH `/settings`
 
-Update app settings. *Admin only.*
+Update app settings. _Admin only._
 
 **Request:**
+
 ```json
 {
   "weekStartDay": 1
@@ -637,6 +670,7 @@ Update app settings. *Admin only.*
 Get all data needed for offline support of current week.
 
 **Response: 200 OK**
+
 ```json
 {
   "menu": { ... },
@@ -650,6 +684,7 @@ Get all data needed for offline support of current week.
 Submit offline changes for sync.
 
 **Request:**
+
 ```json
 {
   "changes": [
@@ -665,6 +700,7 @@ Submit offline changes for sync.
 ```
 
 **Response: 200 OK**
+
 ```json
 {
   "results": [
@@ -696,20 +732,21 @@ All errors follow this format:
 
 ### Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Missing or invalid token |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `VALIDATION_ERROR` | 400 | Invalid request body |
-| `CONFLICT` | 409 | Resource conflict (e.g., duplicate) |
-| `INTERNAL_ERROR` | 500 | Server error |
+| Code               | HTTP Status | Description                         |
+| ------------------ | ----------- | ----------------------------------- |
+| `UNAUTHORIZED`     | 401         | Missing or invalid token            |
+| `FORBIDDEN`        | 403         | Insufficient permissions            |
+| `NOT_FOUND`        | 404         | Resource not found                  |
+| `VALIDATION_ERROR` | 400         | Invalid request body                |
+| `CONFLICT`         | 409         | Resource conflict (e.g., duplicate) |
+| `INTERNAL_ERROR`   | 500         | Server error                        |
 
 ---
 
 ## Rate Limiting
 
 Not implemented initially (single-household use), but headers reserved:
+
 - `X-RateLimit-Limit`
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`

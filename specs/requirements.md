@@ -39,7 +39,7 @@ A single-household, multi-user application for planning weekly dinner menus, tra
   - External URL links (to recipe sources)
   - **Video links** (social media captures)
     - Store link for later playback
-    - *Stretch goal:* Download and cache video locally on server
+    - _Stretch goal:_ Download and cache video locally on server
 - **Categories/tags** for organization (cuisine, dietary, etc.)
 - **Any user can add or edit dishes**
 - **Archive:** available to all users
@@ -48,11 +48,12 @@ A single-household, multi-user application for planning weekly dinner menus, tra
 ### Preparations
 
 A preparation is a specific instance of cooking a dish. Tracks:
+
 - Which dish was prepared
 - **Single preparer** (one person credited)
 - Date of preparation
 - Optional notes (variations from base recipe, substitutions, etc.)
-- *Future:* Photo uploads
+- _Future:_ Photo uploads
 
 ### Ratings
 
@@ -78,19 +79,19 @@ A preparation is a specific instance of cooking a dish. Tracks:
 
 ### Permissions Matrix
 
-| Action | Admin | Member |
-|--------|-------|--------|
-| View menus (current & past) | ✓ | ✓ |
-| Create/edit menu entries | ✓ | ✓ |
-| Add new dishes | ✓ | ✓ |
-| Edit any dish | ✓ | ✓ |
-| Archive dishes | ✓ | ✓ |
-| **Hard delete dishes** | ✓ | ✗ |
-| Log preparations | ✓ | ✓ |
-| Rate preparations | ✓ | ✓ |
-| Edit own ratings | ✓ | ✓ |
-| **Manage users** | ✓ | ✗ |
-| **App settings** (week start, etc.) | ✓ | ✗ |
+| Action                              | Admin | Member |
+| ----------------------------------- | ----- | ------ |
+| View menus (current & past)         | ✓     | ✓      |
+| Create/edit menu entries            | ✓     | ✓      |
+| Add new dishes                      | ✓     | ✓      |
+| Edit any dish                       | ✓     | ✓      |
+| Archive dishes                      | ✓     | ✓      |
+| **Hard delete dishes**              | ✓     | ✗      |
+| Log preparations                    | ✓     | ✓      |
+| Rate preparations                   | ✓     | ✓      |
+| Edit own ratings                    | ✓     | ✓      |
+| **Manage users**                    | ✓     | ✗      |
+| **App settings** (week start, etc.) | ✓     | ✗      |
 
 ### Technical Platform
 
@@ -120,7 +121,7 @@ A preparation is a specific instance of cooking a dish. Tracks:
 
 ## Deferred Decisions
 
-*To be revisited in future iterations:*
+_To be revisited in future iterations:_
 
 - [ ] How far in advance can menus be planned? (unlimited, 4 weeks, etc.)
 - [ ] Can multiple dinners be planned for one day? (e.g., lunch + dinner)
@@ -131,15 +132,15 @@ A preparation is a specific instance of cooking a dish. Tracks:
 
 ## Future Enhancements
 
-*Documented for later development:*
+_Documented for later development:_
 
 1. **Grocery list generation** from planned meals (ingredients structure supports this)
-2. **Meal suggestions** based on ratings and recency *(confirmed priority)*
+2. **Meal suggestions** based on ratings and recency _(confirmed priority)_
 3. **Dietary restriction filtering**
 4. **Portion scaling** for recipes
 5. **Notifications/reminders** (e.g., "What's for dinner tonight?")
 6. **Recurring meal patterns** (e.g., "Taco Tuesday")
-7. **Video download/caching** from social media *(confirmed stretch goal)*
+7. **Video download/caching** from social media _(confirmed stretch goal)_
 8. **Photo uploads** for preparations
 9. **Multiple preparers** for a single dish
 

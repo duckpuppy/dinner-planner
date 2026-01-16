@@ -125,6 +125,7 @@
 ```
 
 **States:**
+
 - **Assembled dinner**: Shows main + sides, recipe button
 - **Fend for self**: "Everyone finds their own tonight"
 - **Dining out**: "Dining out tonight"
@@ -136,6 +137,7 @@
 ### Today View - Alternative States
 
 **Fend for Self:**
+
 ```
 ┌──────────────────────────────────┐
 │                                  │
@@ -150,6 +152,7 @@
 ```
 
 **Dining Out:**
+
 ```
 ┌──────────────────────────────────┐
 │                                  │
@@ -214,6 +217,7 @@
 ```
 
 **Interactions:**
+
 - Tap entry → Edit Entry modal
 - Tap "+ Plan dinner" → Edit Entry modal
 - Swipe left/right or arrows → Navigate weeks
@@ -701,17 +705,20 @@
 ## Responsive Behavior
 
 ### Mobile (< 768px)
+
 - Bottom navigation bar
 - Full-screen modals
 - Single column layouts
 - Collapsible sections in dish detail
 
 ### Tablet (768px - 1024px)
+
 - Bottom or side navigation (configurable)
 - Sheet modals (partial screen)
 - Two-column layouts where appropriate
 
 ### Desktop (> 1024px)
+
 - Sidebar navigation
 - Modal dialogs
 - Multi-column layouts
@@ -722,12 +729,14 @@
 ## Theme
 
 ### Light Mode
+
 - Background: white/light gray
 - Text: dark gray/black
 - Accent: primary brand color
 - Cards: white with subtle shadow
 
 ### Dark Mode
+
 - Background: dark gray (#1a1a1a)
 - Text: light gray/white
 - Accent: lighter primary color

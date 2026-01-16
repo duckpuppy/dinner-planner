@@ -43,6 +43,7 @@
 ```
 
 **Pros:**
+
 - Single codebase for web + mobile
 - PWA gives offline support out of the box
 - Easier to develop and maintain
@@ -50,6 +51,7 @@
 - Capacitor allows app store distribution if desired later
 
 **Cons:**
+
 - Native features slightly limited vs true native
 - iOS PWA support has some quirks (improving)
 
@@ -78,6 +80,7 @@
 ```
 
 **Pros:**
+
 - True native mobile experience
 - Single codebase across all platforms
 - Expo simplifies builds and deployment
@@ -85,6 +88,7 @@
 - Large ecosystem and community
 
 **Cons:**
+
 - Expo Web not as mature as traditional web frameworks
 - Slightly more complex setup than pure web
 - Some web-specific optimizations harder
@@ -114,12 +118,14 @@
 ```
 
 **Pros:**
+
 - Excellent cross-platform consistency
 - Strong offline support with local databases
 - Good performance
 - Material Design and Cupertino widgets built-in
 
 **Cons:**
+
 - Dart language (different from typical web stack)
 - Flutter Web bundle sizes can be large
 - Smaller ecosystem than React
@@ -142,32 +148,33 @@ For a single-household app with your requirements, I recommend **Option A** for 
 
 ### Frontend
 
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| **Framework** | React 18+ | Widely used, excellent ecosystem, hooks for state |
-| **Build tool** | Vite | Fast builds, excellent DX |
-| **Routing** | React Router v6 | Standard, well-documented |
-| **State** | TanStack Query + Zustand | Query for server state + cache, Zustand for UI state |
-| **Offline** | Service Worker + IndexedDB (via Dexie.js) | PWA standard, Dexie simplifies IndexedDB |
-| **UI Components** | shadcn/ui + Tailwind CSS | Accessible, customizable, great theming support |
-| **Forms** | React Hook Form + Zod | Performant forms with type-safe validation |
-| **Mobile wrapper** | Capacitor (optional) | For app store distribution if needed |
+| Component          | Choice                                    | Rationale                                            |
+| ------------------ | ----------------------------------------- | ---------------------------------------------------- |
+| **Framework**      | React 18+                                 | Widely used, excellent ecosystem, hooks for state    |
+| **Build tool**     | Vite                                      | Fast builds, excellent DX                            |
+| **Routing**        | React Router v6                           | Standard, well-documented                            |
+| **State**          | TanStack Query + Zustand                  | Query for server state + cache, Zustand for UI state |
+| **Offline**        | Service Worker + IndexedDB (via Dexie.js) | PWA standard, Dexie simplifies IndexedDB             |
+| **UI Components**  | shadcn/ui + Tailwind CSS                  | Accessible, customizable, great theming support      |
+| **Forms**          | React Hook Form + Zod                     | Performant forms with type-safe validation           |
+| **Mobile wrapper** | Capacitor (optional)                      | For app store distribution if needed                 |
 
 ### Backend
 
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| **Runtime** | Node.js 20+ | JavaScript everywhere, large ecosystem |
-| **Framework** | Fastify | Fast, low overhead, excellent TypeScript support |
-| **API Style** | REST | Simpler than GraphQL for this scope, easier caching |
-| **Validation** | Zod | Share schemas with frontend |
-| **Database** | SQLite (via better-sqlite3) | Simple deployment, no separate DB server, perfect for single-household |
-| **ORM** | Drizzle ORM | Type-safe, lightweight, great SQLite support |
-| **Auth** | Custom JWT | Simple token-based auth, bcrypt for passwords |
+| Component      | Choice                      | Rationale                                                              |
+| -------------- | --------------------------- | ---------------------------------------------------------------------- |
+| **Runtime**    | Node.js 20+                 | JavaScript everywhere, large ecosystem                                 |
+| **Framework**  | Fastify                     | Fast, low overhead, excellent TypeScript support                       |
+| **API Style**  | REST                        | Simpler than GraphQL for this scope, easier caching                    |
+| **Validation** | Zod                         | Share schemas with frontend                                            |
+| **Database**   | SQLite (via better-sqlite3) | Simple deployment, no separate DB server, perfect for single-household |
+| **ORM**        | Drizzle ORM                 | Type-safe, lightweight, great SQLite support                           |
+| **Auth**       | Custom JWT                  | Simple token-based auth, bcrypt for passwords                          |
 
 ### Why SQLite?
 
 For a single-household app:
+
 - No separate database server to manage
 - Single file, easy backup
 - Excellent performance for this scale
@@ -215,6 +222,7 @@ dinner-planner/
 ### Monorepo with Turborepo
 
 Using a monorepo allows:
+
 - Shared types between frontend and backend
 - Shared validation schemas (Zod)
 - Coordinated builds and deployments
@@ -250,6 +258,7 @@ Using a monorepo allows:
 ```
 
 **Sync Strategy:**
+
 1. On app load, fetch current week's menu + related recipes
 2. Store in IndexedDB via Dexie.js
 3. TanStack Query checks IndexedDB first, then API
@@ -324,10 +333,10 @@ services:
     container_name: dinner-planner
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
-      - ./data:/app/data    # SQLite database
-      - ./uploads:/app/uploads  # Future: video cache, photos
+      - ./data:/app/data # SQLite database
+      - ./uploads:/app/uploads # Future: video cache, photos
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/dinner.db
@@ -337,6 +346,7 @@ services:
 ### Option B: LXC Container (Direct Install)
 
 For LXC, a simple install script can:
+
 1. Install Node.js 20+
 2. Clone/copy application files
 3. Set up systemd service
@@ -364,6 +374,7 @@ WantedBy=multi-user.target
 ### Nginx Proxy Manager Configuration
 
 In NPM, create a proxy host:
+
 - **Domain**: `dinner.yourdomain.com` (or similar)
 - **Forward Hostname/IP**: LXC/container IP
 - **Forward Port**: 3000

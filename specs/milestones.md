@@ -38,17 +38,20 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### Authentication
+
 - [ ] Login page
 - [ ] JWT authentication with refresh tokens
 - [ ] Logout
 - [ ] Protected routes
 
 #### Users (Basic)
+
 - [ ] Single admin user seeded on first run
 - [ ] Admin can create additional users
 - [ ] Users can change their own password
 
 #### Dishes (Basic)
+
 - [ ] List all dishes
 - [ ] Add new dish (name, description, type, basic ingredients as text)
 - [ ] Edit dish
@@ -56,31 +59,37 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Archive dish
 
 #### Weekly Menu
+
 - [ ] View current week
 - [ ] Navigate to past/future weeks
 - [ ] Week auto-creates when accessed
 
 #### Dinner Entries
+
 - [ ] Set entry type (assembled, fend for self, dining out, custom)
 - [ ] Select main dish for assembled meals
 - [ ] Select side dishes (optional)
 - [ ] Mark entry as completed
 
 #### Preparations (Basic)
+
 - [ ] Log preparation (who, notes)
 - [ ] Auto-complete dinner entry when logged
 - [ ] View preparation history on dish
 
 #### Today View
+
 - [ ] Display today's dinner
 - [ ] Quick actions: view recipe, log preparation, edit
 
 #### Basic UI
+
 - [ ] Mobile-responsive layout
 - [ ] Bottom navigation (mobile)
 - [ ] Light theme only (dark mode in later milestone)
 
 ### Out of Scope for MVP
+
 - Ratings
 - Structured ingredients
 - Offline support
@@ -104,6 +113,7 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### Ratings
+
 - [ ] Rate a preparation (1-5 stars)
 - [ ] Add note with rating
 - [ ] Edit own rating
@@ -112,16 +122,19 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Calculate and display aggregate rating per dish
 
 #### Structured Ingredients
+
 - [ ] Migrate ingredients from text to structured format
 - [ ] Add/edit ingredients with quantity, unit, name, notes
 - [ ] Display formatted ingredient list
 
 #### Tags
+
 - [ ] Add tags to dishes
 - [ ] Filter dishes by tag
 - [ ] Display tag list with counts
 
 #### Dish Improvements
+
 - [ ] Add prep time, cook time, servings fields
 - [ ] Add source URL field
 - [ ] Add video URL field
@@ -129,6 +142,7 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Sort dishes (name, rating, recent, created)
 
 #### History View
+
 - [ ] Timeline view of past meals
 - [ ] Search history
 - [ ] Filter by date range
@@ -148,12 +162,14 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### User Preferences
+
 - [ ] Theme selection (light/dark)
 - [ ] Dark mode implementation
 - [ ] Home view preference (today/week)
 - [ ] Save preferences per user
 
 #### Admin Features
+
 - [ ] User management screen (list, edit, delete)
 - [ ] Change user roles
 - [ ] Reset user passwords
@@ -161,11 +177,13 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Configure week start day
 
 #### Hard Delete (Admin)
+
 - [ ] Admin can permanently delete dishes
 - [ ] Confirmation dialog
 - [ ] Handle dishes referenced in history
 
 #### UI Improvements
+
 - [ ] Loading skeletons
 - [ ] Toast notifications
 - [ ] Error states and messages
@@ -174,6 +192,7 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Swipe actions on entries
 
 #### Desktop Layout
+
 - [ ] Sidebar navigation
 - [ ] Multi-column layouts
 - [ ] Larger click targets
@@ -193,27 +212,32 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### Service Worker
+
 - [ ] Cache static assets (JS, CSS, images)
 - [ ] App shell caching strategy
 - [ ] Offline detection
 
 #### Data Caching
+
 - [ ] Cache current week's menu in IndexedDB
 - [ ] Cache referenced dishes/recipes
 - [ ] Sync endpoint for bulk data fetch
 
 #### Offline Functionality
+
 - [ ] View current week offline
 - [ ] View cached recipes offline
 - [ ] Offline indicator banner
 - [ ] Queue changes made offline
 
 #### Sync
+
 - [ ] Sync queued changes when online
 - [ ] Conflict resolution (server wins, notify user)
 - [ ] Sync status indicator
 
 #### PWA
+
 - [ ] Web app manifest
 - [ ] Install prompt
 - [ ] App icons
@@ -233,6 +257,7 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### Capacitor Integration
+
 - [ ] Add Capacitor to project
 - [ ] Configure iOS build
 - [ ] Configure Android build
@@ -240,11 +265,13 @@ This document breaks the project into incremental milestones, each delivering us
 - [ ] Native app icons
 
 #### Native Features
+
 - [ ] Push notification support (infrastructure)
 - [ ] Haptic feedback
 - [ ] Native share functionality
 
 #### App Store
+
 - [ ] iOS App Store submission materials
 - [ ] Google Play submission materials
 - [ ] Privacy policy page
@@ -263,17 +290,20 @@ This document breaks the project into incremental milestones, each delivering us
 ### Features
 
 #### Suggestion Algorithm
+
 - [ ] Weight dishes by aggregate rating
 - [ ] Penalize recently prepared dishes
 - [ ] Configurable recency window
 - [ ] Exclude archived dishes
 
 #### UI
+
 - [ ] "Suggest a meal" button in entry editor
 - [ ] Show suggested dishes with reasoning
 - [ ] Quick-add from suggestion
 
 #### Refinements
+
 - [ ] Filter suggestions by tag
 - [ ] "Not this" to skip suggestion
 - [ ] Learn from rejections (optional)
@@ -321,16 +351,16 @@ This document breaks the project into incremental milestones, each delivering us
 
 ## Summary
 
-| Milestone | Focus | Key Deliverable |
-|-----------|-------|-----------------|
-| **0** | Foundation | Dev environment, scaffolding |
-| **1 (MVP)** | Core Planning | Basic meal planning app |
-| **2** | Ratings & Recipes | Full recipe + rating system |
-| **3** | Polish | Themes, admin, UX improvements |
-| **4** | Offline | PWA with offline support |
-| **5** | Mobile | Native iOS/Android apps |
-| **6** | Suggestions | Smart meal suggestions |
-| **7+** | Future | Grocery lists, photos, etc. |
+| Milestone   | Focus             | Key Deliverable                |
+| ----------- | ----------------- | ------------------------------ |
+| **0**       | Foundation        | Dev environment, scaffolding   |
+| **1 (MVP)** | Core Planning     | Basic meal planning app        |
+| **2**       | Ratings & Recipes | Full recipe + rating system    |
+| **3**       | Polish            | Themes, admin, UX improvements |
+| **4**       | Offline           | PWA with offline support       |
+| **5**       | Mobile            | Native iOS/Android apps        |
+| **6**       | Suggestions       | Smart meal suggestions         |
+| **7+**      | Future            | Grocery lists, photos, etc.    |
 
 ---
 
