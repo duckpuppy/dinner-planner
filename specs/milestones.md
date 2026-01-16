@@ -6,28 +6,30 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
-## Milestone 0: Project Foundation
+## Milestone 0: Project Foundation ✅ COMPLETE
 
 **Goal:** Set up development environment and project scaffolding.
 
+**Status:** Completed on 2026-01-16
+
 ### Tasks
 
-- [ ] Initialize monorepo with Turborepo
-- [ ] Set up `apps/api` with Fastify + TypeScript
-- [ ] Set up `apps/web` with Vite + React + TypeScript
-- [ ] Set up `packages/shared` for shared types/schemas
-- [ ] Configure ESLint, Prettier, TypeScript
-- [ ] Set up SQLite + Drizzle ORM with initial schema
-- [ ] Create database migrations structure
-- [ ] Set up Docker development environment
-- [ ] Create basic CI pipeline (lint, type-check, test)
-- [ ] Document local development setup in README
+- [x] Initialize monorepo with Turborepo
+- [x] Set up `apps/api` with Fastify + TypeScript
+- [x] Set up `apps/web` with Vite + React + TypeScript
+- [x] Set up `packages/shared` for shared types/schemas
+- [x] Configure ESLint, Prettier, TypeScript
+- [x] Set up SQLite + Drizzle ORM with initial schema
+- [x] Create database migrations structure
+- [x] Set up Docker development environment
+- [x] Create basic CI pipeline (lint, type-check, test)
+- [x] Document local development setup in README
 
 ### Deliverables
 
-- Working dev environment with hot reload
-- Empty app shell that builds and runs
-- Database schema migrations ready
+- ✅ Working dev environment with hot reload
+- ✅ Empty app shell that builds and runs
+- ✅ Database schema migrations ready
 
 ---
 
