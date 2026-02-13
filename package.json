@@ -11,6 +11,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "turbo test",
     "type-check": "turbo type-check",
     "clean": "turbo clean && rm -rf node_modules",
     "db:generate": "pnpm --filter @dinner-planner/api db:generate",

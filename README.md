@@ -99,9 +99,21 @@ dinner-planner/
 | `pnpm type-check`  | Run TypeScript type checking       |
 | `pnpm lint`        | Run ESLint                         |
 | `pnpm format`      | Format code with Prettier          |
+| `pnpm test`        | Run unit tests with Vitest         |
 | `pnpm db:generate` | Generate database migrations       |
 | `pnpm db:migrate`  | Run database migrations            |
 | `pnpm db:studio`   | Open Drizzle Studio (database GUI) |
+
+## Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Run a single package
+pnpm --filter @dinner-planner/api test
+pnpm --filter @dinner-planner/web test
+```
 
 ## Deployment
 
