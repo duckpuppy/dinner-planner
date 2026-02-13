@@ -86,7 +86,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Rebuild better-sqlite3
-        run: pnpm rebuild better-sqlite3
+        run: cd apps/api && pnpm rebuild better-sqlite3
 
       - name: Build shared package
         run: pnpm --filter @dinner-planner/shared build
