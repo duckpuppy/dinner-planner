@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Check, X, Edit2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -44,7 +45,7 @@ export function WeekPage() {
 
   const dateStr = formatDateForApi(currentWeekStart);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['week', dateStr],
     queryFn: () => menus.getWeek(dateStr),
   });
@@ -54,10 +55,11 @@ export function WeekPage() {
   const goToToday = () => setWeekOffset(0);
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
+    <PullToRefresh onRefresh={async () => { await refetch(); }}>
+      <div className="p-4 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevWeek}
@@ -93,7 +95,8 @@ export function WeekPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

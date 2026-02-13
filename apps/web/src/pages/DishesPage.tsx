@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAuthStore } from '@/stores/auth';
+import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -34,7 +35,7 @@ export function DishesPage() {
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['dishes', { archived: String(showArchived) }],
     queryFn: () => dishesApi.list({ archived: String(showArchived), limit: '100' }),
   });
@@ -94,18 +95,19 @@ export function DishesPage() {
   }
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dishes</h1>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          aria-label="Add dish"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-      </div>
+    <PullToRefresh onRefresh={async () => { await refetch(); }}>
+      <div className="p-4 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Dishes</h1>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            aria-label="Add dish"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
 
       {/* Search */}
       <div className="relative mb-4">
@@ -228,7 +230,8 @@ export function DishesPage() {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 
