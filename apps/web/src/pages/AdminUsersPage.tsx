@@ -60,9 +60,7 @@ export function AdminUsersPage() {
       {resetPasswordUser && (
         <ResetPasswordForm user={resetPasswordUser} onClose={() => setResetPasswordUser(null)} />
       )}
-      {deleteUser && (
-        <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} />
-      )}
+      {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} />}
     </div>
   );
 }

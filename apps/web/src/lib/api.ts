@@ -190,8 +190,7 @@ export const dishes = {
   getPreparations: (id: string) =>
     request<{ preparations: Preparation[] }>(`/dishes/${id}/preparations`),
 
-  hardDelete: (id: string) =>
-    request<{ success: boolean }>(`/dishes/${id}`, { method: 'DELETE' }),
+  hardDelete: (id: string) => request<{ success: boolean }>(`/dishes/${id}`, { method: 'DELETE' }),
 };
 
 // Menus API
