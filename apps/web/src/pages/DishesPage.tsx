@@ -39,7 +39,7 @@ export function DishesPage() {
     queryFn: () => dishesApi.list({ archived: String(showArchived), limit: '100' }),
   });
 
-  const dishes = data?.dishes || [];
+  const dishes = useMemo(() => data?.dishes || [], [data?.dishes]);
 
   // Get all unique tags for filtering
   const allTags = useMemo(() => {

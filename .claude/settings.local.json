@@ -17,7 +17,9 @@
       "Bash(corepack enable:*)",
       "Bash(npm install:*)",
       "Bash(npx pnpm:*)",
-      "Bash(npm exec:*)"
+      "Bash(npm exec:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
