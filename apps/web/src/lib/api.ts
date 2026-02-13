@@ -189,6 +189,9 @@ export const dishes = {
 
   getPreparations: (id: string) =>
     request<{ preparations: Preparation[] }>(`/dishes/${id}/preparations`),
+
+  hardDelete: (id: string) =>
+    request<{ success: boolean }>(`/dishes/${id}`, { method: 'DELETE' }),
 };
 
 // Menus API
@@ -267,6 +270,17 @@ export const history = {
 
   getDishHistory: (dishId: string) =>
     request<{ preparations: DishPreparationHistory[] }>(`/dishes/${dishId}/history`),
+};
+
+// Settings API
+export const settings = {
+  get: () => request<{ settings: AppSettings }>('/settings'),
+
+  update: (data: { weekStartDay?: number }) =>
+    request<{ settings: AppSettings }>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Types
@@ -409,4 +423,11 @@ export interface DishPreparationHistory {
     note: string | null;
     userName: string;
   }[];
+}
+
+export interface AppSettings {
+  id: string;
+  weekStartDay: number;
+  createdAt: string;
+  updatedAt: string;
 }

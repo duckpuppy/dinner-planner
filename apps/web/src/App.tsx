@@ -10,6 +10,8 @@ import { WeekPage } from './pages/WeekPage';
 import { DishesPage } from './pages/DishesPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 
 function LoadingScreen() {
   return (
@@ -26,6 +28,14 @@ function HomeRedirect() {
   const user = useAuthStore((s) => s.user);
   const target = user?.homeView === 'week' ? '/week' : '/today';
   return <Navigate to={target} replace />;
+}
+
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -66,6 +76,22 @@ export default function App() {
           <Route path="/dishes" element={<DishesPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminGuard>
+                <AdminUsersPage />
+              </AdminGuard>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <AdminGuard>
+                <AdminSettingsPage />
+              </AdminGuard>
+            }
+          />
           <Route path="*" element={<HomeRedirect />} />
         </Routes>
       </Layout>

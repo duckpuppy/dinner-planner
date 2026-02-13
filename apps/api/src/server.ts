@@ -10,6 +10,7 @@ import { dishesRoutes } from './routes/dishes.js';
 import { menusRoutes } from './routes/menus.js';
 import { ratingsRoutes } from './routes/ratings.js';
 import { historyRoutes } from './routes/history.js';
+import { settingsRoutes } from './routes/settings.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 
@@ -46,6 +47,7 @@ await fastify.register(dishesRoutes);
 await fastify.register(menusRoutes);
 await fastify.register(ratingsRoutes);
 await fastify.register(historyRoutes);
+await fastify.register(settingsRoutes);
 
 // Start server
 const start = async () => {

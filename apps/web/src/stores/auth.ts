@@ -8,6 +8,7 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -41,5 +42,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAccessToken(null);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
+  },
+
+  updateUser: (updates) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, ...updates } : null,
+    }));
   },
 }));

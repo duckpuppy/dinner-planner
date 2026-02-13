@@ -364,7 +364,34 @@ export async function deleteDish(id: string): Promise<{ success: boolean; error?
     return { success: false, error: 'Dish not found' };
   }
 
-  // Ingredients and dish_tags cascade delete automatically
+  // Handle foreign key constraints before deleting
+  // 1. Nullify dinnerEntries.mainDishId referencing this dish
+  await db
+    .update(schema.dinnerEntries)
+    .set({ mainDishId: null })
+    .where(eq(schema.dinnerEntries.mainDishId, id));
+
+  // 2. Delete from entrySideDishes (side dish references)
+  await db.delete(schema.entrySideDishes).where(eq(schema.entrySideDishes.dishId, id));
+
+  // 3. Get all preparations for this dish
+  const preps = await db
+    .select({ id: schema.preparations.id })
+    .from(schema.preparations)
+    .where(eq(schema.preparations.dishId, id));
+
+  // 4. Delete ratings for these preparations
+  if (preps.length > 0) {
+    const prepIds = preps.map((p) => p.id);
+    for (const prepId of prepIds) {
+      await db.delete(schema.ratings).where(eq(schema.ratings.preparationId, prepId));
+    }
+  }
+
+  // 5. Delete preparations for this dish
+  await db.delete(schema.preparations).where(eq(schema.preparations.dishId, id));
+
+  // 6. Delete the dish (ingredients and dish_tags cascade automatically)
   await db.delete(schema.dishes).where(eq(schema.dishes.id, id));
 
   return { success: true };

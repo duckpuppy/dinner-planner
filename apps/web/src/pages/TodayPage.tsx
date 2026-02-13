@@ -1,10 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menus, preparations, ratings, type DinnerEntry } from '@/lib/api';
-import { Calendar, ChefHat, Check, Clock, UtensilsCrossed, Star } from 'lucide-react';
+import { Calendar, ChefHat, Check, Clock, UtensilsCrossed, Star, CalendarX } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { StarRating } from '@/components/StarRating';
+import { SkeletonCard, Skeleton } from '@/components/Skeleton';
+import { ErrorState } from '@/components/ErrorState';
+import { EmptyState } from '@/components/EmptyState';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -16,28 +20,32 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
 };
 
 export function TodayPage() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['today'],
     queryFn: () => menus.getToday(),
   });
 
   if (isLoading) {
     return (
-      <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-48" />
-          <div className="h-32 bg-muted rounded" />
+      <div className="p-4 max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 mb-6">
+          <Skeleton className="h-5 w-5" />
+          <Skeleton className="h-8 w-48" />
         </div>
+        <SkeletonCard />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4">
-        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
-          Failed to load today's dinner
-        </div>
+      <div className="p-4 max-w-2xl mx-auto">
+        <ErrorState
+          title="Failed to load today's dinner"
+          message="We couldn't load your dinner information. Please try again."
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -46,9 +54,16 @@ export function TodayPage() {
 
   if (!entry) {
     return (
-      <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">Today's Dinner</h1>
-        <p className="text-muted-foreground">No dinner planned for today</p>
+      <div className="p-4 max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 mb-6">
+          <Calendar className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-2xl font-bold">Today's Dinner</h1>
+        </div>
+        <EmptyState
+          icon={CalendarX}
+          title="No dinner planned"
+          description="No dinner has been planned for today. Check the week view to plan ahead."
+        />
       </div>
     );
   }
@@ -75,9 +90,14 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
     mutationFn: (data: { dinnerEntryId: string; dishId: string; notes?: string | null }) =>
       preparations.create(data),
     onSuccess: () => {
+      toast.success('Preparation logged successfully');
       queryClient.invalidateQueries({ queryKey: ['today'] });
       setShowPrepForm(false);
       setNotes('');
+    },
+    onError: (error) => {
+      toast.error('Failed to log preparation');
+      console.error('Error logging preparation:', error);
     },
   });
 
@@ -239,19 +259,29 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
   const createRatingMutation = useMutation({
     mutationFn: () => ratings.create(preparation.id, { stars, note: note || undefined }),
     onSuccess: () => {
+      toast.success('Rating added successfully');
       queryClient.invalidateQueries({ queryKey: ['ratings', preparation.id] });
       queryClient.invalidateQueries({ queryKey: ['today'] });
       setShowRatingForm(false);
       setStars(0);
       setNote('');
     },
+    onError: (error) => {
+      toast.error('Failed to add rating');
+      console.error('Error creating rating:', error);
+    },
   });
 
   const deleteRatingMutation = useMutation({
     mutationFn: (ratingId: string) => ratings.delete(ratingId),
     onSuccess: () => {
+      toast.success('Rating deleted');
       queryClient.invalidateQueries({ queryKey: ['ratings', preparation.id] });
       queryClient.invalidateQueries({ queryKey: ['today'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to delete rating');
+      console.error('Error deleting rating:', error);
     },
   });
 

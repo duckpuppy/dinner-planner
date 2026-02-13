@@ -1,12 +1,38 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
 import { users, ApiError } from '@/lib/api';
-import { LogOut, Key, User } from 'lucide-react';
+import { LogOut, Key, User, Sun, Moon, Calendar, CalendarDays } from 'lucide-react';
 
 export function ProfilePage() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
+  const { theme, setTheme } = useThemeStore();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  const updatePreferencesMutation = useMutation({
+    mutationFn: (data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week' }) =>
+      users.updatePreferences(user!.id, data),
+    onSuccess: (result) => {
+      updateUser(result.user);
+      toast.success('Preferences updated');
+    },
+    onError: () => {
+      toast.error('Failed to update preferences');
+    },
+  });
+
+  const handleThemeToggle = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    updatePreferencesMutation.mutate({ theme: newTheme });
+  };
+
+  const handleHomeViewToggle = (view: 'today' | 'week') => {
+    updateUser({ homeView: view });
+    updatePreferencesMutation.mutate({ homeView: view });
+  };
 
   if (!user) return null;
 
@@ -28,6 +54,63 @@ export function ProfilePage() {
         <div className="mt-4 pt-4 border-t">
           <div className="text-sm text-muted-foreground">
             Role: <span className="text-foreground capitalize">{user.role}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Preferences */}
+      <div className="bg-card border rounded-lg p-4 mb-6 space-y-4">
+        <h2 className="font-semibold">Preferences</h2>
+
+        {/* Theme toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {theme === 'light' ? (
+              <Sun className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <Moon className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className="text-sm">Theme</span>
+          </div>
+          <button
+            onClick={handleThemeToggle}
+            className="px-3 py-1.5 border rounded-md hover:bg-muted text-sm"
+          >
+            {theme === 'light' ? 'Light' : 'Dark'}
+          </button>
+        </div>
+
+        {/* Home view toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {user.homeView === 'today' ? (
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className="text-sm">Home View</span>
+          </div>
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <button
+              onClick={() => handleHomeViewToggle('today')}
+              className={`px-2 py-1 text-sm rounded ${
+                user.homeView === 'today'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'hover:bg-muted'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => handleHomeViewToggle('week')}
+              className={`px-2 py-1 text-sm rounded ${
+                user.homeView === 'week'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'hover:bg-muted'
+              }`}
+            >
+              Week
+            </button>
           </div>
         </div>
       </div>
@@ -68,14 +151,17 @@ function ChangePasswordForm({ userId, onClose }: { userId: string; onClose: () =
   const mutation = useMutation({
     mutationFn: () => users.changePassword(userId, currentPassword, newPassword),
     onSuccess: () => {
+      toast.success('Password changed successfully');
       setSuccess(true);
       setTimeout(onClose, 1500);
     },
     onError: (err) => {
       if (err instanceof ApiError) {
         setError(err.message);
+        toast.error(err.message);
       } else {
         setError('Failed to change password');
+        toast.error('Failed to change password');
       }
     },
   });

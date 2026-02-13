@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menus, dishes, type DinnerEntry, type UpdateEntryData } from '@/lib/api';
 import { ChevronLeft, ChevronRight, Check, X, Edit2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -106,9 +107,14 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
   const updateMutation = useMutation({
     mutationFn: (data: UpdateEntryData) => menus.updateEntry(entry.id, data),
     onSuccess: () => {
+      toast.success('Dinner updated successfully');
       queryClient.invalidateQueries({ queryKey: ['week'] });
       queryClient.invalidateQueries({ queryKey: ['today'] });
       setIsEditing(false);
+    },
+    onError: (error) => {
+      toast.error('Failed to update dinner');
+      console.error('Error updating entry:', error);
     },
   });
 

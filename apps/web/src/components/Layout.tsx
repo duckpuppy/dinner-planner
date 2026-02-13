@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { Calendar, ChefHat, Clock, Home, User } from 'lucide-react';
+import { Calendar, ChefHat, Clock, Home, User, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth';
 
 const navItems = [
   { to: '/today', icon: Home, label: 'Today' },
@@ -10,11 +11,18 @@ const navItems = [
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 
+const adminItems = [
+  { to: '/admin/users', icon: Users, label: 'Users' },
+  { to: '/admin/settings', icon: Settings, label: 'Settings' },
+];
+
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'admin';
   return (
     <div className="min-h-screen flex flex-col">
       {/* Main content */}
@@ -46,24 +54,51 @@ export function Layout({ children }: LayoutProps) {
         <div className="p-4 border-b">
           <h1 className="text-xl font-bold">Dinner Planner</h1>
         </div>
-        <nav className="flex-1 p-2">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm',
-                  isActive
-                    ? 'bg-secondary text-secondary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                )
-              }
-            >
-              <Icon className="h-5 w-5" />
-              {label}
-            </NavLink>
-          ))}
+        <nav className="flex-1 p-2 space-y-6">
+          <div>
+            {navItems.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm',
+                    isActive
+                      ? 'bg-secondary text-secondary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+                  )
+                }
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </NavLink>
+            ))}
+          </div>
+
+          {isAdmin && (
+            <div>
+              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Admin
+              </div>
+              {adminItems.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm',
+                      isActive
+                        ? 'bg-secondary text-secondary-foreground'
+                        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+                    )
+                  }
+                >
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
       </aside>
     </div>

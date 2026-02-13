@@ -15,10 +15,14 @@ import {
   Search,
   ArrowUpDown,
   Tag,
+  Trash2,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useAuthStore } from '@/stores/auth';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -279,8 +283,11 @@ function DishRow({ dish, onClick }: { dish: Dish; onClick: () => void }) {
 
 function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'admin';
   const [isEditing, setIsEditing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: freshData } = useQuery({
     queryKey: ['dish', dish.id],
@@ -308,16 +315,39 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   const archiveMutation = useMutation({
     mutationFn: () => dishesApi.archive(dish.id),
     onSuccess: () => {
+      toast.success('Dish archived');
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
       onBack();
+    },
+    onError: (error) => {
+      toast.error('Failed to archive dish');
+      console.error('Error archiving dish:', error);
     },
   });
 
   const unarchiveMutation = useMutation({
     mutationFn: () => dishesApi.unarchive(dish.id),
     onSuccess: () => {
+      toast.success('Dish unarchived');
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
       onBack();
+    },
+    onError: (error) => {
+      toast.error('Failed to unarchive dish');
+      console.error('Error unarchiving dish:', error);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => dishesApi.hardDelete(dish.id),
+    onSuccess: () => {
+      toast.success('Dish permanently deleted');
+      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      onBack();
+    },
+    onError: (error) => {
+      toast.error('Failed to delete dish');
+      console.error('Error deleting dish:', error);
     },
   });
 
@@ -508,14 +538,26 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
             Edit
           </button>
           {currentDish.archived ? (
-            <button
-              onClick={() => unarchiveMutation.mutate()}
-              disabled={unarchiveMutation.isPending}
-              className="py-2 px-4 border rounded-md hover:bg-muted flex items-center gap-2"
-            >
-              <ArchiveRestore className="h-4 w-4" />
-              Restore
-            </button>
+            <>
+              <button
+                onClick={() => unarchiveMutation.mutate()}
+                disabled={unarchiveMutation.isPending}
+                className="py-2 px-4 border rounded-md hover:bg-muted flex items-center gap-2"
+              >
+                <ArchiveRestore className="h-4 w-4" />
+                Restore
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="py-2 px-4 border rounded-md hover:bg-destructive/10 flex items-center gap-2
+                             text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              )}
+            </>
           ) : (
             <button
               onClick={() => archiveMutation.mutate()}
@@ -529,6 +571,20 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Permanently Delete Dish"
+        description={`Are you sure you want to permanently delete "${currentDish.name}"? This will remove all history, ratings, and preparations for this dish. This action cannot be undone.`}
+        confirmText="Delete Permanently"
+        variant="destructive"
+        onConfirm={() => {
+          setShowDeleteDialog(false);
+          deleteMutation.mutate();
+        }}
+        onCancel={() => setShowDeleteDialog(false)}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }
@@ -563,17 +619,27 @@ function DishForm({ dish, onClose }: DishFormProps) {
   const createMutation = useMutation({
     mutationFn: (data: CreateDishData) => dishesApi.create(data),
     onSuccess: () => {
+      toast.success('Dish created successfully');
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
       onClose();
+    },
+    onError: (error) => {
+      toast.error('Failed to create dish');
+      console.error('Error creating dish:', error);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<CreateDishData>) => dishesApi.update(dish!.id, data),
     onSuccess: () => {
+      toast.success('Dish updated successfully');
       queryClient.invalidateQueries({ queryKey: ['dishes'] });
       queryClient.invalidateQueries({ queryKey: ['dish', dish!.id] });
       onClose();
+    },
+    onError: (error) => {
+      toast.error('Failed to update dish');
+      console.error('Error updating dish:', error);
     },
   });
 
