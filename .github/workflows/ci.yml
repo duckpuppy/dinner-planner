@@ -85,19 +85,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Rebuild better-sqlite3
-        run: cd apps/api && pnpm rebuild better-sqlite3
-
       - name: Build shared package
         run: pnpm --filter @dinner-planner/shared build
 
       - name: Generate migrations
         run: pnpm db:generate
-
-      - name: Run migrations
-        env:
-          JWT_SECRET: 'test-secret-for-ci-migrations-only-32-chars'
-        run: pnpm db:migrate
 
   build:
     name: Build
