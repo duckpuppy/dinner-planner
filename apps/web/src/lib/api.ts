@@ -21,10 +21,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -124,7 +121,12 @@ export const users = {
 
   get: (id: string) => request<{ user: User }>(`/users/${id}`),
 
-  create: (data: { username: string; displayName: string; password: string; role: 'admin' | 'member' }) =>
+  create: (data: {
+    username: string;
+    displayName: string;
+    password: string;
+    role: 'admin' | 'member';
+  }) =>
     request<{ user: User }>('/users', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -136,7 +138,10 @@ export const users = {
       body: JSON.stringify(data),
     }),
 
-  updatePreferences: (id: string, data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week' }) =>
+  updatePreferences: (
+    id: string,
+    data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week' }
+  ) =>
     request<{ user: User }>(`/users/${id}/preferences`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -154,8 +159,7 @@ export const users = {
       body: JSON.stringify({ newPassword }),
     }),
 
-  delete: (id: string) =>
-    request<{ success: boolean }>(`/users/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<{ success: boolean }>(`/users/${id}`, { method: 'DELETE' }),
 };
 
 // Dishes API
@@ -179,11 +183,9 @@ export const dishes = {
       body: JSON.stringify(data),
     }),
 
-  archive: (id: string) =>
-    request<{ dish: Dish }>(`/dishes/${id}/archive`, { method: 'POST' }),
+  archive: (id: string) => request<{ dish: Dish }>(`/dishes/${id}/archive`, { method: 'POST' }),
 
-  unarchive: (id: string) =>
-    request<{ dish: Dish }>(`/dishes/${id}/unarchive`, { method: 'POST' }),
+  unarchive: (id: string) => request<{ dish: Dish }>(`/dishes/${id}/unarchive`, { method: 'POST' }),
 
   getPreparations: (id: string) =>
     request<{ preparations: Preparation[] }>(`/dishes/${id}/preparations`),
@@ -191,11 +193,9 @@ export const dishes = {
 
 // Menus API
 export const menus = {
-  getWeek: (date: string) =>
-    request<{ menu: WeeklyMenu }>(`/menus/week/${date}`),
+  getWeek: (date: string) => request<{ menu: WeeklyMenu }>(`/menus/week/${date}`),
 
-  getToday: () =>
-    request<{ entry: DinnerEntry }>('/menus/today'),
+  getToday: () => request<{ entry: DinnerEntry }>('/menus/today'),
 
   updateEntry: (id: string, data: UpdateEntryData) =>
     request<{ entry: DinnerEntry }>(`/entries/${id}`, {
@@ -248,8 +248,20 @@ export const ratings = {
 
 // History API
 export const history = {
-  list: (params?: { startDate?: string; endDate?: string; search?: string; limit?: number; offset?: number }) => {
-    const query = params ? `?${new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))}` : '';
+  list: (params?: {
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = params
+      ? `?${new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v != null)
+            .map(([k, v]) => [k, String(v)])
+        )}`
+      : '';
     return request<{ entries: HistoryEntry[]; total: number }>(`/history${query}`);
   },
 

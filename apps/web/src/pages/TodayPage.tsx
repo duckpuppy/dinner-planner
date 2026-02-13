@@ -206,8 +206,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                 className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md
                            font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
               >
-                <ChefHat className="h-4 w-4" />
-                I Made This!
+                <ChefHat className="h-4 w-4" />I Made This!
               </button>
             )}
           </div>
@@ -273,9 +272,7 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
                 <div key={rating.id} className="flex items-center gap-2 text-sm">
                   <StarRating value={rating.stars} size="sm" readonly />
                   <span className="text-muted-foreground">{rating.userName}</span>
-                  {rating.note && (
-                    <span className="text-muted-foreground/70">- {rating.note}</span>
-                  )}
+                  {rating.note && <span className="text-muted-foreground/70">- {rating.note}</span>}
                   {rating.userId === currentUserId && (
                     <button
                       onClick={() => deleteRatingMutation.mutate(rating.id)}

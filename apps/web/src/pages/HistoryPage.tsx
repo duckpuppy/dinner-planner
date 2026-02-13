@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { history, type HistoryEntry } from '@/lib/api';
-import { Calendar, Search, ChefHat, UtensilsCrossed, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Calendar,
+  Search,
+  ChefHat,
+  UtensilsCrossed,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { StarRating } from '@/components/StarRating';
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
@@ -166,9 +173,10 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
 
   // Calculate average rating across all preparations
   const allRatings = entry.preparations.flatMap((p) => p.ratings);
-  const avgRating = allRatings.length > 0
-    ? allRatings.reduce((sum, r) => sum + r.stars, 0) / allRatings.length
-    : null;
+  const avgRating =
+    allRatings.length > 0
+      ? allRatings.reduce((sum, r) => sum + r.stars, 0) / allRatings.length
+      : null;
 
   return (
     <div className="bg-card border rounded-lg overflow-hidden">
@@ -206,14 +214,10 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
             <p className="font-medium">{entry.customText}</p>
           )}
 
-          {entry.type === 'fend_for_self' && (
-            <p className="text-muted-foreground">Fend for self</p>
-          )}
+          {entry.type === 'fend_for_self' && <p className="text-muted-foreground">Fend for self</p>}
 
           {entry.type === 'dining_out' && (
-            <p className="text-muted-foreground">
-              {entry.customText || 'Dining out'}
-            </p>
+            <p className="text-muted-foreground">{entry.customText || 'Dining out'}</p>
           )}
 
           {/* Preparations and ratings */}
@@ -224,13 +228,14 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
                   <ChefHat className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium">{prep.preparedByName}</span>
-                    {prep.notes && (
-                      <span className="text-muted-foreground"> - {prep.notes}</span>
-                    )}
+                    {prep.notes && <span className="text-muted-foreground"> - {prep.notes}</span>}
                     {prep.ratings.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-1">
                         {prep.ratings.map((rating) => (
-                          <div key={rating.id} className="flex items-center gap-1 text-xs bg-muted/50 px-2 py-0.5 rounded">
+                          <div
+                            key={rating.id}
+                            className="flex items-center gap-1 text-xs bg-muted/50 px-2 py-0.5 rounded"
+                          >
                             <StarRating value={rating.stars} size="sm" readonly />
                             <span className="text-muted-foreground">{rating.userName}</span>
                           </div>
@@ -247,9 +252,7 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
           {avgRating !== null && (
             <div className="mt-2 flex items-center gap-1 text-sm">
               <StarRating value={Math.round(avgRating)} size="sm" readonly />
-              <span className="text-muted-foreground">
-                {avgRating.toFixed(1)} avg
-              </span>
+              <span className="text-muted-foreground">{avgRating.toFixed(1)} avg</span>
             </div>
           )}
         </div>

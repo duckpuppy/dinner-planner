@@ -31,7 +31,9 @@ export interface IngredientResponse {
   sortOrder: number;
 }
 
-function toIngredientResponse(ingredient: typeof schema.ingredients.$inferSelect): IngredientResponse {
+function toIngredientResponse(
+  ingredient: typeof schema.ingredients.$inferSelect
+): IngredientResponse {
   return {
     id: ingredient.id,
     quantity: ingredient.quantity,
@@ -84,7 +86,9 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
 /**
  * Get all dishes with filtering and pagination
  */
-export async function getDishes(query: DishQueryInput): Promise<{ dishes: DishResponse[]; total: number }> {
+export async function getDishes(
+  query: DishQueryInput
+): Promise<{ dishes: DishResponse[]; total: number }> {
   const conditions = [];
 
   // Filter by archived status
@@ -99,10 +103,7 @@ export async function getDishes(query: DishQueryInput): Promise<{ dishes: DishRe
   if (query.search) {
     const searchPattern = `%${query.search}%`;
     conditions.push(
-      or(
-        like(schema.dishes.name, searchPattern),
-        like(schema.dishes.description, searchPattern)
-      )
+      or(like(schema.dishes.name, searchPattern), like(schema.dishes.description, searchPattern))
     );
   }
 
@@ -121,7 +122,8 @@ export async function getDishes(query: DishQueryInput): Promise<{ dishes: DishRe
       orderClause = query.order === 'desc' ? desc(schema.dishes.name) : asc(schema.dishes.name);
       break;
     case 'created':
-      orderClause = query.order === 'desc' ? desc(schema.dishes.createdAt) : asc(schema.dishes.createdAt);
+      orderClause =
+        query.order === 'desc' ? desc(schema.dishes.createdAt) : asc(schema.dishes.createdAt);
       break;
     case 'recent':
       orderClause = desc(schema.dishes.updatedAt);

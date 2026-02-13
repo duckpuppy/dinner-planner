@@ -36,11 +36,7 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const rating = await ratingsService.createRating(
-          id,
-          request.user.userId,
-          parseResult.data
-        );
+        const rating = await ratingsService.createRating(id, request.user.userId, parseResult.data);
         return reply.status(201).send({ rating });
       } catch (error) {
         if (error instanceof Error) {
@@ -75,11 +71,7 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const rating = await ratingsService.updateRating(
-          id,
-          request.user.userId,
-          parseResult.data
-        );
+        const rating = await ratingsService.updateRating(id, request.user.userId, parseResult.data);
 
         if (!rating) {
           return reply.status(404).send({ error: 'Rating not found' });

@@ -11,7 +11,12 @@ interface RatingFormProps {
   onRatingCreated?: () => void;
 }
 
-export function RatingForm({ preparationId, existingRating, currentUserId, onRatingCreated }: RatingFormProps) {
+export function RatingForm({
+  preparationId,
+  existingRating,
+  currentUserId,
+  onRatingCreated,
+}: RatingFormProps) {
   const [stars, setStars] = useState(existingRating?.stars ?? 0);
   const [note, setNote] = useState(existingRating?.note ?? '');
   const [isEditing, setIsEditing] = useState(!existingRating);
@@ -67,7 +72,8 @@ export function RatingForm({ preparationId, existingRating, currentUserId, onRat
   };
 
   const isOwner = existingRating?.userId === currentUserId;
-  const isLoading = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const isLoading =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   // Display mode for non-owner's rating
   if (existingRating && !isOwner) {
@@ -75,9 +81,7 @@ export function RatingForm({ preparationId, existingRating, currentUserId, onRat
       <div className="flex items-center gap-2 text-sm">
         <StarRating value={existingRating.stars} size="sm" readonly />
         <span className="text-gray-600">{existingRating.userName}</span>
-        {existingRating.note && (
-          <span className="text-gray-500">- {existingRating.note}</span>
-        )}
+        {existingRating.note && <span className="text-gray-500">- {existingRating.note}</span>}
       </div>
     );
   }

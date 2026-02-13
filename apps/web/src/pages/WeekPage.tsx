@@ -5,7 +5,15 @@ import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES_FULL = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
 
 function formatDateForApi(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -57,10 +65,7 @@ export function WeekPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <button
-            onClick={goToToday}
-            className="px-3 py-1 text-sm hover:bg-muted rounded-md"
-          >
+          <button onClick={goToToday} className="px-3 py-1 text-sm hover:bg-muted rounded-md">
             Today
           </button>
           <button
@@ -129,9 +134,7 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
       {/* Date */}
       <div className="w-16 text-center flex-shrink-0">
         <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
-        <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>
-          {date.getDate()}
-        </div>
+        <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>{date.getDate()}</div>
       </div>
 
       {/* Content */}
@@ -150,9 +153,7 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
         ) : entry.type === 'fend_for_self' ? (
           <div className="text-muted-foreground">Fend for Yourself</div>
         ) : entry.type === 'dining_out' ? (
-          <div className="text-muted-foreground">
-            {entry.customText || 'Dining Out'}
-          </div>
+          <div className="text-muted-foreground">{entry.customText || 'Dining Out'}</div>
         ) : (
           <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
         )}
@@ -187,9 +188,7 @@ interface EntryEditorProps {
 function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   const [type, setType] = useState(entry.type);
   const [mainDishId, setMainDishId] = useState(entry.mainDish?.id || '');
-  const [sideDishIds, setSideDishIds] = useState<string[]>(
-    entry.sideDishes.map((d) => d.id)
-  );
+  const [sideDishIds, setSideDishIds] = useState<string[]>(entry.sideDishes.map((d) => d.id));
   const [customText, setCustomText] = useState(entry.customText || '');
 
   const { data: dishesData } = useQuery({
@@ -214,9 +213,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   };
 
   const toggleSideDish = (id: string) => {
-    setSideDishIds((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
-    );
+    setSideDishIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
   };
 
   return (
@@ -225,11 +222,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         <h3 className="font-semibold">
           {DAY_NAMES_FULL[entry.dayOfWeek]}, {date.toLocaleDateString()}
         </h3>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="p-1 hover:bg-muted rounded"
-        >
+        <button type="button" onClick={onCancel} className="p-1 hover:bg-muted rounded">
           <X className="h-4 w-4" />
         </button>
       </div>

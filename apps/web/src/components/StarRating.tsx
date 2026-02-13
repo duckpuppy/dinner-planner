@@ -32,9 +32,7 @@ export function StarRating({ value, onChange, size = 'md', readonly = false }: S
         >
           <Star
             className={`${sizeClasses[size]} ${
-              star <= value
-                ? 'text-yellow-400 fill-yellow-400'
-                : 'text-gray-300'
+              star <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
             }`}
           />
         </button>
@@ -51,9 +49,7 @@ interface AverageRatingProps {
 
 export function AverageRating({ average, count, size = 'sm' }: AverageRatingProps) {
   if (average === null || count === 0) {
-    return (
-      <span className="text-gray-400 text-sm">No ratings</span>
-    );
+    return <span className="text-gray-400 text-sm">No ratings</span>;
   }
 
   return (

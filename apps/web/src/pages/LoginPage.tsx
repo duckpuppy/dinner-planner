@@ -37,9 +37,7 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="bg-card p-6 rounded-lg border space-y-4">
           {error && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-              {error}
-            </div>
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{error}</div>
           )}
 
           <div className="space-y-2">

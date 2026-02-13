@@ -1,6 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { dishes as dishesApi, ratings as ratingsApi, type Dish, type CreateDishData } from '@/lib/api';
-import { Plus, ChefHat, Archive, ArchiveRestore, ChevronRight, X, Search, ArrowUpDown, Tag } from 'lucide-react';
+import {
+  dishes as dishesApi,
+  ratings as ratingsApi,
+  type Dish,
+  type CreateDishData,
+} from '@/lib/api';
+import {
+  Plus,
+  ChefHat,
+  Archive,
+  ArchiveRestore,
+  ChevronRight,
+  X,
+  Search,
+  ArrowUpDown,
+  Tag,
+} from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
@@ -37,9 +52,7 @@ export function DishesPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
-        (d) =>
-          d.name.toLowerCase().includes(query) ||
-          d.description?.toLowerCase().includes(query)
+        (d) => d.name.toLowerCase().includes(query) || d.description?.toLowerCase().includes(query)
       );
     }
 
@@ -69,20 +82,11 @@ export function DishesPage() {
   const sideDishes = filteredDishes.filter((d) => d.type === 'side');
 
   if (selectedDish) {
-    return (
-      <DishDetail
-        dish={selectedDish}
-        onBack={() => setSelectedDish(null)}
-      />
-    );
+    return <DishDetail dish={selectedDish} onBack={() => setSelectedDish(null)} />;
   }
 
   if (isCreating) {
-    return (
-      <DishForm
-        onClose={() => setIsCreating(false)}
-      />
-    );
+    return <DishForm onClose={() => setIsCreating(false)} />;
   }
 
   return (
@@ -161,7 +165,9 @@ export function DishesPage() {
             >
               <option value="">All Tags</option>
               {allTags.map((tag) => (
-                <option key={tag} value={tag}>{tag}</option>
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
               ))}
             </select>
           </div>
@@ -197,11 +203,7 @@ export function DishesPage() {
               </h2>
               <div className="space-y-1">
                 {mainDishes.map((dish) => (
-                  <DishRow
-                    key={dish.id}
-                    dish={dish}
-                    onClick={() => setSelectedDish(dish)}
-                  />
+                  <DishRow key={dish.id} dish={dish} onClick={() => setSelectedDish(dish)} />
                 ))}
               </div>
             </div>
@@ -215,11 +217,7 @@ export function DishesPage() {
               </h2>
               <div className="space-y-1">
                 {sideDishes.map((dish) => (
-                  <DishRow
-                    key={dish.id}
-                    dish={dish}
-                    onClick={() => setSelectedDish(dish)}
-                  />
+                  <DishRow key={dish.id} dish={dish} onClick={() => setSelectedDish(dish)} />
                 ))}
               </div>
             </div>
@@ -261,7 +259,10 @@ function DishRow({ dish, onClick }: { dish: Dish; onClick: () => void }) {
         {dish.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {dish.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground">
+              <span
+                key={tag}
+                className="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground"
+              >
                 {tag}
               </span>
             ))}
@@ -321,22 +322,14 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   });
 
   if (isEditing) {
-    return (
-      <DishForm
-        dish={currentDish}
-        onClose={() => setIsEditing(false)}
-      />
-    );
+    return <DishForm dish={currentDish} onClose={() => setIsEditing(false)} />;
   }
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-muted rounded-md"
-        >
+        <button onClick={onBack} className="p-2 hover:bg-muted rounded-md">
           <ChevronRight className="h-5 w-5 rotate-180" />
         </button>
         <h1 className="text-2xl font-bold flex-1">{currentDish.name}</h1>
@@ -376,7 +369,9 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
             {currentDish.prepTime && currentDish.cookTime && (
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">Total:</span>
-                <span className="font-medium">{currentDish.prepTime + currentDish.cookTime} min</span>
+                <span className="font-medium">
+                  {currentDish.prepTime + currentDish.cookTime} min
+                </span>
               </div>
             )}
             {currentDish.servings && (
@@ -476,7 +471,9 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
             >
               <ChefHat className="h-4 w-4" />
               Preparation History ({preparations.length})
-              <ChevronRight className={cn('h-4 w-4 transition-transform', showHistory && 'rotate-90')} />
+              <ChevronRight
+                className={cn('h-4 w-4 transition-transform', showHistory && 'rotate-90')}
+              />
             </button>
             {showHistory && (
               <div className="mt-2 space-y-2">
@@ -555,9 +552,11 @@ function DishForm({ dish, onClose }: DishFormProps) {
   const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl || '');
   const [videoUrl, setVideoUrl] = useState(dish?.videoUrl || '');
   const [ingredientsText, setIngredientsText] = useState(
-    dish?.ingredients.map((i) =>
-      `${i.quantity || ''} ${i.unit || ''} ${i.name}${i.notes ? ` (${i.notes})` : ''}`.trim()
-    ).join('\n') || ''
+    dish?.ingredients
+      .map((i) =>
+        `${i.quantity || ''} ${i.unit || ''} ${i.name}${i.notes ? ` (${i.notes})` : ''}`.trim()
+      )
+      .join('\n') || ''
   );
   const [tagsText, setTagsText] = useState(dish?.tags.join(', ') || '');
 
@@ -627,9 +626,7 @@ function DishForm({ dish, onClose }: DishFormProps) {
         <button onClick={onClose} className="p-2 hover:bg-muted rounded-md">
           <X className="h-5 w-5" />
         </button>
-        <h1 className="text-2xl font-bold">
-          {isEditing ? 'Edit Dish' : 'New Dish'}
-        </h1>
+        <h1 className="text-2xl font-bold">{isEditing ? 'Edit Dish' : 'New Dish'}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

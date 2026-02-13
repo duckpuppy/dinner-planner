@@ -34,10 +34,7 @@ export function ProfilePage() {
 
       {/* Change password */}
       {showPasswordForm ? (
-        <ChangePasswordForm
-          userId={user.id}
-          onClose={() => setShowPasswordForm(false)}
-        />
+        <ChangePasswordForm userId={user.id} onClose={() => setShowPasswordForm(false)} />
       ) : (
         <button
           onClick={() => setShowPasswordForm(true)}
@@ -102,8 +99,10 @@ function ChangePasswordForm({ userId, onClose }: { userId: string; onClose: () =
 
   if (success) {
     return (
-      <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400
-                      p-4 rounded-lg mb-4 text-center">
+      <div
+        className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400
+                      p-4 rounded-lg mb-4 text-center"
+      >
         Password changed successfully!
       </div>
     );
@@ -114,9 +113,7 @@ function ChangePasswordForm({ userId, onClose }: { userId: string; onClose: () =
       <h2 className="font-semibold">Change Password</h2>
 
       {error && (
-        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-          {error}
-        </div>
+        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{error}</div>
       )}
 
       <div>
