@@ -92,6 +92,8 @@ jobs:
         run: pnpm db:generate
 
       - name: Run migrations
+        env:
+          JWT_SECRET: 'test-secret-for-ci-migrations-only-32-chars'
         run: pnpm db:migrate
 
   build:

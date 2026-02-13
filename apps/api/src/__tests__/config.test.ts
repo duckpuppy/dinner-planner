@@ -12,6 +12,7 @@ afterEach(() => {
 describe('config', () => {
   it('loads defaults with required secret', async () => {
     vi.stubEnv('JWT_SECRET', 'x'.repeat(32));
+    vi.stubEnv('NODE_ENV', '');
     const { config } = await loadConfig();
 
     expect(config.NODE_ENV).toBe('development');
