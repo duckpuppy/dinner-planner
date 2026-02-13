@@ -145,7 +145,7 @@ export function HistoryPage() {
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -155,7 +155,7 @@ export function HistoryPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                className="p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

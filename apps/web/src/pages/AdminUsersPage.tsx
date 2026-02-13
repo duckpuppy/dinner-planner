@@ -106,14 +106,14 @@ function UserCard({
         <div className="flex gap-2">
           <button
             onClick={onEdit}
-            className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground"
+            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
             aria-label="Edit user"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
             onClick={onResetPassword}
-            className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground"
+            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
             aria-label="Reset password"
           >
             <KeyRound className="h-4 w-4" />
@@ -121,7 +121,7 @@ function UserCard({
           {!isCurrentUser && (
             <button
               onClick={onDelete}
-              className="p-2 hover:bg-destructive/10 rounded-md text-destructive"
+              className="p-3 md:p-2 hover:bg-destructive/10 rounded-md text-destructive touch-manipulation"
               aria-label="Delete user"
             >
               <Trash2 className="h-4 w-4" />

@@ -21,14 +21,15 @@ export function StarRating({ value, onChange, size = 'md', readonly = false }: S
   };
 
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
           onClick={() => handleClick(star)}
           disabled={readonly}
-          className={`${readonly ? 'cursor-default' : 'cursor-pointer hover:scale-110'} transition-transform`}
+          className={`${readonly ? 'cursor-default p-0' : 'cursor-pointer hover:scale-110 p-2 -m-2'} transition-transform touch-manipulation`}
+          style={{ touchAction: 'manipulation' }}
         >
           <Star
             className={`${sizeClasses[size]} ${

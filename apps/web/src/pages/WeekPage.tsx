@@ -61,17 +61,17 @@ export function WeekPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevWeek}
-            className="p-2 hover:bg-muted rounded-md"
+            className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
             aria-label="Previous week"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <button onClick={goToToday} className="px-3 py-1 text-sm hover:bg-muted rounded-md">
+          <button onClick={goToToday} className="px-3 py-2 text-sm hover:bg-muted rounded-md touch-manipulation">
             Today
           </button>
           <button
             onClick={goToNextWeek}
-            className="p-2 hover:bg-muted rounded-md"
+            className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
             aria-label="Next week"
           >
             <ChevronRight className="h-5 w-5" />
@@ -174,7 +174,7 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
         )}
         <button
           onClick={() => setIsEditing(true)}
-          className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground"
+          className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
           aria-label="Edit"
         >
           <Edit2 className="h-4 w-4" />
