@@ -2,7 +2,11 @@ import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { hashPassword, verifyPassword } from './auth.js';
-import type { CreateUserInput, UpdateUserInput, UserPreferencesInput } from '@dinner-planner/shared';
+import type {
+  CreateUserInput,
+  UpdateUserInput,
+  UserPreferencesInput,
+} from '@dinner-planner/shared';
 
 export interface UserResponse {
   id: string;
@@ -211,7 +215,10 @@ export async function resetPassword(
 /**
  * Delete user (admin only)
  */
-export async function deleteUser(userId: string, requesterId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteUser(
+  userId: string,
+  requesterId: string
+): Promise<{ success: boolean; error?: string }> {
   // Prevent self-deletion
   if (userId === requesterId) {
     return { success: false, error: 'Cannot delete your own account' };

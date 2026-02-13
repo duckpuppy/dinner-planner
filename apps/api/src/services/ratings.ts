@@ -19,7 +19,9 @@ export interface DishRatingStats {
   totalRatings: number;
 }
 
-async function toRatingResponse(rating: typeof schema.ratings.$inferSelect): Promise<RatingResponse> {
+async function toRatingResponse(
+  rating: typeof schema.ratings.$inferSelect
+): Promise<RatingResponse> {
   const user = await db.query.users.findFirst({
     where: eq(schema.users.id, rating.userId),
   });
@@ -57,10 +59,7 @@ export async function getUserRatingForPreparation(
   userId: string
 ): Promise<RatingResponse | null> {
   const rating = await db.query.ratings.findFirst({
-    where: and(
-      eq(schema.ratings.preparationId, preparationId),
-      eq(schema.ratings.userId, userId)
-    ),
+    where: and(eq(schema.ratings.preparationId, preparationId), eq(schema.ratings.userId, userId)),
   });
 
   return rating ? toRatingResponse(rating) : null;
@@ -76,10 +75,7 @@ export async function createRating(
 ): Promise<RatingResponse> {
   // Check if user already rated this preparation
   const existing = await db.query.ratings.findFirst({
-    where: and(
-      eq(schema.ratings.preparationId, preparationId),
-      eq(schema.ratings.userId, userId)
-    ),
+    where: and(eq(schema.ratings.preparationId, preparationId), eq(schema.ratings.userId, userId)),
   });
 
   if (existing) {
@@ -219,7 +215,9 @@ export async function getDishRatingStats(dishId: string): Promise<DishRatingStat
 /**
  * Get ratings stats for multiple dishes at once
  */
-export async function getDishesRatingStats(dishIds: string[]): Promise<Map<string, DishRatingStats>> {
+export async function getDishesRatingStats(
+  dishIds: string[]
+): Promise<Map<string, DishRatingStats>> {
   const statsMap = new Map<string, DishRatingStats>();
 
   // Initialize all dishes with no ratings

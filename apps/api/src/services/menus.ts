@@ -390,7 +390,9 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
 /**
  * Delete a preparation
  */
-export async function deletePreparation(prepId: string): Promise<{ success: boolean; error?: string }> {
+export async function deletePreparation(
+  prepId: string
+): Promise<{ success: boolean; error?: string }> {
   const prep = await db.query.preparations.findFirst({
     where: eq(schema.preparations.id, prepId),
   });

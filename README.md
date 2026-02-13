@@ -59,8 +59,8 @@ pnpm dev
 
 This starts:
 
-- API server at http://localhost:3000
-- Web app at http://localhost:5173
+- API server at <http://localhost:3000>
+- Web app at <http://localhost:5173>
 
 ## Project Structure
 
