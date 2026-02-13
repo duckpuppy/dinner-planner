@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @dinner-planner/web type-check:*)",
+      "Bash(pnpm type-check:*)",
+      "Bash(pnpm --filter @dinner-planner/api typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm --filter @dinner-planner/api dev:*)",
+      "Bash(pnpm --filter @dinner-planner/web dev:*)",
+      "Bash(curl:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_multiple_files",
+      "Bash(pnpm --filter @dinner-planner/web add:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(export PATH=\"$PNPM_HOME:$PATH\")",
+      "Bash(corepack enable:*)",
+      "Bash(npm install:*)",
+      "Bash(npx pnpm:*)",
+      "Bash(npm exec:*)"
+    ]
+  }
+}

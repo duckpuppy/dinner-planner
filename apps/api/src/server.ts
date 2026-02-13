@@ -4,6 +4,14 @@ import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
+import { authRoutes } from './routes/auth.js';
+import { usersRoutes } from './routes/users.js';
+import { dishesRoutes } from './routes/dishes.js';
+import { menusRoutes } from './routes/menus.js';
+import { ratingsRoutes } from './routes/ratings.js';
+import { historyRoutes } from './routes/history.js';
+import authPlugin from './middleware/auth.js';
+import { seedAdmin } from './services/seed.js';
 
 const fastify = Fastify({
   logger: {
@@ -27,12 +35,24 @@ await fastify.register(jwt, {
   secret: config.JWT_SECRET,
 });
 
+// Register auth middleware (must be after jwt)
+await fastify.register(authPlugin);
+
 // Register routes
 await fastify.register(healthRoutes);
+await fastify.register(authRoutes);
+await fastify.register(usersRoutes);
+await fastify.register(dishesRoutes);
+await fastify.register(menusRoutes);
+await fastify.register(ratingsRoutes);
+await fastify.register(historyRoutes);
 
 // Start server
 const start = async () => {
   try {
+    // Seed admin user on first run
+    await seedAdmin();
+
     await fastify.listen({ port: config.PORT, host: config.HOST });
     console.log(`Server running at http://${config.HOST}:${config.PORT}`);
   } catch (err) {

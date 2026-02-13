@@ -33,62 +33,65 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
-## Milestone 1: MVP - Core Meal Planning
+## Milestone 1: MVP - Core Meal Planning ✅ COMPLETE
 
 **Goal:** Basic meal planning, dish management, and preparation tracking. Enough to replace a whiteboard or spreadsheet.
+
+**Status:** Completed on 2026-02-13
 
 ### Features
 
 #### Authentication
 
-- [ ] Login page
-- [ ] JWT authentication with refresh tokens
-- [ ] Logout
-- [ ] Protected routes
+- [x] Login page
+- [x] JWT authentication with refresh tokens
+- [x] Logout
+- [x] Protected routes
 
 #### Users (Basic)
 
-- [ ] Single admin user seeded on first run
-- [ ] Admin can create additional users
-- [ ] Users can change their own password
+- [x] Single admin user seeded on first run
+- [x] Admin can create additional users
+- [x] Users can change their own password
 
 #### Dishes (Basic)
 
-- [ ] List all dishes
-- [ ] Add new dish (name, description, type, basic ingredients as text)
-- [ ] Edit dish
-- [ ] View dish detail
-- [ ] Archive dish
+- [x] List all dishes
+- [x] Add new dish (name, description, type, basic ingredients as text)
+- [x] Edit dish
+- [x] View dish detail
+- [x] Archive dish
 
 #### Weekly Menu
 
-- [ ] View current week
-- [ ] Navigate to past/future weeks
-- [ ] Week auto-creates when accessed
+- [x] View current week
+- [x] Navigate to past/future weeks
+- [x] Week auto-creates when accessed
 
 #### Dinner Entries
 
-- [ ] Set entry type (assembled, fend for self, dining out, custom)
-- [ ] Select main dish for assembled meals
-- [ ] Select side dishes (optional)
-- [ ] Mark entry as completed
+- [x] Set entry type (assembled, fend for self, dining out, custom)
+- [x] Select main dish for assembled meals
+- [x] Select side dishes (optional)
+- [x] Mark entry as completed
 
 #### Preparations (Basic)
 
-- [ ] Log preparation (who, notes)
-- [ ] Auto-complete dinner entry when logged
-- [ ] View preparation history on dish
+- [x] Log preparation (who, notes)
+- [x] Auto-complete dinner entry when logged
+- [ ] View preparation history on dish (deferred to Milestone 2)
 
 #### Today View
 
-- [ ] Display today's dinner
-- [ ] Quick actions: view recipe, log preparation, edit
+- [x] Display today's dinner
+- [x] Quick actions: log preparation
+- [ ] View recipe action (deferred to Milestone 2)
 
 #### Basic UI
 
-- [ ] Mobile-responsive layout
-- [ ] Bottom navigation (mobile)
-- [ ] Light theme only (dark mode in later milestone)
+- [x] Mobile-responsive layout
+- [x] Bottom navigation (mobile)
+- [x] Light theme only (dark mode in later milestone)
 
 ### Out of Scope for MVP
 
@@ -102,58 +105,60 @@ This document breaks the project into incremental milestones, each delivering us
 
 ### Deliverables
 
-- Functional web app for planning and tracking dinners
-- Docker image for deployment
-- Basic deployment documentation
+- ✅ Functional web app for planning and tracking dinners
+- Docker image for deployment (deferred)
+- Basic deployment documentation (deferred)
 
 ---
 
-## Milestone 2: Ratings & Dish Enrichment
+## Milestone 2: Ratings & Dish Enrichment ✅ COMPLETE
 
 **Goal:** Add ratings system and improve dish/recipe management.
+
+**Status:** Completed on 2026-02-13
 
 ### Features
 
 #### Ratings
 
-- [ ] Rate a preparation (1-5 stars)
-- [ ] Add note with rating
-- [ ] Edit own rating
-- [ ] Delete own rating
-- [ ] Display ratings on preparation
-- [ ] Calculate and display aggregate rating per dish
+- [x] Rate a preparation (1-5 stars)
+- [x] Add note with rating
+- [x] Edit own rating
+- [x] Delete own rating
+- [x] Display ratings on preparation
+- [x] Calculate and display aggregate rating per dish
 
 #### Structured Ingredients
 
-- [ ] Migrate ingredients from text to structured format
-- [ ] Add/edit ingredients with quantity, unit, name, notes
-- [ ] Display formatted ingredient list
+- [x] Migrate ingredients from text to structured format
+- [x] Add/edit ingredients with quantity, unit, name, notes
+- [x] Display formatted ingredient list
 
 #### Tags
 
-- [ ] Add tags to dishes
-- [ ] Filter dishes by tag
-- [ ] Display tag list with counts
+- [x] Add tags to dishes
+- [x] Filter dishes by tag
+- [x] Display tag list with counts
 
 #### Dish Improvements
 
-- [ ] Add prep time, cook time, servings fields
-- [ ] Add source URL field
-- [ ] Add video URL field
-- [ ] Search dishes by name/description
-- [ ] Sort dishes (name, rating, recent, created)
+- [x] Add prep time, cook time, servings fields
+- [x] Add source URL field
+- [x] Add video URL field
+- [x] Search dishes by name/description
+- [x] Sort dishes (name, rating, recent, created)
 
 #### History View
 
-- [ ] Timeline view of past meals
-- [ ] Search history
-- [ ] Filter by date range
+- [x] Timeline view of past meals
+- [x] Search history
+- [x] Filter by date range
 
 ### Deliverables
 
-- Complete rating system
-- Full recipe management with structured data
-- Searchable history
+- ✅ Complete rating system
+- ✅ Full recipe management with structured data
+- ✅ Searchable history
 
 ---
 
