@@ -24,12 +24,15 @@ export function Layout({ children }: LayoutProps) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ paddingTop: 'var(--sat)' }}>
       {/* Main content */}
       <main className="flex-1 pb-16 md:pb-0 md:pl-64">{children}</main>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden"
+        style={{ paddingBottom: 'var(--sab)' }}
+      >
         <div className="flex justify-around">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
