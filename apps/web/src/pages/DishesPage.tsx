@@ -24,10 +24,13 @@ import { AverageRating } from '@/components/StarRating';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAuthStore } from '@/stores/auth';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
+import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
+import { useSwipeActions } from '@/hooks/useSwipeActions';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
 export function DishesPage() {
+  const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -41,6 +44,40 @@ export function DishesPage() {
   });
 
   const dishes = useMemo(() => data?.dishes || [], [data?.dishes]);
+
+  // Swipe actions state
+  const {
+    activeItemId,
+    openSwipe,
+    closeSwipe,
+  } = useSwipeActions();
+
+  // Archive/unarchive mutations for swipe actions
+  const archiveMutation = useMutation({
+    mutationFn: (dishId: string) => dishesApi.archive(dishId),
+    onSuccess: () => {
+      toast.success('Dish archived');
+      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      closeSwipe();
+    },
+    onError: (error) => {
+      toast.error('Failed to archive dish');
+      console.error('Error archiving dish:', error);
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: (dishId: string) => dishesApi.unarchive(dishId),
+    onSuccess: () => {
+      toast.success('Dish restored');
+      queryClient.invalidateQueries({ queryKey: ['dishes'] });
+      closeSwipe();
+    },
+    onError: (error) => {
+      toast.error('Failed to restore dish');
+      console.error('Error restoring dish:', error);
+    },
+  });
 
   // Get all unique tags for filtering
   const allTags = useMemo(() => {
@@ -209,7 +246,29 @@ export function DishesPage() {
               </h2>
               <div className="space-y-1">
                 {mainDishes.map((dish) => (
-                  <DishRow key={dish.id} dish={dish} onClick={() => setSelectedDish(dish)} />
+                  <SwipeableListItem
+                    key={dish.id}
+                    itemId={dish.id}
+                    activeItemId={activeItemId}
+                    onSwipeStart={openSwipe}
+                    onSwipeEnd={closeSwipe}
+                    actions={[
+                      {
+                        label: dish.archived ? 'Restore' : 'Archive',
+                        icon: dish.archived ? ArchiveRestore : Archive,
+                        color: 'primary',
+                        onAction: () => {
+                          if (dish.archived) {
+                            unarchiveMutation.mutate(dish.id);
+                          } else {
+                            archiveMutation.mutate(dish.id);
+                          }
+                        },
+                      },
+                    ]}
+                  >
+                    <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                  </SwipeableListItem>
                 ))}
               </div>
             </div>
@@ -223,7 +282,29 @@ export function DishesPage() {
               </h2>
               <div className="space-y-1">
                 {sideDishes.map((dish) => (
-                  <DishRow key={dish.id} dish={dish} onClick={() => setSelectedDish(dish)} />
+                  <SwipeableListItem
+                    key={dish.id}
+                    itemId={dish.id}
+                    activeItemId={activeItemId}
+                    onSwipeStart={openSwipe}
+                    onSwipeEnd={closeSwipe}
+                    actions={[
+                      {
+                        label: dish.archived ? 'Restore' : 'Archive',
+                        icon: dish.archived ? ArchiveRestore : Archive,
+                        color: 'primary',
+                        onAction: () => {
+                          if (dish.archived) {
+                            unarchiveMutation.mutate(dish.id);
+                          } else {
+                            archiveMutation.mutate(dish.id);
+                          }
+                        },
+                      },
+                    ]}
+                  >
+                    <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                  </SwipeableListItem>
                 ))}
               </div>
             </div>
