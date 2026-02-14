@@ -2,6 +2,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
@@ -13,6 +16,9 @@ import { historyRoutes } from './routes/history.js';
 import { settingsRoutes } from './routes/settings.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const fastify = Fastify({
   logger: {
@@ -48,6 +54,26 @@ await fastify.register(menusRoutes);
 await fastify.register(ratingsRoutes);
 await fastify.register(historyRoutes);
 await fastify.register(settingsRoutes);
+
+// Serve static files in production
+if (config.NODE_ENV === 'production') {
+  const webDistPath = join(__dirname, '../../web/dist');
+
+  // Serve static assets
+  await fastify.register(fastifyStatic, {
+    root: webDistPath,
+    prefix: '/',
+  });
+
+  // SPA fallback - serve index.html for all non-API routes
+  fastify.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith('/api/') || request.url.startsWith('/health')) {
+      reply.code(404).send({ error: 'Not Found' });
+    } else {
+      reply.sendFile('index.html');
+    }
+  });
+}
 
 // Start server
 const start = async () => {
