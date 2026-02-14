@@ -18,6 +18,9 @@ export function isMobileDevice(): boolean {
  * Checks if the user prefers reduced motion
  */
 export function prefersReducedMotion(): boolean {
+  if (typeof window.matchMedia !== 'function') {
+    return false; // Assume no preference if matchMedia not supported
+  }
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
