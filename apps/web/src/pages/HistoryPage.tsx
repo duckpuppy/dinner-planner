@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { history, type HistoryEntry } from '@/lib/api';
 import {
   Calendar,
@@ -8,9 +8,15 @@ import {
   UtensilsCrossed,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  Star,
 } from 'lucide-react';
 import { StarRating } from '@/components/StarRating';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
+import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
+import { useSwipeActions } from '@/hooks/useSwipeActions';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { toast } from 'sonner';
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   assembled: 'Home Cooked',
@@ -22,10 +28,12 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
 const PAGE_SIZE = 20;
 
 export function HistoryPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(0);
+  const [deleteEntry, setDeleteEntry] = useState<HistoryEntry | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['history', { search, startDate, endDate, page }],
@@ -42,6 +50,26 @@ export function HistoryPage() {
   const entries = data?.entries ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const {
+    activeItemId,
+    openSwipe,
+    closeSwipe,
+  } = useSwipeActions();
+
+  const deleteMutation = useMutation({
+    mutationFn: (entryId: string) => history.delete(entryId),
+    onSuccess: () => {
+      toast.success('History entry deleted');
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      closeSwipe();
+      setDeleteEntry(null);
+    },
+    onError: (error) => {
+      toast.error('Failed to delete entry');
+      console.error('Error deleting history entry:', error);
+    },
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +166,32 @@ export function HistoryPage() {
       {!isLoading && entries.length > 0 && (
         <div className="space-y-4">
           {entries.map((entry) => (
-            <HistoryCard key={entry.id} entry={entry} />
+            <SwipeableListItem
+              key={entry.id}
+              itemId={entry.id}
+              activeItemId={activeItemId}
+              onSwipeStart={openSwipe}
+              onSwipeEnd={closeSwipe}
+              actions={[
+                {
+                  label: 'Delete',
+                  icon: Trash2,
+                  color: 'destructive',
+                  onAction: () => setDeleteEntry(entry),
+                },
+                {
+                  label: 'Rate',
+                  icon: Star,
+                  color: 'primary',
+                  onAction: () => {
+                    // TODO: Implement rating modal
+                    toast.info('Rating feature coming soon!');
+                  },
+                },
+              ]}
+            >
+              <HistoryCard entry={entry} />
+            </SwipeableListItem>
           ))}
 
           {/* Pagination */}
@@ -165,6 +218,21 @@ export function HistoryPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteEntry !== null}
+        title="Delete History Entry"
+        description={`Are you sure you want to delete this meal from ${deleteEntry ? new Date(deleteEntry.date).toLocaleDateString() : ''}? This will remove all preparations and ratings for this entry. This action cannot be undone.`}
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteEntry) {
+            deleteMutation.mutate(deleteEntry.id);
+          }
+        }}
+        onCancel={() => setDeleteEntry(null)}
+        loading={deleteMutation.isPending}
+      />
       </div>
     </PullToRefresh>
   );

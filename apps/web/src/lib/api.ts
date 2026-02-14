@@ -269,6 +269,9 @@ export const history = {
 
   getDishHistory: (dishId: string) =>
     request<{ preparations: DishPreparationHistory[] }>(`/dishes/${dishId}/history`),
+
+  delete: (entryId: string) =>
+    request<{ success: boolean }>(`/history/${entryId}`, { method: 'DELETE' }),
 };
 
 // Settings API

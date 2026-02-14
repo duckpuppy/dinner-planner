@@ -51,4 +51,18 @@ export async function historyRoutes(fastify: FastifyInstance) {
       return reply.send(result);
     }
   );
+
+  /**
+   * DELETE /api/history/:id
+   * Delete a history entry (and all related preparations/ratings)
+   */
+  fastify.delete(
+    '/api/history/:id',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const result = await historyService.deleteHistoryEntry(id);
+      return reply.send(result);
+    }
+  );
 }

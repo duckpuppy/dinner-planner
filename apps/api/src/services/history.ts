@@ -239,3 +239,30 @@ export async function getDishHistory(dishId: string): Promise<{
 
   return { preparations };
 }
+
+/**
+ * Delete a history entry (dinner entry) and all related data
+ */
+export async function deleteHistoryEntry(entryId: string): Promise<{ success: boolean }> {
+  // Get all preparations for this entry
+  const preps = await db
+    .select()
+    .from(schema.preparations)
+    .where(eq(schema.preparations.dinnerEntryId, entryId));
+
+  // Delete all ratings for each preparation
+  for (const prep of preps) {
+    await db.delete(schema.ratings).where(eq(schema.ratings.preparationId, prep.id));
+  }
+
+  // Delete all preparations
+  await db.delete(schema.preparations).where(eq(schema.preparations.dinnerEntryId, entryId));
+
+  // Delete side dish links
+  await db.delete(schema.entrySideDishes).where(eq(schema.entrySideDishes.entryId, entryId));
+
+  // Delete the entry itself
+  await db.delete(schema.dinnerEntries).where(eq(schema.dinnerEntries.id, entryId));
+
+  return { success: true };
+}
