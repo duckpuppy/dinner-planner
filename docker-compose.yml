@@ -6,7 +6,7 @@ services:
     ports:
       - '3000:3000'
     volumes:
-      - ./data:/app/data
+      - dinner-planner-data:/app/data
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -36,7 +36,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - ./data:/app/data
+      - dinner-planner-data:/app/data
     environment:
       - NODE_ENV=development
       - PORT=3000
@@ -47,3 +47,6 @@ services:
       - ADMIN_PASSWORD=admin123
       - CORS_ORIGIN=http://localhost:5173
     command: pnpm dev
+
+volumes:
+  dinner-planner-data:
