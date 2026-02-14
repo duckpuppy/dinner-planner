@@ -84,7 +84,16 @@ export function HistoryPage() {
   };
 
   return (
-    <PullToRefresh onRefresh={async () => { await refetch(); }}>
+    <PullToRefresh
+      onRefresh={async () => {
+        try {
+          await refetch();
+        } catch (error) {
+          // Silently handle errors - 401s will clear auth token automatically
+          console.error('Refresh failed:', error);
+        }
+      }}
+    >
       <div className="p-4 max-w-3xl mx-auto">
         <div className="flex items-center gap-2 mb-6">
           <Calendar className="h-5 w-5 text-muted-foreground" />

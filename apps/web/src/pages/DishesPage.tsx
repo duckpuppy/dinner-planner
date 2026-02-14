@@ -132,7 +132,16 @@ export function DishesPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={async () => { await refetch(); }}>
+    <PullToRefresh
+      onRefresh={async () => {
+        try {
+          await refetch();
+        } catch (error) {
+          // Silently handle errors - 401s will clear auth token automatically
+          console.error('Refresh failed:', error);
+        }
+      }}
+    >
       <div className="p-4 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

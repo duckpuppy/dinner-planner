@@ -55,9 +55,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
       return retryResponse.json();
     } else {
-      // Refresh failed, clear token and redirect to login
+      // Refresh failed, clear token and throw error
+      // Let the auth store handle logout via React Router
       accessToken = null;
-      window.location.href = '/login';
       throw new ApiError(401, 'Session expired');
     }
   }
