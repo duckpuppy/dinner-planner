@@ -5,6 +5,8 @@ import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
+import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
+import { useSwipeActions } from '@/hooks/useSwipeActions';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -50,6 +52,12 @@ export function WeekPage() {
     queryFn: () => menus.getWeek(dateStr),
   });
 
+  const {
+    activeItemId,
+    openSwipe,
+    closeSwipe,
+  } = useSwipeActions();
+
   const goToPrevWeek = () => setWeekOffset((o) => o - 1);
   const goToNextWeek = () => setWeekOffset((o) => o + 1);
   const goToToday = () => setWeekOffset(0);
@@ -91,7 +99,13 @@ export function WeekPage() {
       ) : (
         <div className="space-y-2">
           {data?.menu.entries.map((entry) => (
-            <DayCard key={entry.id} entry={entry} />
+            <DayCard
+              key={entry.id}
+              entry={entry}
+              activeItemId={activeItemId}
+              onSwipeStart={openSwipe}
+              onSwipeEnd={closeSwipe}
+            />
           ))}
         </div>
       )}
@@ -100,7 +114,14 @@ export function WeekPage() {
   );
 }
 
-function DayCard({ entry }: { entry: DinnerEntry }) {
+interface DayCardProps {
+  entry: DinnerEntry;
+  activeItemId: string | null;
+  onSwipeStart: (itemId: string) => void;
+  onSwipeEnd: () => void;
+}
+
+function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -133,13 +154,27 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
   }
 
   return (
-    <div
-      className={cn(
-        'border rounded-lg p-3 flex items-center gap-4',
-        isToday && 'ring-2 ring-primary',
-        entry.completed && 'bg-muted/50'
-      )}
+    <SwipeableListItem
+      itemId={entry.id}
+      activeItemId={activeItemId}
+      onSwipeStart={onSwipeStart}
+      onSwipeEnd={onSwipeEnd}
+      actions={[
+        {
+          label: 'Edit',
+          icon: Edit2,
+          color: 'secondary',
+          onAction: () => setIsEditing(true),
+        },
+      ]}
     >
+      <div
+        className={cn(
+          'border rounded-lg p-3 flex items-center gap-4',
+          isToday && 'ring-2 ring-primary',
+          entry.completed && 'bg-muted/50'
+        )}
+      >
       {/* Date */}
       <div className="w-16 text-center flex-shrink-0">
         <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
@@ -183,7 +218,8 @@ function DayCard({ entry }: { entry: DinnerEntry }) {
           <Edit2 className="h-4 w-4" />
         </button>
       </div>
-    </div>
+      </div>
+    </SwipeableListItem>
   );
 }
 
