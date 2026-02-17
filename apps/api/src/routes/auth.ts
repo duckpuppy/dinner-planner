@@ -3,6 +3,10 @@ import { loginSchema } from '@dinner-planner/shared';
 import * as authService from '../services/auth.js';
 import { config } from '../config.js';
 
+// In development, set domain to 'localhost' so cookie works across ports (5173 -> 3000)
+// In production, omit domain to default to current origin
+const COOKIE_DOMAIN = config.NODE_ENV === 'development' ? { domain: 'localhost' } : {};
+
 // Cookie options for refresh token
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -10,6 +14,12 @@ const REFRESH_COOKIE_OPTIONS = {
   sameSite: 'lax' as const,
   path: '/api/auth',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  ...COOKIE_DOMAIN,
+};
+
+const CLEAR_COOKIE_OPTIONS = {
+  path: '/api/auth',
+  ...COOKIE_DOMAIN,
 };
 
 export async function authRoutes(fastify: FastifyInstance) {
@@ -67,7 +77,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     if (!result) {
       // Clear invalid cookie
-      reply.clearCookie('refreshToken', { path: '/api/auth' });
+      reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
       return reply.status(401).send({
         error: 'Invalid or expired refresh token',
       });
@@ -90,7 +100,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       await authService.logout(refreshToken);
     }
 
-    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
 
     return reply.send({ success: true });
   });
