@@ -1,6 +1,7 @@
 [tools]
 node = "22"
 pnpm = "10.29.3"
+sqlite = "latest"
 
 [env]
 NODE_ENV = "development"

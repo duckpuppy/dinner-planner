@@ -38,7 +38,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       const result = await authApi.refresh();
       setAccessToken(result.accessToken);
       set({ user: result.user, isAuthenticated: true, isLoading: false });
-    } catch {
+    } catch (err) {
+      console.error('[checkAuth] Failed to refresh session:', err);
       setAccessToken(null);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
