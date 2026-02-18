@@ -16,6 +16,8 @@ import {
   ArrowUpDown,
   Tag,
   Trash2,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -682,12 +684,19 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   );
 }
 
+interface IngredientRow {
+  quantity: string;
+  unit: string;
+  name: string;
+  notes: string;
+}
+
 interface DishFormProps {
   dish?: Dish;
   onClose: () => void;
 }
 
-function DishForm({ dish, onClose }: DishFormProps) {
+export function DishForm({ dish, onClose }: DishFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!dish;
 
@@ -700,14 +709,39 @@ function DishForm({ dish, onClose }: DishFormProps) {
   const [servings, setServings] = useState<string>(dish?.servings?.toString() || '');
   const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl || '');
   const [videoUrl, setVideoUrl] = useState(dish?.videoUrl || '');
-  const [ingredientsText, setIngredientsText] = useState(
-    dish?.ingredients
-      .map((i) =>
-        `${i.quantity || ''} ${i.unit || ''} ${i.name}${i.notes ? ` (${i.notes})` : ''}`.trim()
-      )
-      .join('\n') || ''
+  const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>(
+    dish?.ingredients.map((i) => ({
+      quantity: i.quantity?.toString() ?? '',
+      unit: i.unit ?? '',
+      name: i.name,
+      notes: i.notes ?? '',
+    })) ?? []
   );
   const [tagsText, setTagsText] = useState(dish?.tags.join(', ') || '');
+
+  function addIngredientRow() {
+    setIngredientRows((prev) => [...prev, { quantity: '', unit: '', name: '', notes: '' }]);
+  }
+
+  function removeIngredientRow(index: number) {
+    setIngredientRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateIngredientRow(index: number, field: keyof IngredientRow, value: string) {
+    setIngredientRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function moveIngredientRow(index: number, direction: 'up' | 'down') {
+    setIngredientRows((prev) => {
+      const next = [...prev];
+      const swapIdx = direction === 'up' ? index - 1 : index + 1;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[index], next[swapIdx]] = [next[swapIdx], next[index]];
+      return next;
+    });
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDishData) => dishesApi.create(data),
@@ -739,15 +773,14 @@ function DishForm({ dish, onClose }: DishFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Parse ingredients (simple format: one per line)
-    const ingredients = ingredientsText
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => ({
-        quantity: null,
-        unit: null,
-        name: line.trim(),
-        notes: null,
+    // Build ingredients from structured rows
+    const ingredients = ingredientRows
+      .filter((row) => row.name.trim())
+      .map((row) => ({
+        quantity: row.quantity ? parseFloat(row.quantity) : null,
+        unit: row.unit.trim() || null,
+        name: row.name.trim(),
+        notes: row.notes.trim() || null,
       }));
 
     // Parse tags
@@ -915,13 +948,85 @@ function DishForm({ dish, onClose }: DishFormProps) {
         {/* Ingredients */}
         <div>
           <label className="block text-sm font-medium mb-1">Ingredients</label>
-          <textarea
-            value={ingredientsText}
-            onChange={(e) => setIngredientsText(e.target.value)}
-            rows={5}
-            className="w-full px-3 py-2 border rounded-md bg-background resize-none font-mono text-sm"
-            placeholder="One ingredient per line"
-          />
+          <div className="space-y-2">
+            {ingredientRows.map((row, index) => (
+              <div key={index} className="border rounded-md p-2 bg-background space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    value={row.quantity}
+                    onChange={(e) => updateIngredientRow(index, 'quantity', e.target.value)}
+                    placeholder="Qty"
+                    min="0"
+                    step="any"
+                    className="w-14 px-2 py-1.5 border rounded text-sm bg-background"
+                    aria-label="Quantity"
+                  />
+                  <input
+                    type="text"
+                    value={row.unit}
+                    onChange={(e) => updateIngredientRow(index, 'unit', e.target.value)}
+                    placeholder="Unit"
+                    className="w-20 px-2 py-1.5 border rounded text-sm bg-background"
+                    aria-label="Unit"
+                  />
+                  <input
+                    type="text"
+                    value={row.name}
+                    onChange={(e) => updateIngredientRow(index, 'name', e.target.value)}
+                    placeholder="Ingredient name *"
+                    required={false}
+                    className="flex-1 px-2 py-1.5 border rounded text-sm bg-background"
+                    aria-label="Ingredient name"
+                  />
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => moveIngredientRow(index, 'up')}
+                      disabled={index === 0}
+                      className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+                      aria-label="Move up"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveIngredientRow(index, 'down')}
+                      disabled={index === ingredientRows.length - 1}
+                      className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+                      aria-label="Move down"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeIngredientRow(index)}
+                    className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded shrink-0"
+                    aria-label="Remove ingredient"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={row.notes}
+                  onChange={(e) => updateIngredientRow(index, 'notes', e.target.value)}
+                  placeholder="Notes (optional, e.g. finely chopped)"
+                  className="w-full px-2 py-1 border rounded text-xs bg-background text-muted-foreground"
+                  aria-label="Notes"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addIngredientRow}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed rounded-md px-3 py-2 w-full hover:bg-muted transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add ingredient
+            </button>
+          </div>
         </div>
 
         {/* Instructions */}
