@@ -9,7 +9,7 @@ export async function getSettings() {
   return settings;
 }
 
-export async function updateSettings(data: { weekStartDay?: number }) {
+export async function updateSettings(data: { weekStartDay?: number; recencyWindowDays?: number }) {
   const settings = await getSettings();
   const [updated] = await db
     .update(schema.appSettings)

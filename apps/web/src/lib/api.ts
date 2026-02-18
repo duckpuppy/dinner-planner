@@ -278,11 +278,24 @@ export const history = {
 export const settings = {
   get: () => request<{ settings: AppSettings }>('/settings'),
 
-  update: (data: { weekStartDay?: number }) =>
+  update: (data: { weekStartDay?: number; recencyWindowDays?: number }) =>
     request<{ settings: AppSettings }>('/settings', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+};
+
+export const suggestions = {
+  list: (params?: { tag?: string; limit?: number; exclude?: string[] }) => {
+    const query = new URLSearchParams();
+    if (params?.tag) query.set('tag', params.tag);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.exclude?.length) {
+      params.exclude.forEach((id) => query.append('exclude', id));
+    }
+    const qs = query.toString();
+    return request<{ suggestions: SuggestedDish[] }>(`/dishes/suggestions${qs ? `?${qs}` : ''}`);
+  },
 };
 
 // Types
@@ -430,6 +443,20 @@ export interface DishPreparationHistory {
 export interface AppSettings {
   id: string;
   weekStartDay: number;
+  recencyWindowDays: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SuggestedDish {
+  id: string;
+  name: string;
+  type: 'main' | 'side';
+  description: string;
+  tags: string[];
+  avgRating: number | null;
+  totalRatings: number;
+  lastPreparedDate: string | null;
+  score: number;
+  reasons: string[];
 }

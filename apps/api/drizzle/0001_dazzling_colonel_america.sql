@@ -1,0 +1,1 @@
+ALTER TABLE `app_settings` ADD `recency_window_days` integer DEFAULT 30 NOT NULL;

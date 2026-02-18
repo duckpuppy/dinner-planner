@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { menus, dishes, type DinnerEntry, type UpdateEntryData } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Check, X, Edit2 } from 'lucide-react';
+import {
+  menus,
+  dishes,
+  type DinnerEntry,
+  type UpdateEntryData,
+  type SuggestedDish,
+} from '@/lib/api';
+import { ChevronLeft, ChevronRight, Check, X, Edit2, Sparkles } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -9,6 +15,7 @@ import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
+import { SuggestionModal } from '@/components/SuggestionModal';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -249,6 +256,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   const [mainDishId, setMainDishId] = useState(entry.mainDish?.id || '');
   const [sideDishIds, setSideDishIds] = useState<string[]>(entry.sideDishes.map((d) => d.id));
   const [customText, setCustomText] = useState(entry.customText || '');
+  const [showSuggest, setShowSuggest] = useState(false);
 
   const { data: dishesData } = useQuery({
     queryKey: ['dishes', { archived: 'false' }],
@@ -258,6 +266,15 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   const allDishes = dishesData?.dishes || [];
   const mainDishes = allDishes.filter((d) => d.type === 'main');
   const sideDishes = allDishes.filter((d) => d.type === 'side');
+  const availableTags = useMemo(
+    () => Array.from(new Set(mainDishes.flatMap((d) => d.tags))).sort(),
+    [mainDishes]
+  );
+
+  function handleSuggestionSelect(dish: SuggestedDish) {
+    setMainDishId(dish.id);
+    setShowSuggest(false);
+  }
 
   const date = new Date(entry.date + 'T00:00:00');
 
@@ -314,7 +331,17 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
       {type === 'assembled' && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Main Dish</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium">Main Dish</label>
+              <button
+                type="button"
+                onClick={() => setShowSuggest(true)}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Suggest
+              </button>
+            </div>
             <select
               value={mainDishId}
               onChange={(e) => setMainDishId(e.target.value)}
@@ -328,6 +355,12 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
               ))}
             </select>
           </div>
+          <SuggestionModal
+            open={showSuggest}
+            availableTags={availableTags}
+            onSelect={handleSuggestionSelect}
+            onClose={() => setShowSuggest(false)}
+          />
 
           {sideDishes.length > 0 && (
             <div>

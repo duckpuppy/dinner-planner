@@ -85,6 +85,31 @@ export const updateRatingSchema = createRatingSchema.partial();
 // Settings schemas
 export const updateSettingsSchema = z.object({
   weekStartDay: z.number().int().min(0).max(6).optional(),
+  recencyWindowDays: z.number().int().min(1).max(365).optional(),
+});
+
+// Suggestion schemas
+export const suggestionsQuerySchema = z.object({
+  tag: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+  exclude: z.preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(z.string())).default([]),
+});
+
+export const suggestedDishSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['main', 'side']),
+  description: z.string(),
+  tags: z.array(z.string()),
+  avgRating: z.number().nullable(),
+  totalRatings: z.number(),
+  lastPreparedDate: z.string().nullable(),
+  score: z.number(),
+  reasons: z.array(z.string()),
+});
+
+export const suggestionsResponseSchema = z.object({
+  suggestions: z.array(suggestedDishSchema),
 });
 
 // Query parameter schemas
@@ -127,3 +152,6 @@ export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type DishQueryInput = z.infer<typeof dishQuerySchema>;
 export type DateRangeInput = z.infer<typeof dateRangeSchema>;
+export type SuggestionsQueryInput = z.infer<typeof suggestionsQuerySchema>;
+export type SuggestedDish = z.infer<typeof suggestedDishSchema>;
+export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;

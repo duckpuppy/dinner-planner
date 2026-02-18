@@ -145,6 +145,7 @@ export const ratings = sqliteTable('ratings', {
 export const appSettings = sqliteTable('app_settings', {
   id: text('id').primaryKey().default('default'),
   weekStartDay: integer('week_start_day').notNull().default(0), // 0 = Sunday
+  recencyWindowDays: integer('recency_window_days').notNull().default(30),
   ...timestamps,
 });
 

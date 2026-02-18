@@ -15,15 +15,17 @@ export function AdminSettingsPage() {
   });
 
   const [weekStartDay, setWeekStartDay] = useState(0);
+  const [recencyWindowDays, setRecencyWindowDays] = useState(30);
 
   useEffect(() => {
     if (data?.settings) {
       setWeekStartDay(data.settings.weekStartDay);
+      setRecencyWindowDays(data.settings.recencyWindowDays);
     }
   }, [data]);
 
   const updateMutation = useMutation({
-    mutationFn: () => settings.update({ weekStartDay }),
+    mutationFn: () => settings.update({ weekStartDay, recencyWindowDays }),
     onSuccess: () => {
       toast.success('Settings saved successfully');
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -72,10 +74,31 @@ export function AdminSettingsPage() {
             </p>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Suggestion Recency Window (days)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={recencyWindowDays}
+              onChange={(e) => setRecencyWindowDays(Number(e.target.value))}
+              className="w-32 px-3 py-2 border rounded-md bg-background"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Dishes made within this many days are penalized in meal suggestions. Default: 30.
+            </p>
+          </div>
+
           <div className="flex gap-2 pt-4 border-t">
             <button
               type="submit"
-              disabled={updateMutation.isPending || weekStartDay === data?.settings.weekStartDay}
+              disabled={
+                updateMutation.isPending ||
+                (weekStartDay === data?.settings.weekStartDay &&
+                  recencyWindowDays === data?.settings.recencyWindowDays)
+              }
               className="py-2 px-4 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50"
             >
               {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
