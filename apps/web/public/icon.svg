@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#1e1e2e"/>
+  <!-- Plate circle -->
+  <circle cx="256" cy="256" r="160" fill="#313244"/>
+  <circle cx="256" cy="256" r="140" fill="#45475a" stroke="#6c7086" stroke-width="4"/>
+  <!-- Fork (left) -->
+  <g fill="#cba6f7">
+    <rect x="168" y="140" width="10" height="80" rx="5"/>
+    <rect x="155" y="140" width="6" height="50" rx="3"/>
+    <rect x="181" y="140" width="6" height="50" rx="3"/>
+    <rect x="161" y="188" width="32" height="8" rx="4"/>
+    <rect x="170" y="220" width="8" height="90" rx="4"/>
+  </g>
+  <!-- Knife (right) -->
+  <g fill="#89b4fa">
+    <rect x="334" y="140" width="10" height="170" rx="5"/>
+    <path d="M334 140 L344 140 L349 200 L334 200 Z" fill="#89b4fa"/>
+  </g>
+  <!-- Steam lines -->
+  <g stroke="#f38ba8" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M230 170 Q225 155 230 140 Q235 125 230 110"/>
+    <path d="M256 165 Q251 150 256 135 Q261 120 256 105"/>
+    <path d="M282 170 Q277 155 282 140 Q287 125 282 110"/>
+  </g>
+</svg>

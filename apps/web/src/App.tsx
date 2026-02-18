@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useOfflineSync } from './hooks/useOfflineSync';
 import { Toaster } from 'sonner';
 import { Layout } from './components/Layout';
 import { useAuthStore } from './stores/auth';
@@ -13,6 +14,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OfflineBanner } from './components/OfflineBanner';
+import { InstallPrompt } from './components/InstallPrompt';
 
 function LoadingScreen() {
   return (
@@ -42,6 +45,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isAuthenticated, isLoading, checkAuth, user } = useAuthStore();
   const initTheme = useThemeStore((s) => s.initTheme);
+  useOfflineSync();
 
   useEffect(() => {
     checkAuth();
@@ -68,6 +72,7 @@ export default function App() {
 
   return (
     <>
+      <OfflineBanner />
       <Toaster richColors position="top-right" />
       <ErrorBoundary>
       <Layout>
@@ -98,6 +103,7 @@ export default function App() {
         </Routes>
       </Layout>
       </ErrorBoundary>
+      <InstallPrompt />
     </>
   );
 }
