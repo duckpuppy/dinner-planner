@@ -144,7 +144,7 @@ export const groceryItemSchema = z.object({
 
 export const groceriesResponseSchema = z.object({
   groceries: z.array(groceryItemSchema),
-  weekStartDate: z.string(),
+  weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
 });
 
 // Export inferred types from schemas
