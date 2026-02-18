@@ -39,7 +39,7 @@ let swipeHandlers: {
 } = {};
 
 vi.mock('react-swipeable', () => ({
-  useSwipeable: vi.fn((handlers: any) => {
+  useSwipeable: vi.fn((handlers: Parameters<typeof import('react-swipeable').useSwipeable>[0]) => {
     swipeHandlers = handlers;
     return {};
   }),

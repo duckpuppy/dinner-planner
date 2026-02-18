@@ -254,7 +254,7 @@ describe('useSwipeActions', () => {
     });
 
     it('does not add event listener when no item is active', () => {
-      const { result } = renderHook(() => useSwipeActions());
+      renderHook(() => useSwipeActions());
       const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
 
       // No item opened, so no listener should be added
