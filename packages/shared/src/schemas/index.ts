@@ -147,6 +147,25 @@ export const groceriesResponseSchema = z.object({
   weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
 });
 
+// Recipe import schemas
+export const importRecipeUrlSchema = z.object({
+  url: z.string().url('Must be a valid URL'),
+});
+
+export const importedRecipeSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: z.enum(['main', 'side']),
+  ingredients: z.array(ingredientSchema),
+  instructions: z.string(),
+  prepTime: z.number().int().positive().nullable(),
+  cookTime: z.number().int().positive().nullable(),
+  servings: z.number().int().positive().nullable(),
+  sourceUrl: z.string().url().nullable(),
+  videoUrl: z.string().url().nullable(),
+  tags: z.array(z.string()),
+});
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -170,3 +189,5 @@ export type SuggestedDish = z.infer<typeof suggestedDishSchema>;
 export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
 export type GroceryItem = z.infer<typeof groceryItemSchema>;
 export type GroceriesResponse = z.infer<typeof groceriesResponseSchema>;
+export type ImportRecipeUrlInput = z.infer<typeof importRecipeUrlSchema>;
+export type ImportedRecipe = z.infer<typeof importedRecipeSchema>;

@@ -191,6 +191,12 @@ export const dishes = {
     request<{ preparations: Preparation[] }>(`/dishes/${id}/preparations`),
 
   hardDelete: (id: string) => request<{ success: boolean }>(`/dishes/${id}`, { method: 'DELETE' }),
+
+  importFromUrl: (url: string) =>
+    request<{ recipe: CreateDishData }>('/dishes/import-url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
 };
 
 // Menus API

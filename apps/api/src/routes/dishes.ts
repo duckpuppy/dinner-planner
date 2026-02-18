@@ -1,8 +1,35 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createDishSchema, updateDishSchema, dishQuerySchema } from '@dinner-planner/shared';
+import { createDishSchema, updateDishSchema, dishQuerySchema, importRecipeUrlSchema } from '@dinner-planner/shared';
 import * as dishesService from '../services/dishes.js';
+import { importRecipeFromUrl } from '../services/recipeImport.js';
 
 export async function dishesRoutes(fastify: FastifyInstance) {
+  /**
+   * POST /api/dishes/import-url
+   * Fetch a recipe URL and parse schema.org Recipe JSON-LD into a dish preview.
+   * Does not save — returns parsed data for user review.
+   */
+  fastify.post(
+    '/api/dishes/import-url',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = importRecipeUrlSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'Invalid URL',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+      try {
+        const recipe = await importRecipeFromUrl(parsed.data.url);
+        return reply.send({ recipe });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to import recipe';
+        return reply.status(422).send({ error: msg });
+      }
+    }
+  );
+
   /**
    * GET /api/dishes
    * List dishes with filtering and pagination

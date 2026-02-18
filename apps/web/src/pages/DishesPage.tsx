@@ -18,6 +18,7 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  Link,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
+import { RecipeImportModal } from '@/components/RecipeImportModal';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -38,6 +40,8 @@ export function DishesPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPrefill, setImportPrefill] = useState<Partial<CreateDishData> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -128,7 +132,15 @@ export function DishesPage() {
   }
 
   if (isCreating) {
-    return <DishForm onClose={() => setIsCreating(false)} />;
+    return (
+      <DishForm
+        prefill={importPrefill ?? undefined}
+        onClose={() => {
+          setIsCreating(false);
+          setImportPrefill(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -146,14 +158,35 @@ export function DishesPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Dishes</h1>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            aria-label="Add dish"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md hover:bg-muted touch-manipulation"
+              aria-label="Import recipe from URL"
+            >
+              <Link className="h-4 w-4" />
+              Import URL
+            </button>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+              aria-label="Add dish"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
         </div>
+
+        {showImportModal && (
+          <RecipeImportModal
+            onImported={(recipe) => {
+              setImportPrefill(recipe);
+              setShowImportModal(false);
+              setIsCreating(true);
+            }}
+            onClose={() => setShowImportModal(false)}
+          />
+        )}
 
         {/* Search */}
         <div className="relative mb-4">
@@ -693,31 +726,45 @@ interface IngredientRow {
 
 interface DishFormProps {
   dish?: Dish;
+  prefill?: Partial<CreateDishData>;
   onClose: () => void;
 }
 
-export function DishForm({ dish, onClose }: DishFormProps) {
+export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!dish;
 
-  const [name, setName] = useState(dish?.name || '');
-  const [description, setDescription] = useState(dish?.description || '');
-  const [type, setType] = useState<'main' | 'side'>(dish?.type || 'main');
-  const [instructions, setInstructions] = useState(dish?.instructions || '');
-  const [prepTime, setPrepTime] = useState<string>(dish?.prepTime?.toString() || '');
-  const [cookTime, setCookTime] = useState<string>(dish?.cookTime?.toString() || '');
-  const [servings, setServings] = useState<string>(dish?.servings?.toString() || '');
-  const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl || '');
-  const [videoUrl, setVideoUrl] = useState(dish?.videoUrl || '');
+  const [name, setName] = useState(dish?.name ?? prefill?.name ?? '');
+  const [description, setDescription] = useState(dish?.description ?? prefill?.description ?? '');
+  const [type, setType] = useState<'main' | 'side'>(dish?.type ?? prefill?.type ?? 'main');
+  const [instructions, setInstructions] = useState(dish?.instructions ?? prefill?.instructions ?? '');
+  const [prepTime, setPrepTime] = useState<string>(
+    dish?.prepTime?.toString() ?? prefill?.prepTime?.toString() ?? ''
+  );
+  const [cookTime, setCookTime] = useState<string>(
+    dish?.cookTime?.toString() ?? prefill?.cookTime?.toString() ?? ''
+  );
+  const [servings, setServings] = useState<string>(
+    dish?.servings?.toString() ?? prefill?.servings?.toString() ?? ''
+  );
+  const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl ?? prefill?.sourceUrl ?? '');
+  const [videoUrl, setVideoUrl] = useState(dish?.videoUrl ?? prefill?.videoUrl ?? '');
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>(
     dish?.ingredients.map((i) => ({
       quantity: i.quantity?.toString() ?? '',
       unit: i.unit ?? '',
       name: i.name,
       notes: i.notes ?? '',
-    })) ?? []
+    })) ??
+      prefill?.ingredients?.map((i) => ({
+        quantity: i.quantity?.toString() ?? '',
+        unit: i.unit ?? '',
+        name: i.name,
+        notes: i.notes ?? '',
+      })) ??
+      []
   );
-  const [tags, setTags] = useState<string[]>(dish?.tags ?? []);
+  const [tags, setTags] = useState<string[]>(dish?.tags ?? prefill?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
 
   function addTag(value: string) {
