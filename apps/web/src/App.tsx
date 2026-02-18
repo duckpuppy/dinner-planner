@@ -12,6 +12,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function LoadingScreen() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
   return (
     <>
       <Toaster richColors position="top-right" />
+      <ErrorBoundary>
       <Layout>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
@@ -95,6 +97,7 @@ export default function App() {
           <Route path="*" element={<HomeRedirect />} />
         </Routes>
       </Layout>
+      </ErrorBoundary>
     </>
   );
 }

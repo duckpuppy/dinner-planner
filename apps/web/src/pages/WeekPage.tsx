@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
+import { SkeletonList } from '@/components/Skeleton';
+import { ErrorState } from '@/components/ErrorState';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -47,7 +49,7 @@ export function WeekPage() {
 
   const dateStr = formatDateForApi(currentWeekStart);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['week', dateStr],
     queryFn: () => menus.getWeek(dateStr),
   });
@@ -100,11 +102,13 @@ export function WeekPage() {
 
       {/* Week grid */}
       {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(7)].map((_, i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <SkeletonList count={7} />
+      ) : isError ? (
+        <ErrorState
+          message="Failed to load week menu. Please try again."
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       ) : (
         <div className="space-y-2">
           {data?.menu.entries.map((entry) => (

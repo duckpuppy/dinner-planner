@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Calendar, ChefHat, Clock, Home, User, Users, Settings } from 'lucide-react';
+import { Calendar, ChefHat, Clock, Home, User, Users, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 
@@ -21,7 +21,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const user = useAuthStore((s) => s.user);
+  const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   return (
     <div className="min-h-screen flex flex-col" style={{ paddingTop: 'var(--sat)' }}>
@@ -103,6 +103,35 @@ export function Layout({ children }: LayoutProps) {
             </div>
           )}
         </nav>
+
+        {/* Sidebar footer: user info + logout */}
+        <div className="p-3 border-t space-y-1">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full',
+                isActive
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+              )
+            }
+          >
+            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-medium text-primary">
+                {user?.displayName?.[0]?.toUpperCase() ?? '?'}
+              </span>
+            </div>
+            <span className="truncate">{user?.displayName}</span>
+          </NavLink>
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          >
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            Sign out
+          </button>
+        </div>
       </aside>
     </div>
   );

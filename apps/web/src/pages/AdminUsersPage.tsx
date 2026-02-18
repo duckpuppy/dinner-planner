@@ -5,6 +5,8 @@ import { Users, Plus, Pencil, Trash2, KeyRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAuthStore } from '@/stores/auth';
+import { SkeletonList } from '@/components/Skeleton';
+import { ErrorState } from '@/components/ErrorState';
 
 export function AdminUsersPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -12,7 +14,7 @@ export function AdminUsersPage() {
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['users'],
     queryFn: () => users.list(),
   });
@@ -36,11 +38,13 @@ export function AdminUsersPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <SkeletonList count={5} />
+      ) : isError ? (
+        <ErrorState
+          message="Failed to load users. Please try again."
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       ) : (
         <div className="space-y-2">
           {usersList.map((user) => (

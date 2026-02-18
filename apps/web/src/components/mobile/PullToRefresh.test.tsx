@@ -24,7 +24,7 @@ describe('PullToRefresh', () => {
   const mockOnRefresh = vi.fn(() => Promise.resolve());
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     // Reset to defaults
     mockIsMobileDevice.mockReturnValue(true);
     mockPrefersReducedMotion.mockReturnValue(false);

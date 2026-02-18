@@ -26,6 +26,8 @@ import { useAuthStore } from '@/stores/auth';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
+import { SkeletonList } from '@/components/Skeleton';
+import { ErrorState } from '@/components/ErrorState';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -38,7 +40,7 @@ export function DishesPage() {
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dishes', { archived: String(showArchived) }],
     queryFn: () => dishesApi.list({ archived: String(showArchived), limit: '100' }),
   });
@@ -142,7 +144,7 @@ export function DishesPage() {
         }
       }}
     >
-      <div className="p-4 max-w-2xl mx-auto">
+      <div className="p-4 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Dishes</h1>
@@ -227,11 +229,13 @@ export function DishesPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <SkeletonList count={5} />
+      ) : isError ? (
+        <ErrorState
+          message="Failed to load dishes. Please try again."
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       ) : dishes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -253,7 +257,7 @@ export function DishesPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-2">
                 Main Dishes ({mainDishes.length})
               </h2>
-              <div className="space-y-1">
+              <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
                 {mainDishes.map((dish) => (
                   <SwipeableListItem
                     key={dish.id}
@@ -289,7 +293,7 @@ export function DishesPage() {
               <h2 className="text-sm font-medium text-muted-foreground mb-2">
                 Side Dishes ({sideDishes.length})
               </h2>
-              <div className="space-y-1">
+              <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
                 {sideDishes.map((dish) => (
                   <SwipeableListItem
                     key={dish.id}

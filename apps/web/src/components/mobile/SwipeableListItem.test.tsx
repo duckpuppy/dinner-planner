@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import { SwipeableListItem } from './SwipeableListItem';
 import { Edit2, Trash2 } from 'lucide-react';
 import type { SwipeDirection } from 'react-swipeable';
@@ -71,11 +71,8 @@ describe('SwipeableListItem', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     swipeHandlers = {};
-    mockHaptic.tap.mockClear();
-    mockHaptic.success.mockClear();
-    mockHaptic.error.mockClear();
     // Reset to defaults
     mockIsMobileDevice.mockReturnValue(true);
     mockPrefersReducedMotion.mockReturnValue(false);
@@ -140,7 +137,7 @@ describe('SwipeableListItem', () => {
       const { container } = render(<SwipeableListItem {...defaultProps} />);
 
       // Simulate swiping left
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -50 });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -50 }); });
 
       const content = container.querySelector('[style*="translateX"]');
       expect(content).toHaveStyle({ transform: 'translateX(-50px)' });
@@ -150,7 +147,7 @@ describe('SwipeableListItem', () => {
       const { container } = render(<SwipeableListItem {...defaultProps} />);
 
       // Swipe beyond threshold
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -150 });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -150 }); });
 
       const content = container.querySelector('[style*="translateX"]');
       // Should be capped at -(80 + 20) = -100px
@@ -161,7 +158,7 @@ describe('SwipeableListItem', () => {
       render(<SwipeableListItem {...defaultProps} />);
 
       // Swipe to threshold
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
 
       expect(mockHaptic.tap).toHaveBeenCalledTimes(1);
     });
@@ -170,9 +167,9 @@ describe('SwipeableListItem', () => {
       render(<SwipeableListItem {...defaultProps} />);
 
       // Swipe past threshold multiple times
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -90 });
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -100 });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -90 }); });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -100 }); });
 
       // Should only trigger once
       expect(mockHaptic.tap).toHaveBeenCalledTimes(1);
@@ -181,9 +178,9 @@ describe('SwipeableListItem', () => {
     it('reveals actions when swipe ends past threshold', () => {
       render(<SwipeableListItem {...defaultProps} />);
 
-      // Swipe to threshold
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      // Swipe to threshold then release - two separate acts so closure updates
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       const actions = screen.getByTestId('swipe-actions');
       expect(actions).toHaveAttribute('data-visible', 'true');
@@ -193,8 +190,8 @@ describe('SwipeableListItem', () => {
       const onSwipeStart = vi.fn();
       render(<SwipeableListItem {...defaultProps} onSwipeStart={onSwipeStart} />);
 
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       expect(onSwipeStart).toHaveBeenCalledWith('item-1');
     });
@@ -203,8 +200,8 @@ describe('SwipeableListItem', () => {
       const { container } = render(<SwipeableListItem {...defaultProps} />);
 
       // Swipe but not enough
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -50 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -50 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       const content = container.querySelector('[style*="translateX"]');
       expect(content).toHaveStyle({ transform: 'translateX(0px)' });
@@ -214,11 +211,11 @@ describe('SwipeableListItem', () => {
       render(<SwipeableListItem {...defaultProps} />);
 
       // First reveal actions
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       // Then swipe right to close
-      swipeHandlers.onSwiped?.({ dir: 'Right' });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Right' }); });
 
       const actions = screen.getByTestId('swipe-actions');
       expect(actions).toHaveAttribute('data-visible', 'false');
@@ -228,7 +225,7 @@ describe('SwipeableListItem', () => {
       const onSwipeEnd = vi.fn();
       render(<SwipeableListItem {...defaultProps} onSwipeEnd={onSwipeEnd} />);
 
-      swipeHandlers.onSwiped?.({ dir: 'Right' });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Right' }); });
 
       expect(onSwipeEnd).toHaveBeenCalledTimes(1);
     });
@@ -258,8 +255,8 @@ describe('SwipeableListItem', () => {
       render(<SwipeableListItem {...defaultProps} onSwipeEnd={onSwipeEnd} />);
 
       // Reveal actions
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       expect(screen.getByTestId('swipe-actions')).toHaveAttribute('data-visible', 'true');
     });
@@ -270,8 +267,8 @@ describe('SwipeableListItem', () => {
       const { container, rerender } = render(<SwipeableListItem {...defaultProps} />);
 
       // Open this item
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       // Verify it's active
       const content = container.querySelector('[style*="translateX"]');
@@ -290,8 +287,8 @@ describe('SwipeableListItem', () => {
       const { container, rerender } = render(<SwipeableListItem {...defaultProps} />);
 
       // Open this item
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       // Re-render with this item as active
       rerender(<SwipeableListItem {...defaultProps} activeItemId="item-1" />);
@@ -307,8 +304,8 @@ describe('SwipeableListItem', () => {
       );
 
       // Open this item (even though activeItemId is null, local state manages it)
-      swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
-      swipeHandlers.onSwiped?.({ dir: 'Left' });
+      act(() => { swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 }); });
+      act(() => { swipeHandlers.onSwiped?.({ dir: 'Left' }); });
 
       // Re-render with still no active item
       rerender(<SwipeableListItem {...defaultProps} activeItemId={null} />);

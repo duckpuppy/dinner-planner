@@ -17,6 +17,9 @@ import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
+import { SkeletonList } from '@/components/Skeleton';
+import { ErrorState } from '@/components/ErrorState';
+import { EmptyState } from '@/components/EmptyState';
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   assembled: 'Home Cooked',
@@ -145,30 +148,24 @@ export function HistoryPage() {
       </form>
 
       {/* Loading */}
-      {isLoading && (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="animate-pulse bg-muted h-24 rounded-lg" />
-          ))}
-        </div>
-      )}
+      {isLoading && <SkeletonList count={5} />}
 
       {/* Error */}
       {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
-          Failed to load history
-        </div>
+        <ErrorState
+          message="Failed to load history. Please try again."
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       )}
 
       {/* Empty state */}
       {!isLoading && !error && entries.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>No meal history found</p>
-          {(search || startDate || endDate) && (
-            <p className="text-sm mt-1">Try adjusting your filters</p>
-          )}
-        </div>
+        <EmptyState
+          icon={Calendar}
+          title="No meal history found"
+          description={(search || startDate || endDate) ? 'Try adjusting your filters' : undefined}
+        />
       )}
 
       {/* Timeline */}
