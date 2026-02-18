@@ -737,7 +737,9 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   const [name, setName] = useState(dish?.name ?? prefill?.name ?? '');
   const [description, setDescription] = useState(dish?.description ?? prefill?.description ?? '');
   const [type, setType] = useState<'main' | 'side'>(dish?.type ?? prefill?.type ?? 'main');
-  const [instructions, setInstructions] = useState(dish?.instructions ?? prefill?.instructions ?? '');
+  const [instructions, setInstructions] = useState(
+    dish?.instructions ?? prefill?.instructions ?? ''
+  );
   const [prepTime, setPrepTime] = useState<string>(
     dish?.prepTime?.toString() ?? prefill?.prepTime?.toString() ?? ''
   );

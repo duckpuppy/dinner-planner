@@ -53,11 +53,7 @@ export function RecipeImportModal({ onImported, onClose }: RecipeImportModalProp
             <Link className="h-5 w-5 text-muted-foreground" />
             <h2 className="text-lg font-semibold">Import Recipe from URL</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-muted rounded-md"
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded-md" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
