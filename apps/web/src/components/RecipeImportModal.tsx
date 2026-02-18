@@ -46,6 +46,9 @@ export function RecipeImportModal({ onImported, onClose }: RecipeImportModalProp
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={handleBackdropClick}
       onKeyDown={handleKeyDown}
+      // tabIndex makes the backdrop focusable so Escape key events reach it
+      tabIndex={-1}
+      role="presentation"
     >
       <div className="bg-background rounded-lg shadow-lg w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
