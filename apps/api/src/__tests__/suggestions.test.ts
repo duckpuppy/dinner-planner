@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock db to avoid loading native better-sqlite3 bindings in unit tests
+vi.mock('../db/index.js', () => ({ db: {}, schema: {} }));
+
 import { scoreDish, buildReasons } from '../services/suggestions.js';
 
 const TODAY = '2024-06-15';
