@@ -75,33 +75,33 @@ export default function App() {
       <OfflineBanner />
       <Toaster richColors position="top-right" />
       <ErrorBoundary>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="/today" element={<TodayPage />} />
-          <Route path="/week" element={<WeekPage />} />
-          <Route path="/dishes" element={<DishesPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route
-            path="/admin/users"
-            element={
-              <AdminGuard>
-                <AdminUsersPage />
-              </AdminGuard>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <AdminGuard>
-                <AdminSettingsPage />
-              </AdminGuard>
-            }
-          />
-          <Route path="*" element={<HomeRedirect />} />
-        </Routes>
-      </Layout>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/today" element={<TodayPage />} />
+            <Route path="/week" element={<WeekPage />} />
+            <Route path="/dishes" element={<DishesPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminGuard>
+                  <AdminUsersPage />
+                </AdminGuard>
+              }
+            />
+            <Route
+              path="/admin/settings"
+              element={
+                <AdminGuard>
+                  <AdminSettingsPage />
+                </AdminGuard>
+              }
+            />
+            <Route path="*" element={<HomeRedirect />} />
+          </Routes>
+        </Layout>
       </ErrorBoundary>
       <InstallPrompt />
     </>

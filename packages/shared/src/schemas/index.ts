@@ -96,7 +96,9 @@ export const paginationSchema = z.object({
 export const dishQuerySchema = paginationSchema.extend({
   type: z.enum(['main', 'side']).optional(),
   tag: z.string().optional(),
-  archived: z.preprocess((v) => (typeof v === 'string' ? v === 'true' : v), z.boolean()).default(false),
+  archived: z
+    .preprocess((v) => (typeof v === 'string' ? v === 'true' : v), z.boolean())
+    .default(false),
   search: z.string().optional(),
   sort: z.enum(['name', 'rating', 'recent', 'created']).default('name'),
   order: z.enum(['asc', 'desc']).default('asc'),

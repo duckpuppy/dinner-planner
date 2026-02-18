@@ -54,11 +54,7 @@ export function HistoryPage() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const {
-    activeItemId,
-    openSwipe,
-    closeSwipe,
-  } = useSwipeActions();
+  const { activeItemId, openSwipe, closeSwipe } = useSwipeActions();
 
   const deleteMutation = useMutation({
     mutationFn: (entryId: string) => history.delete(entryId),
@@ -103,142 +99,142 @@ export function HistoryPage() {
           <h1 className="text-2xl font-bold">Meal History</h1>
         </div>
 
-      {/* Search and filters */}
-      <form onSubmit={handleSearch} className="mb-6 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search dishes..."
-            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-muted-foreground">From:</label>
+        {/* Search and filters */}
+        <form onSubmit={handleSearch} className="mb-6 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-1.5 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search dishes..."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-muted-foreground">To:</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-1.5 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          {(search || startDate || endDate) && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      </form>
 
-      {/* Loading */}
-      {isLoading && <SkeletonList count={5} />}
-
-      {/* Error */}
-      {error && (
-        <ErrorState
-          message="Failed to load history. Please try again."
-          error={error as Error}
-          onRetry={() => refetch()}
-        />
-      )}
-
-      {/* Empty state */}
-      {!isLoading && !error && entries.length === 0 && (
-        <EmptyState
-          icon={Calendar}
-          title="No meal history found"
-          description={(search || startDate || endDate) ? 'Try adjusting your filters' : undefined}
-        />
-      )}
-
-      {/* Timeline */}
-      {!isLoading && entries.length > 0 && (
-        <div className="space-y-4">
-          {entries.map((entry) => (
-            <SwipeableListItem
-              key={entry.id}
-              itemId={entry.id}
-              activeItemId={activeItemId}
-              onSwipeStart={openSwipe}
-              onSwipeEnd={closeSwipe}
-              actions={[
-                {
-                  label: 'Delete',
-                  icon: Trash2,
-                  color: 'destructive',
-                  onAction: () => setDeleteEntry(entry),
-                },
-                {
-                  label: 'Rate',
-                  icon: Star,
-                  color: 'primary',
-                  onAction: () => {
-                    // TODO: Implement rating modal
-                    toast.info('Rating feature coming soon!');
-                  },
-                },
-              ]}
-            >
-              <HistoryCard entry={entry} />
-            </SwipeableListItem>
-          ))}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-4">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <span className="text-sm text-muted-foreground">
-                Page {page + 1} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">From:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-3 py-1.5 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
-          )}
-        </div>
-      )}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">To:</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-3 py-1.5 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {(search || startDate || endDate) && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </form>
 
-      <ConfirmDialog
-        open={deleteEntry !== null}
-        title="Delete History Entry"
-        description={`Are you sure you want to delete this meal from ${deleteEntry ? new Date(deleteEntry.date).toLocaleDateString() : ''}? This will remove all preparations and ratings for this entry. This action cannot be undone.`}
-        confirmText="Delete"
-        variant="destructive"
-        onConfirm={() => {
-          if (deleteEntry) {
-            deleteMutation.mutate(deleteEntry.id);
-          }
-        }}
-        onCancel={() => setDeleteEntry(null)}
-        loading={deleteMutation.isPending}
-      />
+        {/* Loading */}
+        {isLoading && <SkeletonList count={5} />}
+
+        {/* Error */}
+        {error && (
+          <ErrorState
+            message="Failed to load history. Please try again."
+            error={error as Error}
+            onRetry={() => refetch()}
+          />
+        )}
+
+        {/* Empty state */}
+        {!isLoading && !error && entries.length === 0 && (
+          <EmptyState
+            icon={Calendar}
+            title="No meal history found"
+            description={search || startDate || endDate ? 'Try adjusting your filters' : undefined}
+          />
+        )}
+
+        {/* Timeline */}
+        {!isLoading && entries.length > 0 && (
+          <div className="space-y-4">
+            {entries.map((entry) => (
+              <SwipeableListItem
+                key={entry.id}
+                itemId={entry.id}
+                activeItemId={activeItemId}
+                onSwipeStart={openSwipe}
+                onSwipeEnd={closeSwipe}
+                actions={[
+                  {
+                    label: 'Delete',
+                    icon: Trash2,
+                    color: 'destructive',
+                    onAction: () => setDeleteEntry(entry),
+                  },
+                  {
+                    label: 'Rate',
+                    icon: Star,
+                    color: 'primary',
+                    onAction: () => {
+                      // TODO: Implement rating modal
+                      toast.info('Rating feature coming soon!');
+                    },
+                  },
+                ]}
+              >
+                <HistoryCard entry={entry} />
+              </SwipeableListItem>
+            ))}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4 pt-4">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="p-3 md:p-2 rounded-lg border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={deleteEntry !== null}
+          title="Delete History Entry"
+          description={`Are you sure you want to delete this meal from ${deleteEntry ? new Date(deleteEntry.date).toLocaleDateString() : ''}? This will remove all preparations and ratings for this entry. This action cannot be undone.`}
+          confirmText="Delete"
+          variant="destructive"
+          onConfirm={() => {
+            if (deleteEntry) {
+              deleteMutation.mutate(deleteEntry.id);
+            }
+          }}
+          onCancel={() => setDeleteEntry(null)}
+          loading={deleteMutation.isPending}
+        />
       </div>
     </PullToRefresh>
   );

@@ -9,9 +9,7 @@ export const TOUCH_TARGET_MIN = 44;
  * Detects if the current device is a mobile device with touch support
  */
 export function isMobileDevice(): boolean {
-  return (
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && 'ontouchstart' in window
-  );
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && 'ontouchstart' in window;
 }
 
 /**

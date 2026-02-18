@@ -32,18 +32,18 @@ Migrations run automatically on startup — no manual steps needed.
 
 ## Environment Variables
 
-| Variable              | Required | Default                  | Description                                    |
-| --------------------- | -------- | ------------------------ | ---------------------------------------------- |
-| `JWT_SECRET`          | **Yes**  | —                        | Secret for signing JWTs. Min 32 chars. Generate with `openssl rand -base64 32` |
-| `ADMIN_PASSWORD`      | **Yes**  | —                        | Password for the initial admin account         |
-| `ADMIN_USERNAME`      | No       | `admin`                  | Username for the initial admin account         |
-| `CORS_ORIGIN`         | No       | `http://localhost:3000`  | Allowed CORS origin. Set to your public URL in production |
-| `PORT`                | No       | `3000`                   | Port the API server listens on                 |
-| `HOST`                | No       | `0.0.0.0`                | Host the API server binds to                   |
-| `DATABASE_URL`        | No       | `file:/app/data/dinner.db` | SQLite database path                         |
-| `NODE_ENV`            | No       | `production`             | Set to `development` for debug logging         |
-| `JWT_ACCESS_EXPIRY`   | No       | `15m`                    | Access token lifetime                          |
-| `JWT_REFRESH_EXPIRY`  | No       | `7d`                     | Refresh token lifetime                         |
+| Variable             | Required | Default                    | Description                                                                    |
+| -------------------- | -------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `JWT_SECRET`         | **Yes**  | —                          | Secret for signing JWTs. Min 32 chars. Generate with `openssl rand -base64 32` |
+| `ADMIN_PASSWORD`     | **Yes**  | —                          | Password for the initial admin account                                         |
+| `ADMIN_USERNAME`     | No       | `admin`                    | Username for the initial admin account                                         |
+| `CORS_ORIGIN`        | No       | `http://localhost:3000`    | Allowed CORS origin. Set to your public URL in production                      |
+| `PORT`               | No       | `3000`                     | Port the API server listens on                                                 |
+| `HOST`               | No       | `0.0.0.0`                  | Host the API server binds to                                                   |
+| `DATABASE_URL`       | No       | `file:/app/data/dinner.db` | SQLite database path                                                           |
+| `NODE_ENV`           | No       | `production`               | Set to `development` for debug logging                                         |
+| `JWT_ACCESS_EXPIRY`  | No       | `15m`                      | Access token lifetime                                                          |
+| `JWT_REFRESH_EXPIRY` | No       | `7d`                       | Refresh token lifetime                                                         |
 
 ### Generating a JWT Secret
 

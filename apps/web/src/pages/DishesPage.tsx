@@ -48,11 +48,7 @@ export function DishesPage() {
   const dishes = useMemo(() => data?.dishes || [], [data?.dishes]);
 
   // Swipe actions state
-  const {
-    activeItemId,
-    openSwipe,
-    closeSwipe,
-  } = useSwipeActions();
+  const { activeItemId, openSwipe, closeSwipe } = useSwipeActions();
 
   // Archive/unarchive mutations for swipe actions
   const archiveMutation = useMutation({
@@ -157,173 +153,173 @@ export function DishesPage() {
           </button>
         </div>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search dishes..."
-          className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      {/* Filters row */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {/* Toggle archived */}
-        <div className="flex items-center gap-1 border rounded-md p-1">
-          <button
-            onClick={() => setShowArchived(false)}
-            className={cn(
-              'px-2 py-1 text-sm rounded',
-              !showArchived ? 'bg-secondary text-secondary-foreground' : 'hover:bg-muted'
-            )}
-          >
-            Active
-          </button>
-          <button
-            onClick={() => setShowArchived(true)}
-            className={cn(
-              'px-2 py-1 text-sm rounded',
-              showArchived ? 'bg-secondary text-secondary-foreground' : 'hover:bg-muted'
-            )}
-          >
-            Archived
-          </button>
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search dishes..."
+            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </div>
 
-        {/* Sort */}
-        <div className="flex items-center gap-1">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="name">Name</option>
-            <option value="rating">Rating</option>
-            <option value="recent">Recently Updated</option>
-            <option value="created">Recently Created</option>
-          </select>
-        </div>
+        {/* Filters row */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {/* Toggle archived */}
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <button
+              onClick={() => setShowArchived(false)}
+              className={cn(
+                'px-2 py-1 text-sm rounded',
+                !showArchived ? 'bg-secondary text-secondary-foreground' : 'hover:bg-muted'
+              )}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setShowArchived(true)}
+              className={cn(
+                'px-2 py-1 text-sm rounded',
+                showArchived ? 'bg-secondary text-secondary-foreground' : 'hover:bg-muted'
+              )}
+            >
+              Archived
+            </button>
+          </div>
 
-        {/* Tag filter */}
-        {allTags.length > 0 && (
+          {/* Sort */}
           <div className="flex items-center gap-1">
-            <Tag className="h-4 w-4 text-muted-foreground" />
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             <select
-              value={selectedTag || ''}
-              onChange={(e) => setSelectedTag(e.target.value || null)}
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="">All Tags</option>
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
+              <option value="name">Name</option>
+              <option value="rating">Rating</option>
+              <option value="recent">Recently Updated</option>
+              <option value="created">Recently Created</option>
             </select>
           </div>
+
+          {/* Tag filter */}
+          {allTags.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <select
+                value={selectedTag || ''}
+                onChange={(e) => setSelectedTag(e.target.value || null)}
+                className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All Tags</option>
+                {allTags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {isLoading ? (
+          <SkeletonList count={5} />
+        ) : isError ? (
+          <ErrorState
+            message="Failed to load dishes. Please try again."
+            error={error as Error}
+            onRetry={() => refetch()}
+          />
+        ) : dishes.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>{showArchived ? 'No archived dishes' : 'No dishes yet'}</p>
+            {!showArchived && (
+              <button
+                onClick={() => setIsCreating(true)}
+                className="mt-4 text-primary hover:underline"
+              >
+                Add your first dish
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Main dishes */}
+            {mainDishes.length > 0 && (
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground mb-2">
+                  Main Dishes ({mainDishes.length})
+                </h2>
+                <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
+                  {mainDishes.map((dish) => (
+                    <SwipeableListItem
+                      key={dish.id}
+                      itemId={dish.id}
+                      activeItemId={activeItemId}
+                      onSwipeStart={openSwipe}
+                      onSwipeEnd={closeSwipe}
+                      actions={[
+                        {
+                          label: dish.archived ? 'Restore' : 'Archive',
+                          icon: dish.archived ? ArchiveRestore : Archive,
+                          color: 'primary',
+                          onAction: () => {
+                            if (dish.archived) {
+                              unarchiveMutation.mutate(dish.id);
+                            } else {
+                              archiveMutation.mutate(dish.id);
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                    </SwipeableListItem>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Side dishes */}
+            {sideDishes.length > 0 && (
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground mb-2">
+                  Side Dishes ({sideDishes.length})
+                </h2>
+                <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
+                  {sideDishes.map((dish) => (
+                    <SwipeableListItem
+                      key={dish.id}
+                      itemId={dish.id}
+                      activeItemId={activeItemId}
+                      onSwipeStart={openSwipe}
+                      onSwipeEnd={closeSwipe}
+                      actions={[
+                        {
+                          label: dish.archived ? 'Restore' : 'Archive',
+                          icon: dish.archived ? ArchiveRestore : Archive,
+                          color: 'primary',
+                          onAction: () => {
+                            if (dish.archived) {
+                              unarchiveMutation.mutate(dish.id);
+                            } else {
+                              archiveMutation.mutate(dish.id);
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                    </SwipeableListItem>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
-      </div>
-
-      {isLoading ? (
-        <SkeletonList count={5} />
-      ) : isError ? (
-        <ErrorState
-          message="Failed to load dishes. Please try again."
-          error={error as Error}
-          onRetry={() => refetch()}
-        />
-      ) : dishes.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{showArchived ? 'No archived dishes' : 'No dishes yet'}</p>
-          {!showArchived && (
-            <button
-              onClick={() => setIsCreating(true)}
-              className="mt-4 text-primary hover:underline"
-            >
-              Add your first dish
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Main dishes */}
-          {mainDishes.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-2">
-                Main Dishes ({mainDishes.length})
-              </h2>
-              <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
-                {mainDishes.map((dish) => (
-                  <SwipeableListItem
-                    key={dish.id}
-                    itemId={dish.id}
-                    activeItemId={activeItemId}
-                    onSwipeStart={openSwipe}
-                    onSwipeEnd={closeSwipe}
-                    actions={[
-                      {
-                        label: dish.archived ? 'Restore' : 'Archive',
-                        icon: dish.archived ? ArchiveRestore : Archive,
-                        color: 'primary',
-                        onAction: () => {
-                          if (dish.archived) {
-                            unarchiveMutation.mutate(dish.id);
-                          } else {
-                            archiveMutation.mutate(dish.id);
-                          }
-                        },
-                      },
-                    ]}
-                  >
-                    <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
-                  </SwipeableListItem>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Side dishes */}
-          {sideDishes.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-2">
-                Side Dishes ({sideDishes.length})
-              </h2>
-              <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
-                {sideDishes.map((dish) => (
-                  <SwipeableListItem
-                    key={dish.id}
-                    itemId={dish.id}
-                    activeItemId={activeItemId}
-                    onSwipeStart={openSwipe}
-                    onSwipeEnd={closeSwipe}
-                    actions={[
-                      {
-                        label: dish.archived ? 'Restore' : 'Archive',
-                        icon: dish.archived ? ArchiveRestore : Archive,
-                        color: 'primary',
-                        onAction: () => {
-                          if (dish.archived) {
-                            unarchiveMutation.mutate(dish.id);
-                          } else {
-                            archiveMutation.mutate(dish.id);
-                          }
-                        },
-                      },
-                    ]}
-                  >
-                    <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
-                  </SwipeableListItem>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       </div>
     </PullToRefresh>
   );

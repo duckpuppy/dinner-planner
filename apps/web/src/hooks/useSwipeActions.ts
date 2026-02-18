@@ -11,10 +11,13 @@ export function useSwipeActions(options: UseSwipeActionsOptions = {}) {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
-  const openSwipe = useCallback((itemId: string) => {
-    setActiveItemId(itemId);
-    onSwipeStart?.();
-  }, [onSwipeStart]);
+  const openSwipe = useCallback(
+    (itemId: string) => {
+      setActiveItemId(itemId);
+      onSwipeStart?.();
+    },
+    [onSwipeStart]
+  );
 
   const closeSwipe = useCallback(() => {
     setActiveItemId(null);
@@ -22,13 +25,19 @@ export function useSwipeActions(options: UseSwipeActionsOptions = {}) {
     onSwipeEnd?.();
   }, [onSwipeEnd]);
 
-  const isActive = useCallback((itemId: string) => {
-    return activeItemId === itemId;
-  }, [activeItemId]);
+  const isActive = useCallback(
+    (itemId: string) => {
+      return activeItemId === itemId;
+    },
+    [activeItemId]
+  );
 
-  const shouldReveal = useCallback((offset: number) => {
-    return offset <= -threshold;
-  }, [threshold]);
+  const shouldReveal = useCallback(
+    (offset: number) => {
+      return offset <= -threshold;
+    },
+    [threshold]
+  );
 
   // Close swipe on outside click
   useEffect(() => {

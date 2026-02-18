@@ -13,7 +13,13 @@ vi.mock('@/utils/mobile', () => ({
 
 // Mock react-simple-pull-to-refresh
 vi.mock('react-simple-pull-to-refresh', () => ({
-  default: ({ children, onRefresh }: { children: React.ReactNode; onRefresh: () => Promise<void> }) => (
+  default: ({
+    children,
+    onRefresh,
+  }: {
+    children: React.ReactNode;
+    onRefresh: () => Promise<void>;
+  }) => (
     <div data-testid="pull-to-refresh-wrapper" data-on-refresh={onRefresh ? 'present' : 'missing'}>
       {children}
     </div>
@@ -176,9 +182,7 @@ describe('PullToRefresh', () => {
     });
 
     it('handles empty children', () => {
-      const { container } = render(
-        <PullToRefresh onRefresh={mockOnRefresh}>{null}</PullToRefresh>
-      );
+      const { container } = render(<PullToRefresh onRefresh={mockOnRefresh}>{null}</PullToRefresh>);
 
       expect(container).toBeInTheDocument();
     });
@@ -199,7 +203,7 @@ describe('PullToRefresh', () => {
 
     it('accepts async onRefresh function', () => {
       const asyncRefresh = vi.fn(async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
       render(

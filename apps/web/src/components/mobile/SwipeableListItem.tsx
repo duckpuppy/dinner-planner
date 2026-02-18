@@ -87,7 +87,7 @@ export function SwipeableListItem({
     hasTriggeredHaptic.current = false;
   };
 
-  const wrappedActions = actions.map(action => ({
+  const wrappedActions = actions.map((action) => ({
     ...action,
     onAction: () => handleActionClick(action),
   }));
@@ -97,11 +97,7 @@ export function SwipeableListItem({
   }
 
   return (
-    <div
-      data-swipeable-item
-      className="relative overflow-hidden"
-      style={{ touchAction: 'pan-y' }}
-    >
+    <div data-swipeable-item className="relative overflow-hidden" style={{ touchAction: 'pan-y' }}>
       <div
         {...handlers}
         className="relative transition-transform duration-200"

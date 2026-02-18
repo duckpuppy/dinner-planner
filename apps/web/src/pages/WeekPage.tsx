@@ -54,11 +54,7 @@ export function WeekPage() {
     queryFn: () => menus.getWeek(dateStr),
   });
 
-  const {
-    activeItemId,
-    openSwipe,
-    closeSwipe,
-  } = useSwipeActions();
+  const { activeItemId, openSwipe, closeSwipe } = useSwipeActions();
 
   const goToPrevWeek = () => setWeekOffset((o) => o - 1);
   const goToNextWeek = () => setWeekOffset((o) => o + 1);
@@ -79,49 +75,52 @@ export function WeekPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToPrevWeek}
-            className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
-            aria-label="Previous week"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button onClick={goToToday} className="px-3 py-2 text-sm hover:bg-muted rounded-md touch-manipulation">
-            Today
-          </button>
-          <button
-            onClick={goToNextWeek}
-            className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
-            aria-label="Next week"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPrevWeek}
+              className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={goToToday}
+              className="px-3 py-2 text-sm hover:bg-muted rounded-md touch-manipulation"
+            >
+              Today
+            </button>
+            <button
+              onClick={goToNextWeek}
+              className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
+              aria-label="Next week"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Week grid */}
-      {isLoading ? (
-        <SkeletonList count={7} />
-      ) : isError ? (
-        <ErrorState
-          message="Failed to load week menu. Please try again."
-          error={error as Error}
-          onRetry={() => refetch()}
-        />
-      ) : (
-        <div className="space-y-2">
-          {data?.menu.entries.map((entry) => (
-            <DayCard
-              key={entry.id}
-              entry={entry}
-              activeItemId={activeItemId}
-              onSwipeStart={openSwipe}
-              onSwipeEnd={closeSwipe}
-            />
-          ))}
-        </div>
-      )}
+        {/* Week grid */}
+        {isLoading ? (
+          <SkeletonList count={7} />
+        ) : isError ? (
+          <ErrorState
+            message="Failed to load week menu. Please try again."
+            error={error as Error}
+            onRetry={() => refetch()}
+          />
+        ) : (
+          <div className="space-y-2">
+            {data?.menu.entries.map((entry) => (
+              <DayCard
+                key={entry.id}
+                entry={entry}
+                activeItemId={activeItemId}
+                onSwipeStart={openSwipe}
+                onSwipeEnd={closeSwipe}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </PullToRefresh>
   );
@@ -188,49 +187,51 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
           entry.completed && 'bg-muted/50'
         )}
       >
-      {/* Date */}
-      <div className="w-16 text-center flex-shrink-0">
-        <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
-        <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>{date.getDate()}</div>
-      </div>
+        {/* Date */}
+        <div className="w-16 text-center flex-shrink-0">
+          <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
+          <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>
+            {date.getDate()}
+          </div>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        {entry.type === 'assembled' && entry.mainDish ? (
-          <>
-            <div className="font-medium truncate">{entry.mainDish.name}</div>
-            {entry.sideDishes.length > 0 && (
-              <div className="text-sm text-muted-foreground truncate">
-                with {entry.sideDishes.map((d) => d.name).join(', ')}
-              </div>
-            )}
-          </>
-        ) : entry.type === 'assembled' ? (
-          <div className="text-muted-foreground">No dish selected</div>
-        ) : entry.type === 'fend_for_self' ? (
-          <div className="text-muted-foreground">Fend for Yourself</div>
-        ) : entry.type === 'dining_out' ? (
-          <div className="text-muted-foreground">{entry.customText || 'Dining Out'}</div>
-        ) : (
-          <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
-        )}
-      </div>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {entry.type === 'assembled' && entry.mainDish ? (
+            <>
+              <div className="font-medium truncate">{entry.mainDish.name}</div>
+              {entry.sideDishes.length > 0 && (
+                <div className="text-sm text-muted-foreground truncate">
+                  with {entry.sideDishes.map((d) => d.name).join(', ')}
+                </div>
+              )}
+            </>
+          ) : entry.type === 'assembled' ? (
+            <div className="text-muted-foreground">No dish selected</div>
+          ) : entry.type === 'fend_for_self' ? (
+            <div className="text-muted-foreground">Fend for Yourself</div>
+          ) : entry.type === 'dining_out' ? (
+            <div className="text-muted-foreground">{entry.customText || 'Dining Out'}</div>
+          ) : (
+            <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
+          )}
+        </div>
 
-      {/* Status & Actions */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {entry.completed && (
-          <span className="text-green-600 dark:text-green-400">
-            <Check className="h-5 w-5" />
-          </span>
-        )}
-        <button
-          onClick={() => setIsEditing(true)}
-          className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
-          aria-label="Edit"
-        >
-          <Edit2 className="h-4 w-4" />
-        </button>
-      </div>
+        {/* Status & Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {entry.completed && (
+            <span className="text-green-600 dark:text-green-400">
+              <Check className="h-5 w-5" />
+            </span>
+          )}
+          <button
+            onClick={() => setIsEditing(true)}
+            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
+            aria-label="Edit"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </SwipeableListItem>
   );

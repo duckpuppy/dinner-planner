@@ -42,12 +42,7 @@ export function useHaptic(): { haptic: HapticFeedback } {
   };
 
   const haptic: HapticFeedback = {
-    tap: () =>
-      throttle(
-        lastTapTime,
-        () => Haptics.impact({ style: ImpactStyle.Light }),
-        10
-      ),
+    tap: () => throttle(lastTapTime, () => Haptics.impact({ style: ImpactStyle.Light }), 10),
 
     success: () =>
       throttle(
@@ -57,11 +52,7 @@ export function useHaptic(): { haptic: HapticFeedback } {
       ),
 
     error: () =>
-      throttle(
-        lastErrorTime,
-        () => Haptics.notification({ type: NotificationType.Error }),
-        50
-      ),
+      throttle(lastErrorTime, () => Haptics.notification({ type: NotificationType.Error }), 50),
   };
 
   return { haptic };
