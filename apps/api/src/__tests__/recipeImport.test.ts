@@ -138,9 +138,7 @@ describe('parseInstructions', () => {
     const section = [
       {
         '@type': 'HowToSection',
-        itemListElement: [
-          { '@type': 'HowToStep', text: 'Nested step.' },
-        ],
+        itemListElement: [{ '@type': 'HowToStep', text: 'Nested step.' }],
       },
     ];
     expect(parseInstructions(section)).toBe('Nested step.');
@@ -241,10 +239,13 @@ describe('importRecipeFromUrl', () => {
   });
 
   it('throws when page has no recipe', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => '<html><body>No recipe</body></html>',
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => '<html><body>No recipe</body></html>',
+      })
+    );
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
       'No recipe data found'
     );
@@ -252,10 +253,13 @@ describe('importRecipeFromUrl', () => {
 
   it('returns parsed recipe on success', async () => {
     const html = makeHtml(BASE_RECIPE);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => html,
+      })
+    );
     const result = await importRecipeFromUrl('https://example.com/recipe');
     expect(result.name).toBe('Spaghetti Bolognese');
   });

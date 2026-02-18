@@ -1,5 +1,10 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createDishSchema, updateDishSchema, dishQuerySchema, importRecipeUrlSchema } from '@dinner-planner/shared';
+import {
+  createDishSchema,
+  updateDishSchema,
+  dishQuerySchema,
+  importRecipeUrlSchema,
+} from '@dinner-planner/shared';
 import * as dishesService from '../services/dishes.js';
 import { importRecipeFromUrl } from '../services/recipeImport.js';
 

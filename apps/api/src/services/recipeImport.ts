@@ -82,9 +82,7 @@ export function findRecipeInJsonLd(data: unknown): Record<string, unknown> | nul
 
   // Direct {"@type": "Recipe"} or {"@type": ["Recipe", ...]}
   const type = obj['@type'];
-  const isRecipe =
-    type === 'Recipe' ||
-    (Array.isArray(type) && type.includes('Recipe'));
+  const isRecipe = type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'));
   if (isRecipe) return obj;
 
   // {"@graph": [...]} wrapper
@@ -170,7 +168,9 @@ export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> 
   const html = await res.text();
   const recipe = parseSchemaOrgRecipe(html, url);
   if (!recipe) {
-    throw new Error('No recipe data found on this page. The site may not support structured recipe data.');
+    throw new Error(
+      'No recipe data found on this page. The site may not support structured recipe data.'
+    );
   }
   return recipe;
 }
