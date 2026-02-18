@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { updateDinnerEntrySchema, createPreparationSchema } from '@dinner-planner/shared';
 import * as menusService from '../services/menus.js';
+import * as groceriesService from '../services/groceries.js';
 import { z } from 'zod';
 
 const dateParamSchema = z.object({
@@ -31,6 +32,28 @@ export async function menusRoutes(fastify: FastifyInstance) {
 
       const menu = await menusService.getOrCreateWeekMenu(parseResult.data.date);
       return reply.send({ menu });
+    }
+  );
+
+  /**
+   * GET /api/menus/week/:date/groceries
+   * Get aggregated grocery list for the week containing the given date
+   */
+  fastify.get(
+    '/api/menus/week/:date/groceries',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parseResult = dateParamSchema.safeParse(request.params);
+
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Invalid date format',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const result = await groceriesService.getWeekGroceries(parseResult.data.date);
+      return reply.send(result);
     }
   );
 

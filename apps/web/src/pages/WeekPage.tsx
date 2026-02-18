@@ -6,8 +6,9 @@ import {
   type UpdateEntryData,
   type SuggestedDish,
 } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Check, X, Edit2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Edit2, Sparkles, ShoppingCart } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
@@ -46,6 +47,7 @@ function formatMonthYear(date: Date): string {
 
 export function WeekPage() {
   const [weekOffset, setWeekOffset] = useState(0);
+  const navigate = useNavigate();
 
   const currentWeekStart = useMemo(() => {
     const today = new Date();
@@ -83,6 +85,14 @@ export function WeekPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/grocery')}
+              className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
+              aria-label="Grocery list"
+              title="Grocery list"
+            >
+              <ShoppingCart className="h-5 w-5" />
+            </button>
             <button
               onClick={goToPrevWeek}
               className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
