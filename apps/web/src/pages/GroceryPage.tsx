@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { ShoppingCart, Check, Copy, Trash2, ChefHat } from 'lucide-react';
 import { menus, type GroceryItem } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
@@ -22,11 +23,12 @@ function buildPlainText(items: GroceryItem[]): string {
 }
 
 export function GroceryPage() {
-  const today = getTodayDateStr();
+  const [searchParams] = useSearchParams();
+  const requestedDate = searchParams.get('date') ?? getTodayDateStr();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['groceries', today],
-    queryFn: () => menus.getGroceries(today),
+    queryKey: ['groceries', requestedDate],
+    queryFn: () => menus.getGroceries(requestedDate),
   });
 
   const weekStartDate = data?.weekStartDate ?? '';

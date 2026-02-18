@@ -73,4 +73,20 @@ describe('useGroceryChecklist', () => {
     const { result } = renderHook(() => useGroceryChecklist(weekDate));
     expect(result.current.checked.size).toBe(0);
   });
+
+  it('does not save to localStorage when weekStartDate is empty', () => {
+    const { result } = renderHook(() => useGroceryChecklist(''));
+    act(() => result.current.toggle('flour::g'));
+    expect(localStorage.getItem('grocery-checked-')).toBeNull();
+  });
+
+  it('reloads state when weekStartDate resolves from empty', () => {
+    localStorage.setItem(storageKey, JSON.stringify(['flour::g']));
+    let date = '';
+    const { result, rerender } = renderHook(() => useGroceryChecklist(date));
+    expect(result.current.checked.size).toBe(0);
+    date = weekDate;
+    rerender();
+    expect(result.current.checked.has('flour::g')).toBe(true);
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const STORAGE_PREFIX = 'grocery-checked-';
 
@@ -35,7 +35,16 @@ export interface GroceryChecklist {
 }
 
 export function useGroceryChecklist(weekStartDate: string): GroceryChecklist {
-  const [checked, setChecked] = useState<Set<string>>(() => loadChecked(weekStartDate));
+  const [checked, setChecked] = useState<Set<string>>(() =>
+    weekStartDate ? loadChecked(weekStartDate) : new Set()
+  );
+
+  // Reload state when weekStartDate resolves (e.g., after API response)
+  useEffect(() => {
+    if (weekStartDate) {
+      setChecked(loadChecked(weekStartDate));
+    }
+  }, [weekStartDate]);
 
   const toggle = useCallback(
     (key: string) => {
@@ -46,7 +55,7 @@ export function useGroceryChecklist(weekStartDate: string): GroceryChecklist {
         } else {
           next.add(key);
         }
-        saveChecked(weekStartDate, next);
+        if (weekStartDate) saveChecked(weekStartDate, next);
         return next;
       });
     },
@@ -55,7 +64,7 @@ export function useGroceryChecklist(weekStartDate: string): GroceryChecklist {
 
   const clearAll = useCallback(() => {
     const empty = new Set<string>();
-    saveChecked(weekStartDate, empty);
+    if (weekStartDate) saveChecked(weekStartDate, empty);
     setChecked(empty);
   }, [weekStartDate]);
 

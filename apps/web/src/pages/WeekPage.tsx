@@ -86,7 +86,7 @@ export function WeekPage() {
           <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/grocery')}
+              onClick={() => navigate(`/grocery?date=${dateStr}`)}
               className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
               aria-label="Grocery list"
               title="Grocery list"
