@@ -717,7 +717,29 @@ export function DishForm({ dish, onClose }: DishFormProps) {
       notes: i.notes ?? '',
     })) ?? []
   );
-  const [tagsText, setTagsText] = useState(dish?.tags.join(', ') || '');
+  const [tags, setTags] = useState<string[]>(dish?.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
+
+  function addTag(value: string) {
+    const tag = value.trim().toLowerCase();
+    if (tag && !tags.includes(tag)) {
+      setTags((prev) => [...prev, tag]);
+    }
+    setTagInput('');
+  }
+
+  function removeTag(tag: string) {
+    setTags((prev) => prev.filter((t) => t !== tag));
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+      setTags((prev) => prev.slice(0, -1));
+    }
+  }
 
   function addIngredientRow() {
     setIngredientRows((prev) => [...prev, { quantity: '', unit: '', name: '', notes: '' }]);
@@ -782,12 +804,6 @@ export function DishForm({ dish, onClose }: DishFormProps) {
         name: row.name.trim(),
         notes: row.notes.trim() || null,
       }));
-
-    // Parse tags
-    const tags = tagsText
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
 
     const data: CreateDishData = {
       name,
@@ -1044,13 +1060,41 @@ export function DishForm({ dish, onClose }: DishFormProps) {
         {/* Tags */}
         <div>
           <label className="block text-sm font-medium mb-1">Tags</label>
-          <input
-            type="text"
-            value={tagsText}
-            onChange={(e) => setTagsText(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md bg-background"
-            placeholder="comma, separated, tags"
-          />
+          <div
+            className="flex flex-wrap gap-1.5 px-2 py-2 border rounded-md bg-background min-h-[42px] cursor-text"
+            onClick={() => document.getElementById('tag-input')?.focus()}
+          >
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="hover:text-destructive"
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            <input
+              id="tag-input"
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              onBlur={() => addTag(tagInput)}
+              className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+              placeholder={tags.length === 0 ? 'Type a tag and press Enter' : ''}
+              aria-label="Add tag"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Press Enter or comma to add · Backspace to remove last
+          </p>
         </div>
 
         {/* Actions */}

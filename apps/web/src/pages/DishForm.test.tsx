@@ -151,6 +151,7 @@ describe('DishForm - ingredient editor', () => {
             { quantity: 2, unit: 'cups', name: 'flour', notes: null },
             { quantity: null, unit: null, name: 'salt', notes: 'to taste' },
           ],
+          tags: ['italian'],
         })
       );
     });
@@ -178,6 +179,96 @@ describe('DishForm - ingredient editor', () => {
           ingredients: [{ quantity: null, unit: null, name: 'garlic', notes: null }],
         })
       );
+    });
+  });
+});
+
+describe('DishForm - tag chip editor', () => {
+  it('renders existing tags as chips', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.getByText('italian')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Remove tag italian' })).toBeDefined();
+  });
+
+  it('starts with no chips for a new dish', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.queryByRole('button', { name: /remove tag/i })).toBeNull();
+  });
+
+  it('adds a tag on Enter key', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.change(tagInput, { target: { value: 'vegan' } });
+    fireEvent.keyDown(tagInput, { key: 'Enter' });
+
+    expect(screen.getByText('vegan')).toBeDefined();
+    expect((tagInput as HTMLInputElement).value).toBe('');
+  });
+
+  it('adds a tag on comma key', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.change(tagInput, { target: { value: 'quick' } });
+    fireEvent.keyDown(tagInput, { key: ',' });
+
+    expect(screen.getByText('quick')).toBeDefined();
+  });
+
+  it('removes a tag when its X button is clicked', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag italian' }));
+
+    expect(screen.queryByText('italian')).toBeNull();
+  });
+
+  it('removes last tag on Backspace when input is empty', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.keyDown(tagInput, { key: 'Backspace' });
+
+    expect(screen.queryByText('italian')).toBeNull();
+  });
+
+  it('does not add duplicate tags', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.change(tagInput, { target: { value: 'italian' } });
+    fireEvent.keyDown(tagInput, { key: 'Enter' });
+
+    // Should still only have one "italian" chip
+    expect(screen.getAllByText('italian')).toHaveLength(1);
+  });
+
+  it('normalizes tags to lowercase', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.change(tagInput, { target: { value: 'Italian' } });
+    fireEvent.keyDown(tagInput, { key: 'Enter' });
+
+    expect(screen.getByText('italian')).toBeDefined();
+    expect(screen.queryByText('Italian')).toBeNull();
+  });
+
+  it('submits tags array on save', async () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    const tagInput = screen.getByLabelText('Add tag');
+    fireEvent.change(tagInput, { target: { value: 'pasta' } });
+    fireEvent.keyDown(tagInput, { key: 'Enter' });
+
+    fireEvent.change(screen.getByPlaceholderText('Dish name'), { target: { value: 'Test Dish' } });
+    fireEvent.submit(screen.getByRole('button', { name: /create dish/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(dishesApi.create).toHaveBeenCalledWith(expect.objectContaining({ tags: ['pasta'] }));
     });
   });
 });
