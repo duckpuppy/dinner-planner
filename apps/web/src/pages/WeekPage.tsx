@@ -218,7 +218,9 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
           ) : entry.type === 'fend_for_self' ? (
             <div className="text-muted-foreground">Fend for Yourself</div>
           ) : entry.type === 'dining_out' ? (
-            <div className="text-muted-foreground">{entry.customText || 'Dining Out'}</div>
+            <div className="text-muted-foreground">
+              {entry.customText ? `Dining Out: ${entry.customText}` : 'Dining Out'}
+            </div>
           ) : (
             <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
           )}

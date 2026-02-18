@@ -165,7 +165,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
 
         {entry.type === 'dining_out' && (
           <p className="text-lg text-muted-foreground">
-            {entry.customText || 'Eating out tonight!'}
+            {entry.customText ? `Dining Out: ${entry.customText}` : 'Dining Out'}
           </p>
         )}
 
