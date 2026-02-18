@@ -336,22 +336,74 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
-## Milestone 8: Additional Enhancements (Future)
+## Milestone 8: Recipe Import from URL
 
-**Goal:** Nice-to-have features for later consideration.
+**Goal:** Allow users to import recipes directly from URLs by extracting schema.org Recipe structured data.
 
-### Possible Features
+### Features
 
-- [ ] Photo uploads for preparations
+#### Recipe URL Import
+
+- [ ] POST `/api/dishes/import-url` — fetch URL, parse JSON-LD `schema.org/Recipe`, return preview
+- [ ] Handle errors: non-recipe pages, network failures, missing fields
+- [ ] "Import from URL" button in DishesPage
+- [ ] URL input → loading → editable preview → save to DishForm
+- [ ] Unit tests for parser (valid, invalid, network error cases)
+
+---
+
+## Milestone 9: Planning Enhancements
+
+**Goal:** Recurring meal patterns and dining out restaurant tracking.
+
+### Features
+
+#### Recurring Meal Patterns
+
+- [ ] DB: `recurring_patterns` table (day_of_week, type, dish, label)
+- [ ] CRUD API for patterns
+- [ ] POST `/api/menus/week/:date/apply-patterns` — apply patterns to empty week entries
+- [ ] UI: manage patterns (create/edit/delete by day)
+- [ ] WeekPage: "Apply patterns" button
+
+#### Dining Out Restaurant Tracking
+
+- [ ] DB: add `restaurant_name` and `restaurant_notes` to `dinner_entries`
+- [ ] Update API schema + service
+- [ ] UI: restaurant name/notes inputs when type is `dining_out`
+- [ ] Display restaurant name in day card and today view
+
+---
+
+## Milestone 10: Visual & Scaling Enhancements
+
+**Goal:** Photo uploads for preparations and client-side portion scaling.
+
+### Features
+
+#### Photo Uploads
+
+- [ ] File storage in `apps/api/data/uploads/`, served at `/uploads/`
+- [ ] `photos` table linked to preparations
+- [ ] Upload/delete API endpoints (`@fastify/multipart`)
+- [ ] Photo grid in preparation detail (HistoryPage)
+- [ ] Show photos in TodayPage preparation card
+
+#### Portion Scaling
+
+- [ ] Servings scaler input in dish detail view
+- [ ] Client-side quantity recalculation proportional to default servings
+- [ ] Graceful handling of null quantities
+
+---
+
+## Future Enhancements (Unscheduled)
+
 - [ ] Multiple preparers per meal
-- [ ] Recurring meal patterns ("Taco Tuesday")
 - [ ] Notifications/reminders
 - [ ] Dietary restriction filtering
-- [ ] Portion scaling
 - [ ] Video caching from social media
-- [ ] Import recipes from URL
 - [ ] Multiple meals per day
-- [ ] Dining out restaurant tracking
 - [ ] Data export/import
 
 ---
