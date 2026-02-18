@@ -48,3 +48,10 @@ vite.config.js
 
 # TypeScript
 *.tsbuildinfo
+
+# Android (Capacitor) - commit project files, ignore build outputs
+apps/web/android/app/build/
+apps/web/android/.gradle/
+apps/web/android/local.properties
+apps/web/android/app/release/
+# Keep: android/ project files, gradlew, gradle wrapper

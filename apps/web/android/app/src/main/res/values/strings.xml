@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dinner Planner</string>
+    <string name="title_activity_main">Dinner Planner</string>
+    <string name="package_name">com.duckpuppy.dinnerplanner</string>
+    <string name="custom_url_scheme">com.duckpuppy.dinnerplanner</string>
+</resources>
