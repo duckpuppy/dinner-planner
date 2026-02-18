@@ -158,11 +158,14 @@ docker run -d \
 
 ## Documentation
 
-See the `specs/` directory for detailed documentation:
+- [Deployment Guide](docs/deployment.md) - Docker setup, env vars, backup/restore, production checklist
+- [API Reference](docs/api.md) - Endpoint summary and auth flow (interactive Swagger UI at `/docs` in dev)
+
+See the `specs/` directory for detailed project specs:
 
 - [Requirements](specs/requirements.md) - Features, user stories, data model
 - [Architecture](specs/architecture.md) - Technical stack, deployment
-- [API Specification](specs/api.md) - REST API endpoints
+- [API Specification](specs/api.md) - Full REST API schema reference
 - [UI Flows](specs/ui-flows.md) - Wireframes and navigation
 - [Milestones](specs/milestones.md) - Development roadmap
 

@@ -3,6 +3,8 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import fastifyStatic from '@fastify/static';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from './config.js';
@@ -29,6 +31,33 @@ const fastify = Fastify({
         : undefined,
   },
 });
+
+// Register Swagger docs (development only)
+if (config.NODE_ENV !== 'production') {
+  await fastify.register(swagger, {
+    openapi: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Dinner Planner API',
+        description: 'REST API for the Dinner Planner application',
+        version: '1.0.0',
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+    },
+  });
+  await fastify.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: { docExpansion: 'list' },
+  });
+}
 
 // Register plugins
 await fastify.register(cors, {
