@@ -26,6 +26,7 @@
     "@fastify/swagger-ui": "^5.2.5",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.6.0",
+    "cheerio": "^1.2.0",
     "dotenv": "^17.2.4",
     "drizzle-orm": "^0.38.2",
     "fastify": "^5.1.0",
