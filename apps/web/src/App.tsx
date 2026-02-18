@@ -13,6 +13,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { GroceryPage } from './pages/GroceryPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/today" element={<TodayPage />} />
             <Route path="/week" element={<WeekPage />} />
             <Route path="/dishes" element={<DishesPage />} />
+            <Route path="/grocery" element={<GroceryPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route

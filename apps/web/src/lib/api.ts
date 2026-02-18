@@ -197,6 +197,9 @@ export const dishes = {
 export const menus = {
   getWeek: (date: string) => request<{ menu: WeeklyMenu }>(`/menus/week/${date}`),
 
+  getGroceries: (date: string) =>
+    request<{ groceries: GroceryItem[]; weekStartDate: string }>(`/menus/week/${date}/groceries`),
+
   getToday: () => request<{ entry: DinnerEntry }>('/menus/today'),
 
   updateEntry: (id: string, data: UpdateEntryData) =>
@@ -446,6 +449,14 @@ export interface AppSettings {
   recencyWindowDays: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface GroceryItem {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  dishes: string[];
+  notes: string[];
 }
 
 export interface SuggestedDish {

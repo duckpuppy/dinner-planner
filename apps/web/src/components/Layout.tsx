@@ -1,5 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Calendar, ChefHat, Clock, Home, User, Users, Settings, LogOut } from 'lucide-react';
+import {
+  Calendar,
+  ChefHat,
+  Clock,
+  Home,
+  User,
+  Users,
+  Settings,
+  LogOut,
+  ShoppingCart,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 
@@ -7,6 +17,7 @@ const navItems = [
   { to: '/today', icon: Home, label: 'Today' },
   { to: '/week', icon: Calendar, label: 'Week' },
   { to: '/dishes', icon: ChefHat, label: 'Dishes' },
+  { to: '/grocery', icon: ShoppingCart, label: 'Grocery' },
   { to: '/history', icon: Clock, label: 'History' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];

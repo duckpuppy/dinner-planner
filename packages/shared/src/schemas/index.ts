@@ -134,6 +134,19 @@ export const dateRangeSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
 });
 
+export const groceryItemSchema = z.object({
+  name: z.string(),
+  quantity: z.number().nullable(),
+  unit: z.string().nullable(),
+  dishes: z.array(z.string()),
+  notes: z.array(z.string()),
+});
+
+export const groceriesResponseSchema = z.object({
+  groceries: z.array(groceryItemSchema),
+  weekStartDate: z.string(),
+});
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -155,3 +168,5 @@ export type DateRangeInput = z.infer<typeof dateRangeSchema>;
 export type SuggestionsQueryInput = z.infer<typeof suggestionsQuerySchema>;
 export type SuggestedDish = z.infer<typeof suggestedDishSchema>;
 export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
+export type GroceryItem = z.infer<typeof groceryItemSchema>;
+export type GroceriesResponse = z.infer<typeof groceriesResponseSchema>;
