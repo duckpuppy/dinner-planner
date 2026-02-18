@@ -7,6 +7,7 @@ import {
   findRecipeInJsonLd,
   parseSchemaOrgRecipe,
   importRecipeFromUrl,
+  validateRecipeUrl,
 } from '../services/recipeImport.js';
 
 // Helper: wrap a recipe object in a minimal HTML page with JSON-LD
@@ -226,16 +227,82 @@ describe('parseSchemaOrgRecipe', () => {
 });
 
 // ------------------------------------------------------------------
+// validateRecipeUrl
+// ------------------------------------------------------------------
+describe('validateRecipeUrl', () => {
+  it('accepts a valid https URL', () => {
+    expect(() => validateRecipeUrl('https://www.allrecipes.com/recipe/123')).not.toThrow();
+  });
+
+  it('accepts a valid http URL', () => {
+    expect(() => validateRecipeUrl('http://example.com/recipe')).not.toThrow();
+  });
+
+  it('rejects non-http schemes', () => {
+    expect(() => validateRecipeUrl('file:///etc/passwd')).toThrow();
+    expect(() => validateRecipeUrl('ftp://example.com')).toThrow();
+  });
+
+  it('rejects localhost', () => {
+    expect(() => validateRecipeUrl('http://localhost/recipe')).toThrow();
+  });
+
+  it('rejects 127.0.0.1', () => {
+    expect(() => validateRecipeUrl('http://127.0.0.1/recipe')).toThrow();
+  });
+
+  it('rejects private IP ranges', () => {
+    expect(() => validateRecipeUrl('http://192.168.1.1/recipe')).toThrow();
+    expect(() => validateRecipeUrl('http://10.0.0.1/recipe')).toThrow();
+    expect(() => validateRecipeUrl('http://172.16.0.1/recipe')).toThrow();
+  });
+
+  it('rejects link-local addresses', () => {
+    expect(() => validateRecipeUrl('http://169.254.169.254/latest/meta-data')).toThrow();
+  });
+
+  it('rejects invalid URL', () => {
+    expect(() => validateRecipeUrl('not-a-url')).toThrow();
+  });
+});
+
+// ------------------------------------------------------------------
 // importRecipeFromUrl (mocked fetch)
 // ------------------------------------------------------------------
+
+const HTML_HEADERS = new Headers({ 'content-type': 'text/html; charset=utf-8' });
+
 describe('importRecipeFromUrl', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
   });
 
+  it('throws on SSRF attempt (private IP)', async () => {
+    await expect(importRecipeFromUrl('http://192.168.1.1/recipe')).rejects.toThrow(
+      'private or internal'
+    );
+  });
+
   it('throws on HTTP error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, headers: HTML_HEADERS })
+    );
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow('HTTP 404');
+  });
+
+  it('throws for non-HTML content type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => '{}',
+      })
+    );
+    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
+      'does not point to an HTML page'
+    );
   });
 
   it('throws when page has no recipe', async () => {
@@ -243,6 +310,7 @@ describe('importRecipeFromUrl', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
+        headers: HTML_HEADERS,
         text: async () => '<html><body>No recipe</body></html>',
       })
     );
@@ -257,6 +325,7 @@ describe('importRecipeFromUrl', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
+        headers: HTML_HEADERS,
         text: async () => html,
       })
     );

@@ -1,6 +1,46 @@
 import * as cheerio from 'cheerio';
 import type { ImportedRecipe } from '@dinner-planner/shared';
 
+// SSRF protection: block private/loopback/link-local IP ranges and non-http(s) schemes
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^::1$/,
+  /^fc00:/i,
+  /^fe80:/i,
+  /^0\.0\.0\.0$/,
+];
+
+export function validateRecipeUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('Invalid URL');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Only http and https URLs are supported');
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || PRIVATE_IP_PATTERNS.some((p) => p.test(host))) {
+    throw new Error('Requests to private or internal addresses are not allowed');
+  }
+}
+
+// Validate a URL string — returns url if valid, null otherwise
+function validateUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 // Parse ISO 8601 duration like PT15M, PT1H30M → total minutes or null
 export function parseDuration(iso: unknown): number | null {
   if (typeof iso !== 'string') return null;
@@ -118,15 +158,18 @@ export function parseSchemaOrgRecipe(html: string, sourceUrl: string): ImportedR
 
       return {
         name,
-        description: typeof recipe['description'] === 'string' ? recipe['description'].trim() : '',
+        description:
+          typeof recipe['description'] === 'string'
+            ? recipe['description'].trim().slice(0, 2000)
+            : '',
         type: 'main',
         ingredients: rawIngredients.map((s) => ({
           quantity: null,
           unit: null,
-          name: s as string,
+          name: (s as string).slice(0, 200),
           notes: null,
         })),
-        instructions: parseInstructions(recipe['recipeInstructions']),
+        instructions: parseInstructions(recipe['recipeInstructions']).slice(0, 10000),
         prepTime: parseDuration(recipe['prepTime']),
         cookTime: parseDuration(recipe['cookTime']),
         servings: parseServings(recipe['recipeYield']),
@@ -146,26 +189,46 @@ function extractVideoUrl(recipe: Record<string, unknown>): string | null {
   if (!video || typeof video !== 'object') return null;
   const v = video as Record<string, unknown>;
   const url = v['contentUrl'] ?? v['embedUrl'];
-  return typeof url === 'string' ? url : null;
+  return typeof url === 'string' ? validateUrl(url) : null;
 }
+
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // Fetch URL, extract recipe, throw if not found
 export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> {
+  validateRecipeUrl(url);
+
   let res: Response;
   try {
     res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DinnerPlanner/1.0)' },
       signal: AbortSignal.timeout(10_000),
     });
-  } catch (err) {
-    throw new Error(`Failed to fetch URL: ${err instanceof Error ? err.message : String(err)}`);
+  } catch {
+    throw new Error('Failed to fetch recipe URL');
   }
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} fetching recipe URL`);
   }
 
+  // Check Content-Type — only parse HTML responses
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!/^text\/html\b/i.test(contentType) && !/^application\/xhtml\+xml\b/i.test(contentType)) {
+    throw new Error('URL does not point to an HTML page');
+  }
+
+  // Guard against excessively large responses
+  const contentLength = res.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
+    throw new Error('Response too large to process');
+  }
+
   const html = await res.text();
+  if (html.length > MAX_RESPONSE_BYTES) {
+    throw new Error('Response too large to process');
+  }
+
   const recipe = parseSchemaOrgRecipe(html, url);
   if (!recipe) {
     throw new Error(
