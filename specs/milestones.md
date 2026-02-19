@@ -397,6 +397,101 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
+## Milestone 11: Test Coverage
+
+**Goal:** Achieve meaningful automated test coverage across API services and frontend components, especially for features added in M8–M10 that shipped without tests.
+
+### Features
+
+#### API Service Tests
+
+- [ ] `recipeImport.ts` — unit tests for `parseSchemaOrgRecipe` (valid JSON-LD, `@graph` wrapper, `HowToStep` instructions, duration parsing, servings parsing, keywords, missing/invalid cases)
+- [ ] `patterns.ts` — unit tests for `applyPatternsToWeek` (no patterns, untouched entries, touched entries skipped, dining_out mapping, deterministic selection)
+- [ ] `dishes.ts` — unit tests for `getDishes` filters (archived, search, tag), `deleteDish` cascade
+- [ ] `menus.ts` — unit tests for `getOrCreateWeekMenu`, `updateDinnerEntry` field validation
+
+#### API Integration Tests
+
+- [ ] Auth flow: login, refresh, logout
+- [ ] Patterns CRUD: create, read, update, delete; apply-patterns endpoint
+- [ ] Recipe import: successful parse, non-recipe URL 422, network error 422
+- [ ] Dishes: archived filter, hard delete cascade
+
+#### Frontend Component Tests
+
+- [ ] `PatternsPage` — renders patterns grouped by day, create/edit/delete flow
+- [ ] `WeekPage` — dining-out restaurant name/notes inputs, apply-patterns button
+- [ ] `RecipeImportModal` — URL input, loading state, success/error handling
+- [ ] `DishForm` — prefill from import, ingredient CRUD
+
+#### Coverage Targets
+
+- [ ] API services: 80%+ line coverage
+- [ ] Frontend components: 70%+ line coverage
+- [ ] CI gate: fail if coverage drops below thresholds
+
+### Deliverables
+
+- Comprehensive test suite for all milestones M0–M10
+- Coverage reports in CI output
+- Zero untested critical paths (auth, data mutation, import)
+
+---
+
+## Milestone 12: Security Hardening
+
+**Goal:** Audit and harden the application against common web vulnerabilities before broader deployment.
+
+### Features
+
+#### Rate Limiting
+
+- [ ] Rate limit auth endpoints (`/api/auth/login`, `/api/auth/refresh`) — e.g. 10 req/min per IP
+- [ ] Rate limit recipe import endpoint (`/api/dishes/import-url`) — prevent abuse
+- [ ] Return `429 Too Many Requests` with `Retry-After` header
+- [ ] Use `@fastify/rate-limit` plugin
+
+#### Security Headers
+
+- [ ] Add `@fastify/helmet` for standard security headers (CSP, X-Frame-Options, HSTS, etc.)
+- [ ] Configure CSP to allow app assets while blocking inline scripts from third-party origins
+- [ ] Verify headers in integration tests
+
+#### SSRF Protection (Recipe Import)
+
+- [ ] Validate URL against an allow list / deny list before fetching (block `localhost`, `127.x`, `10.x`, `192.168.x`, `169.254.x`, metadata endpoints)
+- [ ] Enforce `https://` only
+- [ ] Limit response size (e.g. 5 MB) to prevent memory exhaustion
+
+#### Input Validation Audit
+
+- [ ] Audit all API routes for unvalidated fields
+- [ ] Ensure all text inputs have `maxLength` constraints in Zod schemas
+- [ ] Verify no raw SQL string interpolation anywhere
+
+#### Auth Security Review
+
+- [ ] Confirm refresh token rotation on use (invalidate old token)
+- [ ] Confirm `httpOnly`, `SameSite=Strict`, `Secure` flags on refresh cookie
+- [ ] Review JWT secret strength requirements in env validation
+- [ ] Add `env` validation at startup (fail fast if `JWT_SECRET` is missing or too short)
+
+#### Dependency Audit
+
+- [ ] Run `pnpm audit` and resolve all high/critical vulnerabilities
+- [ ] Add `pnpm audit --audit-level=high` to CI pipeline
+- [ ] Document accepted low/medium risks
+
+### Deliverables
+
+- Rate limiting on sensitive endpoints
+- Security headers on all responses
+- SSRF protection on recipe import
+- Clean `pnpm audit` output (high/critical = 0)
+- Auth cookie flags verified correct
+
+---
+
 ## Future Enhancements (Unscheduled)
 
 - [ ] Multiple preparers per meal
@@ -420,6 +515,8 @@ This document breaks the project into incremental milestones, each delivering us
 | **5**       | Mobile            | Native iOS/Android apps        |
 | **6**       | Suggestions       | Smart meal suggestions         |
 | **7+**      | Future            | Grocery lists, photos, etc.    |
+| **11**      | Test Coverage     | 80%+ coverage, CI gates        |
+| **12**      | Security          | Rate limiting, headers, SSRF   |
 
 ---
 
