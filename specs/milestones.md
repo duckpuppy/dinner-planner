@@ -162,216 +162,230 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
-## Milestone 3: User Experience Polish
+## Milestone 3: User Experience Polish ✅ COMPLETE
 
 **Goal:** Add user preferences, admin settings, and UX improvements.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### User Preferences
 
-- [ ] Theme selection (light/dark)
-- [ ] Dark mode implementation
-- [ ] Home view preference (today/week)
-- [ ] Save preferences per user
+- [x] Theme selection (light/dark)
+- [x] Dark mode implementation
+- [x] Home view preference (today/week)
+- [x] Save preferences per user
 
 #### Admin Features
 
-- [ ] User management screen (list, edit, delete)
-- [ ] Change user roles
-- [ ] Reset user passwords
-- [ ] App settings screen
-- [ ] Configure week start day
+- [x] User management screen (list, edit, delete)
+- [x] Change user roles
+- [x] Reset user passwords
+- [x] App settings screen
+- [x] Configure week start day
 
 #### Hard Delete (Admin)
 
-- [ ] Admin can permanently delete dishes
-- [ ] Confirmation dialog
-- [ ] Handle dishes referenced in history
+- [x] Admin can permanently delete dishes
+- [x] Confirmation dialog
+- [x] Handle dishes referenced in history
 
 #### UI Improvements
 
-- [ ] Loading skeletons
-- [ ] Toast notifications
-- [ ] Error states and messages
-- [ ] Empty states
-- [ ] Pull to refresh (mobile)
-- [ ] Swipe actions on entries
+- [x] Loading skeletons
+- [x] Toast notifications
+- [x] Error states and messages
+- [x] Empty states
+- [x] Pull to refresh (mobile)
+- [x] Swipe actions on entries
 
 #### Desktop Layout
 
-- [ ] Sidebar navigation
-- [ ] Multi-column layouts
-- [ ] Larger click targets
+- [x] Sidebar navigation
+- [x] Multi-column layouts
+- [x] Larger click targets
 
 ### Deliverables
 
-- Full theme support
-- Complete admin functionality
-- Polished user experience
+- ✅ Full theme support
+- ✅ Complete admin functionality
+- ✅ Polished user experience
 
 ---
 
-## Milestone 4: Offline Support (PWA)
+## Milestone 4: Offline Support (PWA) ✅ COMPLETE
 
 **Goal:** Enable offline access to current week's menu and recipes.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Service Worker
 
-- [ ] Cache static assets (JS, CSS, images)
-- [ ] App shell caching strategy
-- [ ] Offline detection
+- [x] Cache static assets (JS, CSS, images)
+- [x] App shell caching strategy
+- [x] Offline detection
 
 #### Data Caching
 
-- [ ] Cache current week's menu in IndexedDB
-- [ ] Cache referenced dishes/recipes
-- [ ] Sync endpoint for bulk data fetch
+- [x] Cache current week's menu in IndexedDB
+- [x] Cache referenced dishes/recipes
+- [x] Sync endpoint for bulk data fetch
 
 #### Offline Functionality
 
-- [ ] View current week offline
-- [ ] View cached recipes offline
-- [ ] Offline indicator banner
-- [ ] Queue changes made offline
+- [x] View current week offline
+- [x] View cached recipes offline
+- [x] Offline indicator banner
+- [x] Queue changes made offline
 
 #### Sync
 
-- [ ] Sync queued changes when online
-- [ ] Conflict resolution (server wins, notify user)
-- [ ] Sync status indicator
+- [x] Sync queued changes when online
+- [x] Conflict resolution (server wins, notify user)
+- [x] Sync status indicator
 
 #### PWA
 
-- [ ] Web app manifest
-- [ ] Install prompt
-- [ ] App icons
+- [x] Web app manifest
+- [x] Install prompt
+- [x] App icons
 
 ### Deliverables
 
-- Installable PWA
-- Works offline for current week
-- Reliable sync when back online
+- ✅ Installable PWA
+- ✅ Works offline for current week
+- ✅ Reliable sync when back online
 
 ---
 
-## Milestone 5: Mobile App (Capacitor)
+## Milestone 5: Mobile App (Capacitor) ✅ COMPLETE
 
 **Goal:** Package as native mobile app for app store distribution (optional).
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Capacitor Integration
 
-- [ ] Add Capacitor to project
-- [ ] Configure iOS build
-- [ ] Configure Android build
-- [ ] Native splash screen
-- [ ] Native app icons
+- [x] Add Capacitor to project
+- [x] Configure iOS build
+- [x] Configure Android build
+- [x] Native splash screen
+- [x] Native app icons
 
 #### Native Features
 
-- [ ] Push notification support (infrastructure)
-- [ ] Haptic feedback
-- [ ] Native share functionality
+- [x] Push notification support (infrastructure)
+- [x] Haptic feedback
+- [x] Native share functionality
 
 #### App Store
 
-- [ ] iOS App Store submission materials
-- [ ] Google Play submission materials
-- [ ] Privacy policy page
+- [x] iOS App Store submission materials
+- [x] Google Play submission materials
+- [x] Privacy policy page
 
 ### Deliverables
 
-- iOS app (TestFlight / App Store)
-- Android app (Play Store)
+- ✅ iOS app (TestFlight / App Store)
+- ✅ Android app (Play Store)
 
 ---
 
-## Milestone 6: Meal Suggestions
+## Milestone 6: Meal Suggestions ✅ COMPLETE
 
 **Goal:** Implement intelligent meal suggestions based on ratings and recency.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Suggestion Algorithm
 
-- [ ] Weight dishes by aggregate rating
-- [ ] Penalize recently prepared dishes
-- [ ] Configurable recency window
-- [ ] Exclude archived dishes
+- [x] Weight dishes by aggregate rating
+- [x] Penalize recently prepared dishes
+- [x] Configurable recency window
+- [x] Exclude archived dishes
 
 #### UI
 
-- [ ] "Suggest a meal" button in entry editor
-- [ ] Show suggested dishes with reasoning
-- [ ] Quick-add from suggestion
+- [x] "Suggest a meal" button in entry editor
+- [x] Show suggested dishes with reasoning
+- [x] Quick-add from suggestion
 
 #### Refinements
 
-- [ ] Filter suggestions by tag
-- [ ] "Not this" to skip suggestion
-- [ ] Learn from rejections (optional)
+- [x] Filter suggestions by tag
+- [x] "Not this" to skip suggestion
+- [x] Learn from rejections (optional)
 
 ### Deliverables
 
-- Working meal suggestion feature
-- Suggestions consider ratings and recency
+- ✅ Working meal suggestion feature
+- ✅ Suggestions consider ratings and recency
 
 ---
 
-## Milestone 7: Grocery Lists (Future)
+## Milestone 7: Grocery Lists ✅ COMPLETE
 
 **Goal:** Generate grocery lists from planned meals.
 
+**Status:** Completed on 2026-02-19
+
 ### Features
 
-- [ ] Generate list from week's menu
-- [ ] Aggregate quantities of same ingredients
-- [ ] Check off items
-- [ ] Share list (copy, export)
-- [ ] Unit normalization
+- [x] Generate list from week's menu
+- [x] Aggregate quantities of same ingredients
+- [x] Check off items
+- [x] Share list (copy, export)
+- [x] Unit normalization
 
 ---
 
-## Milestone 8: Recipe Import from URL
+## Milestone 8: Recipe Import from URL ✅ COMPLETE
 
 **Goal:** Allow users to import recipes directly from URLs by extracting schema.org Recipe structured data.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Recipe URL Import
 
-- [ ] POST `/api/dishes/import-url` — fetch URL, parse JSON-LD `schema.org/Recipe`, return preview
-- [ ] Handle errors: non-recipe pages, network failures, missing fields
-- [ ] "Import from URL" button in DishesPage
-- [ ] URL input → loading → editable preview → save to DishForm
-- [ ] Unit tests for parser (valid, invalid, network error cases)
+- [x] POST `/api/dishes/import-url` — fetch URL, parse JSON-LD `schema.org/Recipe`, return preview
+- [x] Handle errors: non-recipe pages, network failures, missing fields
+- [x] "Import from URL" button in DishesPage
+- [x] URL input → loading → editable preview → save to DishForm
+- [x] Unit tests for parser (valid, invalid, network error cases)
 
 ---
 
-## Milestone 9: Planning Enhancements
+## Milestone 9: Planning Enhancements ✅ COMPLETE
 
 **Goal:** Recurring meal patterns and dining out restaurant tracking.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Recurring Meal Patterns
 
-- [ ] DB: `recurring_patterns` table (day_of_week, type, dish, label)
-- [ ] CRUD API for patterns
-- [ ] POST `/api/menus/week/:date/apply-patterns` — apply patterns to empty week entries
-- [ ] UI: manage patterns (create/edit/delete by day)
-- [ ] WeekPage: "Apply patterns" button
+- [x] DB: `recurring_patterns` table (day_of_week, type, dish, label)
+- [x] CRUD API for patterns
+- [x] POST `/api/menus/week/:date/apply-patterns` — apply patterns to empty week entries
+- [x] UI: manage patterns (create/edit/delete by day)
+- [x] WeekPage: "Apply patterns" button
 
 #### Dining Out Restaurant Tracking
 
-- [ ] DB: add `restaurant_name` and `restaurant_notes` to `dinner_entries`
-- [ ] Update API schema + service
-- [ ] UI: restaurant name/notes inputs when type is `dining_out`
-- [ ] Display restaurant name in day card and today view
+- [x] DB: add `restaurant_name` and `restaurant_notes` to `dinner_entries`
+- [x] Update API schema + service
+- [x] UI: restaurant name/notes inputs when type is `dining_out`
+- [x] Display restaurant name in day card and today view
 
 ---
 
@@ -505,18 +519,21 @@ This document breaks the project into incremental milestones, each delivering us
 
 ## Summary
 
-| Milestone   | Focus             | Key Deliverable                |
-| ----------- | ----------------- | ------------------------------ |
-| **0**       | Foundation        | Dev environment, scaffolding   |
-| **1 (MVP)** | Core Planning     | Basic meal planning app        |
-| **2**       | Ratings & Recipes | Full recipe + rating system    |
-| **3**       | Polish            | Themes, admin, UX improvements |
-| **4**       | Offline           | PWA with offline support       |
-| **5**       | Mobile            | Native iOS/Android apps        |
-| **6**       | Suggestions       | Smart meal suggestions         |
-| **7+**      | Future            | Grocery lists, photos, etc.    |
-| **11**      | Test Coverage     | 80%+ coverage, CI gates        |
-| **12**      | Security          | Rate limiting, headers, SSRF   |
+| Milestone   | Focus             | Key Deliverable                | Status      |
+| ----------- | ----------------- | ------------------------------ | ----------- |
+| **0**       | Foundation        | Dev environment, scaffolding   | ✅ Complete |
+| **1 (MVP)** | Core Planning     | Basic meal planning app        | ✅ Complete |
+| **2**       | Ratings & Recipes | Full recipe + rating system    | ✅ Complete |
+| **3**       | Polish            | Themes, admin, UX improvements | ✅ Complete |
+| **4**       | Offline / PWA     | Installable PWA, offline view  | ✅ Complete |
+| **5**       | Mobile            | Native iOS/Android apps        | ✅ Complete |
+| **6**       | Suggestions       | Smart meal suggestions         | ✅ Complete |
+| **7**       | Grocery Lists     | Generated, shareable lists     | ✅ Complete |
+| **8**       | Recipe Import     | Import from URL (JSON-LD)      | ✅ Complete |
+| **9**       | Planning          | Patterns, dining out tracking  | ✅ Complete |
+| **10**      | Visual & Scaling  | Photo uploads, portion scaling | Planned     |
+| **11**      | Test Coverage     | 80%+ coverage, CI gates        | Planned     |
+| **12**      | Security          | Rate limiting, headers, SSRF   | Planned     |
 
 ---
 
