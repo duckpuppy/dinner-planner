@@ -38,6 +38,8 @@ export interface DinnerEntryResponse {
   dayOfWeek: number;
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
   customText: string | null;
+  restaurantName: string | null;
+  restaurantNotes: string | null;
   completed: boolean;
   mainDish: {
     id: string;
@@ -141,6 +143,8 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     dayOfWeek: entryDate.getDay(),
     type: entry.type,
     customText: entry.customText,
+    restaurantName: entry.restaurantName,
+    restaurantNotes: entry.restaurantNotes,
     completed: entry.completed,
     mainDish,
     sideDishes: sideDishes.filter((d): d is NonNullable<typeof d> => d !== null),
@@ -263,6 +267,8 @@ export async function updateDinnerEntry(
     .set({
       type: input.type,
       customText: input.customText,
+      restaurantName: input.restaurantName,
+      restaurantNotes: input.restaurantNotes,
       mainDishId: input.mainDishId,
       updatedAt: now,
     })

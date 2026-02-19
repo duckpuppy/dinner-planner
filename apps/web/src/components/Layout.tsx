@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   ShoppingCart,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/dishes', icon: ChefHat, label: 'Dishes' },
   { to: '/grocery', icon: ShoppingCart, label: 'Grocery' },
   { to: '/history', icon: Clock, label: 'History' },
+  { to: '/patterns', icon: Zap, label: 'Patterns' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 

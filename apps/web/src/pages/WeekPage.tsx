@@ -2,11 +2,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   menus,
   dishes,
+  patterns,
   type DinnerEntry,
   type UpdateEntryData,
   type SuggestedDish,
 } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Check, X, Edit2, Sparkles, ShoppingCart } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  Edit2,
+  Sparkles,
+  ShoppingCart,
+  Zap,
+} from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -48,6 +58,7 @@ function formatMonthYear(date: Date): string {
 export function WeekPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const currentWeekStart = useMemo(() => {
     const today = new Date();
@@ -69,6 +80,15 @@ export function WeekPage() {
   const goToNextWeek = () => setWeekOffset((o) => o + 1);
   const goToToday = () => setWeekOffset(0);
 
+  const applyPatternsMutation = useMutation({
+    mutationFn: () => patterns.applyToWeek(dateStr),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['week', dateStr] });
+      toast.success(`Applied ${data.applied} pattern${data.applied !== 1 ? 's' : ''} to week`);
+    },
+    onError: () => toast.error('Failed to apply patterns'),
+  });
+
   return (
     <PullToRefresh
       onRefresh={async () => {
@@ -85,6 +105,15 @@ export function WeekPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">{formatMonthYear(currentWeekStart)}</h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => applyPatternsMutation.mutate()}
+              disabled={applyPatternsMutation.isPending}
+              className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation disabled:opacity-50"
+              aria-label="Apply recurring patterns"
+              title="Apply recurring patterns"
+            >
+              <Zap className="h-5 w-5" />
+            </button>
             <button
               onClick={() => navigate(`/grocery?date=${dateStr}`)}
               className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
@@ -229,7 +258,10 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
             <div className="text-muted-foreground">Fend for Yourself</div>
           ) : entry.type === 'dining_out' ? (
             <div className="text-muted-foreground">
-              {entry.customText ? `Dining Out: ${entry.customText}` : 'Dining Out'}
+              {entry.restaurantName ? `Dining Out: ${entry.restaurantName}` : 'Dining Out'}
+              {entry.restaurantNotes && (
+                <div className="text-xs truncate">{entry.restaurantNotes}</div>
+              )}
             </div>
           ) : (
             <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
@@ -268,6 +300,8 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   const [mainDishId, setMainDishId] = useState(entry.mainDish?.id || '');
   const [sideDishIds, setSideDishIds] = useState<string[]>(entry.sideDishes.map((d) => d.id));
   const [customText, setCustomText] = useState(entry.customText || '');
+  const [restaurantName, setRestaurantName] = useState(entry.restaurantName || '');
+  const [restaurantNotes, setRestaurantNotes] = useState(entry.restaurantNotes || '');
   const [showSuggest, setShowSuggest] = useState(false);
 
   const { data: dishesData } = useQuery({
@@ -296,7 +330,9 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
       type,
       mainDishId: type === 'assembled' ? mainDishId || null : null,
       sideDishIds: type === 'assembled' ? sideDishIds : [],
-      customText: ['dining_out', 'custom'].includes(type) ? customText || null : null,
+      customText: type === 'custom' ? customText || null : null,
+      restaurantName: type === 'dining_out' ? restaurantName || null : null,
+      restaurantNotes: type === 'dining_out' ? restaurantNotes || null : null,
     });
   };
 
@@ -399,17 +435,41 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         </div>
       )}
 
-      {/* Custom text for dining out / custom */}
-      {['dining_out', 'custom'].includes(type) && (
+      {/* Dining out fields */}
+      {type === 'dining_out' && (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Restaurant Name</label>
+            <input
+              type="text"
+              value={restaurantName}
+              onChange={(e) => setRestaurantName(e.target.value)}
+              placeholder="Where are you going?"
+              className="w-full px-3 py-2 border rounded-md bg-background"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Notes</label>
+            <input
+              type="text"
+              value={restaurantNotes}
+              onChange={(e) => setRestaurantNotes(e.target.value)}
+              placeholder="Reservation, what you're ordering..."
+              className="w-full px-3 py-2 border rounded-md bg-background"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Custom text */}
+      {type === 'custom' && (
         <div>
-          <label className="block text-sm font-medium mb-1">
-            {type === 'dining_out' ? 'Restaurant / Notes' : 'Description'}
-          </label>
+          <label className="block text-sm font-medium mb-1">Description</label>
           <input
             type="text"
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
-            placeholder={type === 'dining_out' ? 'Where are you going?' : 'What are you having?'}
+            placeholder="What are you having?"
             className="w-full px-3 py-2 border rounded-md bg-background"
           />
         </div>
