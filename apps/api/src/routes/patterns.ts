@@ -67,7 +67,7 @@ export async function patternsRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const deleted = await deletePattern(id);
       if (!deleted) return reply.status(404).send({ error: 'Pattern not found' });
-      return reply.status(204).send();
+      return reply.status(200).send({ success: true });
     }
   );
 
@@ -77,8 +77,10 @@ export async function patternsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { date } = request.params as { date: string };
-      const { applied } = await applyPatternsToWeek(date);
-      // Return the updated week menu
+      // Ensure the week exists and get the canonical weekStartDate
+      const weekMenu = await getOrCreateWeekMenu(date);
+      const { applied } = await applyPatternsToWeek(weekMenu.weekStartDate);
+      // Re-fetch to return updated data
       const menu = await getOrCreateWeekMenu(date);
       return reply.send({ applied, menu });
     }

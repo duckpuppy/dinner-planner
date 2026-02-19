@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Helper for timestamps
@@ -170,14 +170,18 @@ export const recurringPatterns = sqliteTable('recurring_patterns', {
 });
 
 // Pattern side dishes junction table
-export const patternSideDishes = sqliteTable('pattern_side_dishes', {
-  patternId: text('pattern_id')
-    .notNull()
-    .references(() => recurringPatterns.id, { onDelete: 'cascade' }),
-  dishId: text('dish_id')
-    .notNull()
-    .references(() => dishes.id, { onDelete: 'cascade' }),
-});
+export const patternSideDishes = sqliteTable(
+  'pattern_side_dishes',
+  {
+    patternId: text('pattern_id')
+      .notNull()
+      .references(() => recurringPatterns.id, { onDelete: 'cascade' }),
+    dishId: text('dish_id')
+      .notNull()
+      .references(() => dishes.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.patternId, table.dishId] })]
+);
 
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {

@@ -258,7 +258,9 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
             <div className="text-muted-foreground">Fend for Yourself</div>
           ) : entry.type === 'dining_out' ? (
             <div className="text-muted-foreground">
-              {entry.restaurantName ? `Dining Out: ${entry.restaurantName}` : 'Dining Out'}
+              {entry.restaurantName || entry.customText
+                ? `Dining Out: ${entry.restaurantName || entry.customText}`
+                : 'Dining Out'}
               {entry.restaurantNotes && (
                 <div className="text-xs truncate">{entry.restaurantNotes}</div>
               )}
@@ -300,7 +302,9 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
   const [mainDishId, setMainDishId] = useState(entry.mainDish?.id || '');
   const [sideDishIds, setSideDishIds] = useState<string[]>(entry.sideDishes.map((d) => d.id));
   const [customText, setCustomText] = useState(entry.customText || '');
-  const [restaurantName, setRestaurantName] = useState(entry.restaurantName || '');
+  const [restaurantName, setRestaurantName] = useState(
+    entry.restaurantName ?? (entry.type === 'dining_out' ? entry.customText : null) ?? ''
+  );
   const [restaurantNotes, setRestaurantNotes] = useState(entry.restaurantNotes || '');
   const [showSuggest, setShowSuggest] = useState(false);
 

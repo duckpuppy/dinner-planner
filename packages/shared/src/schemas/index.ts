@@ -74,7 +74,14 @@ export const createPatternSchema = z.object({
   customText: z.string().max(500).nullable().default(null),
 });
 
-export const updatePatternSchema = createPatternSchema.partial();
+export const updatePatternSchema = z.object({
+  label: z.string().min(1).max(100).optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom']).optional(),
+  mainDishId: z.string().uuid().nullable().optional(),
+  sideDishIds: z.array(z.string().uuid()).optional(),
+  customText: z.string().max(500).nullable().optional(),
+});
 
 // Preparation schemas
 export const createPreparationSchema = z.object({
