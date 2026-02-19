@@ -166,7 +166,9 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
         {entry.type === 'dining_out' && (
           <div>
             <p className="text-lg text-muted-foreground">
-              {entry.restaurantName ? `Dining Out: ${entry.restaurantName}` : 'Dining Out'}
+              {entry.restaurantName || entry.customText
+                ? `Dining Out: ${entry.restaurantName || entry.customText}`
+                : 'Dining Out'}
             </p>
             {entry.restaurantNotes && (
               <p className="text-sm text-muted-foreground">{entry.restaurantNotes}</p>

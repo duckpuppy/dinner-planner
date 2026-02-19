@@ -178,8 +178,10 @@ export async function deletePattern(patternId: string): Promise<boolean> {
 
 /**
  * Apply patterns to a week's dinner entries.
- * Only overwrites entries that are still "assembled" with no main dish set
- * (i.e. untouched default entries). Returns count of entries updated.
+ * weekStartDate must be the exact week_start_date from weekly_menus.
+ * Only overwrites entries that are still "assembled" with no main dish, no custom text,
+ * and no side dishes (i.e. truly untouched default entries).
+ * Returns count of entries updated.
  */
 export async function applyPatternsToWeek(weekStartDate: string): Promise<{ applied: number }> {
   // Get all entries for the week
@@ -194,23 +196,32 @@ export async function applyPatternsToWeek(weekStartDate: string): Promise<{ appl
     .from(schema.dinnerEntries)
     .where(eq(schema.dinnerEntries.menuId, menu.id));
 
-  const patterns = await db.select().from(schema.recurringPatterns);
+  const allPatterns = await db.select().from(schema.recurringPatterns);
   const now = new Date().toISOString();
   let applied = 0;
 
   for (const entry of entries) {
-    // Only apply to untouched entries (assembled, no main dish, no custom text)
+    // Only apply to untouched entries
     if (entry.type !== 'assembled' || entry.mainDishId || entry.customText) {
       continue;
     }
+
+    // Check for existing side dishes (also considered "touched")
+    const existingSides = await db
+      .select()
+      .from(schema.entrySideDishes)
+      .where(eq(schema.entrySideDishes.entryId, entry.id));
+    if (existingSides.length > 0) continue;
 
     // Parse entry date to get day of week
     const [year, month, day] = entry.date.split('-').map(Number);
     const entryDate = new Date(year, month - 1, day);
     const dayOfWeek = entryDate.getDay();
 
-    // Find matching pattern (first match wins)
-    const pattern = patterns.find((p) => p.dayOfWeek === dayOfWeek);
+    // Find matching pattern (first by createdAt for determinism)
+    const pattern = allPatterns
+      .filter((p) => p.dayOfWeek === dayOfWeek)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
     if (!pattern) continue;
 
     // Get pattern side dishes
@@ -219,27 +230,28 @@ export async function applyPatternsToWeek(weekStartDate: string): Promise<{ appl
       .from(schema.patternSideDishes)
       .where(eq(schema.patternSideDishes.patternId, pattern.id));
 
-    // Update the entry
-    await db
-      .update(schema.dinnerEntries)
-      .set({
-        type: pattern.type,
-        mainDishId: pattern.mainDishId,
-        customText: pattern.customText,
-        restaurantName: null,
-        restaurantNotes: null,
-        updatedAt: now,
-      })
-      .where(eq(schema.dinnerEntries.id, entry.id));
+    // Apply atomically
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.dinnerEntries)
+        .set({
+          type: pattern.type,
+          mainDishId: pattern.mainDishId,
+          customText: pattern.type === 'custom' ? pattern.customText : null,
+          restaurantName: pattern.type === 'dining_out' ? pattern.customText : null,
+          restaurantNotes: null,
+          updatedAt: now,
+        })
+        .where(eq(schema.dinnerEntries.id, entry.id));
 
-    // Replace side dishes
-    await db.delete(schema.entrySideDishes).where(eq(schema.entrySideDishes.entryId, entry.id));
+      await tx.delete(schema.entrySideDishes).where(eq(schema.entrySideDishes.entryId, entry.id));
 
-    if (sideLinks.length > 0) {
-      await db
-        .insert(schema.entrySideDishes)
-        .values(sideLinks.map((link) => ({ entryId: entry.id, dishId: link.dishId })));
-    }
+      if (sideLinks.length > 0) {
+        await tx
+          .insert(schema.entrySideDishes)
+          .values(sideLinks.map((link) => ({ entryId: entry.id, dishId: link.dishId })));
+      }
+    });
 
     applied++;
   }
