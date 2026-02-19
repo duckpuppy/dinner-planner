@@ -17,6 +17,7 @@ import { ratingsRoutes } from './routes/ratings.js';
 import { historyRoutes } from './routes/history.js';
 import { settingsRoutes } from './routes/settings.js';
 import { suggestionsRoutes } from './routes/suggestions.js';
+import { patternsRoutes } from './routes/patterns.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 
@@ -85,6 +86,7 @@ await fastify.register(ratingsRoutes);
 await fastify.register(historyRoutes);
 await fastify.register(settingsRoutes);
 await fastify.register(suggestionsRoutes);
+await fastify.register(patternsRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {

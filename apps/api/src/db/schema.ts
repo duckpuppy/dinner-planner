@@ -95,6 +95,8 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
     .notNull()
     .default('assembled'),
   customText: text('custom_text'),
+  restaurantName: text('restaurant_name'),
+  restaurantNotes: text('restaurant_notes'),
   mainDishId: text('main_dish_id').references(() => dishes.id),
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
   ...timestamps,
@@ -147,6 +149,34 @@ export const appSettings = sqliteTable('app_settings', {
   weekStartDay: integer('week_start_day').notNull().default(0), // 0 = Sunday
   recencyWindowDays: integer('recency_window_days').notNull().default(30),
   ...timestamps,
+});
+
+// Recurring meal patterns table
+export const recurringPatterns = sqliteTable('recurring_patterns', {
+  id: text('id').primaryKey(),
+  label: text('label').notNull(),
+  dayOfWeek: integer('day_of_week').notNull(), // 0=Sun, 1=Mon, ..., 6=Sat
+  type: text('type', { enum: ['assembled', 'fend_for_self', 'dining_out', 'custom'] })
+    .notNull()
+    .default('assembled'),
+  mainDishId: text('main_dish_id').references(() => dishes.id, { onDelete: 'set null' }),
+  customText: text('custom_text'),
+  createdById: text('created_by_id')
+    .notNull()
+    .references(() => users.id),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// Pattern side dishes junction table
+export const patternSideDishes = sqliteTable('pattern_side_dishes', {
+  patternId: text('pattern_id')
+    .notNull()
+    .references(() => recurringPatterns.id, { onDelete: 'cascade' }),
+  dishId: text('dish_id')
+    .notNull()
+    .references(() => dishes.id, { onDelete: 'cascade' }),
 });
 
 // Refresh tokens table (for auth)

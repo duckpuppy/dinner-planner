@@ -307,6 +307,49 @@ export const suggestions = {
   },
 };
 
+// Patterns API
+export const patterns = {
+  list: () => request<{ patterns: Pattern[] }>('/patterns'),
+
+  get: (id: string) => request<{ pattern: Pattern }>(`/patterns/${id}`),
+
+  create: (data: {
+    label: string;
+    dayOfWeek: number;
+    type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+    mainDishId?: string | null;
+    sideDishIds?: string[];
+    customText?: string | null;
+  }) =>
+    request<{ pattern: Pattern }>('/patterns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (
+    id: string,
+    data: Partial<{
+      label: string;
+      dayOfWeek: number;
+      type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+      mainDishId: string | null;
+      sideDishIds: string[];
+      customText: string | null;
+    }>
+  ) =>
+    request<{ pattern: Pattern }>(`/patterns/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) => request<{ success: boolean }>(`/patterns/${id}`, { method: 'DELETE' }),
+
+  applyToWeek: (date: string) =>
+    request<{ applied: number; menu: WeeklyMenu }>(`/menus/week/${date}/apply-patterns`, {
+      method: 'POST',
+    }),
+};
+
 // Types
 export interface User {
   id: string;
@@ -378,6 +421,8 @@ export interface DinnerEntry {
   dayOfWeek: number;
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
   customText: string | null;
+  restaurantName: string | null;
+  restaurantNotes: string | null;
   completed: boolean;
   mainDish: { id: string; name: string; type: string } | null;
   sideDishes: { id: string; name: string; type: string }[];
@@ -389,6 +434,8 @@ export interface DinnerEntry {
 export interface UpdateEntryData {
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
   customText?: string | null;
+  restaurantName?: string | null;
+  restaurantNotes?: string | null;
   mainDishId?: string | null;
   sideDishIds?: string[];
 }
@@ -476,4 +523,18 @@ export interface SuggestedDish {
   lastPreparedDate: string | null;
   score: number;
   reasons: string[];
+}
+
+export interface Pattern {
+  id: string;
+  label: string;
+  dayOfWeek: number;
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  mainDishId: string | null;
+  mainDish: { id: string; name: string; type: 'main' | 'side' } | null;
+  sideDishIds: string[];
+  sideDishes: { id: string; name: string; type: 'main' | 'side' }[];
+  customText: string | null;
+  createdById: string;
+  createdAt: string;
 }

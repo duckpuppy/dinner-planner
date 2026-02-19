@@ -58,9 +58,23 @@ export const updateDishSchema = createDishSchema.partial();
 export const updateDinnerEntrySchema = z.object({
   type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom']),
   customText: z.string().max(500).nullable().default(null),
+  restaurantName: z.string().max(200).nullable().default(null),
+  restaurantNotes: z.string().max(500).nullable().default(null),
   mainDishId: z.string().uuid().nullable().default(null),
   sideDishIds: z.array(z.string().uuid()).default([]),
 });
+
+// Recurring pattern schemas
+export const createPatternSchema = z.object({
+  label: z.string().min(1, 'Label is required').max(100),
+  dayOfWeek: z.number().int().min(0).max(6),
+  type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom']),
+  mainDishId: z.string().uuid().nullable().default(null),
+  sideDishIds: z.array(z.string().uuid()).default([]),
+  customText: z.string().max(500).nullable().default(null),
+});
+
+export const updatePatternSchema = createPatternSchema.partial();
 
 // Preparation schemas
 export const createPreparationSchema = z.object({
@@ -191,3 +205,5 @@ export type GroceryItem = z.infer<typeof groceryItemSchema>;
 export type GroceriesResponse = z.infer<typeof groceriesResponseSchema>;
 export type ImportRecipeUrlInput = z.infer<typeof importRecipeUrlSchema>;
 export type ImportedRecipe = z.infer<typeof importedRecipeSchema>;
+export type CreatePatternInput = z.infer<typeof createPatternSchema>;
+export type UpdatePatternInput = z.infer<typeof updatePatternSchema>;
