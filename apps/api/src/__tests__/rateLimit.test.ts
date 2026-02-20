@@ -63,8 +63,12 @@ function authToken(app: Awaited<ReturnType<typeof buildRateLimitApp>>) {
 describe('Rate limiting', () => {
   describe('POST /api/auth/login', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
-    beforeAll(async () => { app = await buildRateLimitApp(10); });
-    afterAll(async () => { await app.close(); });
+    beforeAll(async () => {
+      app = await buildRateLimitApp(10);
+    });
+    afterAll(async () => {
+      await app.close();
+    });
 
     it('returns 429 after 10 requests within the window', async () => {
       const body = JSON.stringify({ username: 'x', password: 'y' });
@@ -83,8 +87,12 @@ describe('Rate limiting', () => {
 
   describe('POST /api/auth/refresh', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
-    beforeAll(async () => { app = await buildRateLimitApp(20); });
-    afterAll(async () => { await app.close(); });
+    beforeAll(async () => {
+      app = await buildRateLimitApp(20);
+    });
+    afterAll(async () => {
+      await app.close();
+    });
 
     it('returns 429 after 20 requests within the window', async () => {
       for (let i = 0; i < 20; i++) {
@@ -97,8 +105,12 @@ describe('Rate limiting', () => {
 
   describe('POST /api/dishes/import-url', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
-    beforeAll(async () => { app = await buildRateLimitApp(5); });
-    afterAll(async () => { await app.close(); });
+    beforeAll(async () => {
+      app = await buildRateLimitApp(5);
+    });
+    afterAll(async () => {
+      await app.close();
+    });
 
     it('returns 429 after 5 requests within the window', async () => {
       const body = JSON.stringify({ url: 'https://example.com/recipe' });
@@ -110,7 +122,12 @@ describe('Rate limiting', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({ method: 'POST', url: '/api/dishes/import-url', headers, body });
       }
-      const res = await app.inject({ method: 'POST', url: '/api/dishes/import-url', headers, body });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/dishes/import-url',
+        headers,
+        body,
+      });
       expect(res.statusCode).toBe(429);
     });
   });
