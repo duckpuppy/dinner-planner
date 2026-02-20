@@ -3,23 +3,19 @@ import { loginSchema } from '@dinner-planner/shared';
 import * as authService from '../services/auth.js';
 import { config } from '../config.js';
 
-// In development, set domain to 'localhost' so cookie works across ports (5173 -> 3000)
-// In production, omit domain to default to current origin
-const COOKIE_DOMAIN = config.NODE_ENV === 'development' ? { domain: 'localhost' } : {};
-
 // Cookie options for refresh token
+// Omit domain so the cookie binds to whatever host the browser is using
+// (works for localhost dev, IP address access, and production domains alike)
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: config.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/api/auth',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
-  ...COOKIE_DOMAIN,
 };
 
 const CLEAR_COOKIE_OPTIONS = {
   path: '/api/auth',
-  ...COOKIE_DOMAIN,
 };
 
 export async function authRoutes(fastify: FastifyInstance) {
