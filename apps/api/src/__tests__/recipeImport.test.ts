@@ -355,21 +355,29 @@ describe('importRecipeFromUrl', () => {
   });
 
   it('throws SsrfBlockedError on http URL (https-only)', async () => {
-    await expect(importRecipeFromUrl('http://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+    await expect(importRecipeFromUrl('http://example.com/recipe')).rejects.toThrow(
+      SsrfBlockedError
+    );
   });
 
   it('throws SsrfBlockedError on SSRF attempt (private IP in URL)', async () => {
-    await expect(importRecipeFromUrl('https://192.168.1.1/recipe')).rejects.toThrow(SsrfBlockedError);
+    await expect(importRecipeFromUrl('https://192.168.1.1/recipe')).rejects.toThrow(
+      SsrfBlockedError
+    );
   });
 
   it('throws SsrfBlockedError when DNS resolves to private IP', async () => {
     vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '10.0.0.1', family: 4 });
-    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      SsrfBlockedError
+    );
   });
 
   it('throws SsrfBlockedError when DNS resolves to loopback', async () => {
     vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '127.0.0.1', family: 4 });
-    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      SsrfBlockedError
+    );
   });
 
   it('throws SsrfBlockedError error message mentions private or loopback', async () => {
