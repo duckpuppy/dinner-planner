@@ -9,7 +9,7 @@ import { config } from '../config.js';
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: config.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  sameSite: 'strict' as const,
   path: '/api/auth',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };
@@ -23,7 +23,10 @@ export async function authRoutes(fastify: FastifyInstance) {
    * POST /api/auth/login
    * Authenticate user and return tokens
    */
-  fastify.post('/api/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post(
+    '/api/auth/login',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = loginSchema.safeParse(request.body);
 
     if (!parseResult.success) {
@@ -58,7 +61,10 @@ export async function authRoutes(fastify: FastifyInstance) {
    * POST /api/auth/refresh
    * Refresh access token using refresh token cookie
    */
-  fastify.post('/api/auth/refresh', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post(
+    '/api/auth/refresh',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
     const refreshToken = request.cookies.refreshToken;
 
     if (!refreshToken) {

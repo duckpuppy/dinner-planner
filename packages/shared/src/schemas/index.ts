@@ -3,11 +3,11 @@ import { z } from 'zod';
 // Auth schemas
 export const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required').max(128),
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
+  currentPassword: z.string().min(1, 'Current password is required').max(128),
   newPassword: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -15,7 +15,7 @@ export const changePasswordSchema = z.object({
 export const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(50),
   displayName: z.string().min(1, 'Display name is required').max(100),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   role: z.enum(['admin', 'member']),
 });
 
