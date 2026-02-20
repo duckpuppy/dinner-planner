@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import fastifyStatic from '@fastify/static';
+import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { fileURLToPath } from 'url';
@@ -18,6 +19,7 @@ import { historyRoutes } from './routes/history.js';
 import { settingsRoutes } from './routes/settings.js';
 import { suggestionsRoutes } from './routes/suggestions.js';
 import { patternsRoutes } from './routes/patterns.js';
+import { photosRoutes } from './routes/photos.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 
@@ -73,6 +75,16 @@ await fastify.register(jwt, {
   secret: config.JWT_SECRET,
 });
 
+// Register multipart (file uploads)
+await fastify.register(multipart);
+
+// Serve uploaded photos at /uploads/ (all environments)
+await fastify.register(fastifyStatic, {
+  root: join(__dirname, '../../data/uploads'),
+  prefix: '/uploads/',
+  decorateReply: false,
+});
+
 // Register auth middleware (must be after jwt)
 await fastify.register(authPlugin);
 
@@ -87,6 +99,7 @@ await fastify.register(historyRoutes);
 await fastify.register(settingsRoutes);
 await fastify.register(suggestionsRoutes);
 await fastify.register(patternsRoutes);
+await fastify.register(photosRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {

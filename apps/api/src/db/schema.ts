@@ -183,6 +183,23 @@ export const patternSideDishes = sqliteTable(
   (table) => [primaryKey({ columns: [table.patternId, table.dishId] })]
 );
 
+// Photos table (linked to preparations)
+export const photos = sqliteTable('photos', {
+  id: text('id').primaryKey(),
+  preparationId: text('preparation_id')
+    .notNull()
+    .references(() => preparations.id, { onDelete: 'cascade' }),
+  uploadedById: text('uploaded_by_id')
+    .notNull()
+    .references(() => users.id),
+  filename: text('filename').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(), // bytes
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {
   id: text('id').primaryKey(),

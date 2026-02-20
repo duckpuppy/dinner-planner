@@ -19,6 +19,8 @@ import {
   ChevronUp,
   ChevronDown,
   Link,
+  Minus,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -409,6 +411,11 @@ function DishRow({ dish, onClick }: { dish: Dish; onClick: () => void }) {
   );
 }
 
+function scaleQuantity(quantity: number, scale: number): string {
+  const scaled = quantity * scale;
+  return parseFloat(scaled.toFixed(3)).toString();
+}
+
 function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -416,6 +423,7 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   const [isEditing, setIsEditing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [scaledServings, setScaledServings] = useState<number | null>(dish.servings ?? null);
 
   const { data: freshData } = useQuery({
     queryKey: ['dish', dish.id],
@@ -439,6 +447,10 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
 
   const stats = ratingData?.stats;
   const preparations = historyData?.preparations || [];
+
+  const defaultServings = currentDish.servings ?? null;
+  const scale = defaultServings && scaledServings ? scaledServings / defaultServings : 1;
+  const isScaled = scale !== 1;
 
   const archiveMutation = useMutation({
     mutationFn: () => dishesApi.archive(dish.id),
@@ -533,9 +545,37 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
               </div>
             )}
             {currentDish.servings && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">Servings:</span>
-                <span className="font-medium">{currentDish.servings}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() =>
+                      setScaledServings((s) => Math.max(1, (s ?? currentDish.servings!) - 1))
+                    }
+                    className="w-6 h-6 flex items-center justify-center rounded border hover:bg-muted"
+                    aria-label="Decrease servings"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="font-medium w-6 text-center">
+                    {scaledServings ?? currentDish.servings}
+                  </span>
+                  <button
+                    onClick={() => setScaledServings((s) => (s ?? currentDish.servings!) + 1)}
+                    className="w-6 h-6 flex items-center justify-center rounded border hover:bg-muted"
+                    aria-label="Increase servings"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+                {isScaled && (
+                  <button
+                    onClick={() => setScaledServings(currentDish.servings ?? null)}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    reset
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -574,9 +614,20 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
             <ul className="space-y-1">
               {currentDish.ingredients.map((ing) => (
                 <li key={ing.id} className="flex items-start gap-2">
-                  <span className="text-muted-foreground">-</span>
+                  <span className="text-muted-foreground mt-0.5">-</span>
                   <span>
-                    {ing.quantity && `${ing.quantity} `}
+                    {ing.quantity != null ? (
+                      <span className={cn(isScaled && 'font-medium')}>
+                        {scaleQuantity(ing.quantity, scale)}{' '}
+                      </span>
+                    ) : isScaled ? (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-amber-500 mr-1"
+                        title="Quantity not specified — cannot scale"
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                      </span>
+                    ) : null}
                     {ing.unit && `${ing.unit} `}
                     {ing.name}
                     {ing.notes && <span className="text-muted-foreground"> ({ing.notes})</span>}
@@ -584,6 +635,12 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
                 </li>
               ))}
             </ul>
+            {isScaled && currentDish.ingredients.some((i) => i.quantity == null) && (
+              <p className="text-xs text-amber-500 mt-2 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Some ingredients have no quantity and cannot be scaled.
+              </p>
+            )}
           </div>
         )}
 

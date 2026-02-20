@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { history, type HistoryEntry } from '@/lib/api';
+import { PreparationPhotos } from '@/components/PreparationPhotos';
 import {
   Calendar,
   Search,
@@ -315,6 +316,7 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
                         ))}
                       </div>
                     )}
+                    <PreparationPhotos preparationId={prep.id} />
                   </div>
                 </div>
               ))}

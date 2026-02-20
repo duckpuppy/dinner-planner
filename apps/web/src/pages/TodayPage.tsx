@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menus, preparations, ratings, type DinnerEntry } from '@/lib/api';
+import { PreparationPhotos } from '@/components/PreparationPhotos';
 import { Calendar, ChefHat, Check, Clock, UtensilsCrossed, Star, CalendarX } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -301,6 +302,8 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
           {preparation.notes && (
             <p className="text-muted-foreground text-sm">{preparation.notes}</p>
           )}
+
+          <PreparationPhotos preparationId={preparation.id} />
 
           {/* Show existing ratings */}
           {ratingsList.length > 0 && (

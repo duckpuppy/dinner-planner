@@ -75,6 +75,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json();
 }
 
+async function requestFormData<T>(path: string, body: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body,
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new ApiError(response.status, error.error || 'Request failed');
+  }
+  return response.json();
+}
+
 async function refreshToken(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE}/auth/refresh`, {
@@ -231,6 +249,21 @@ export const preparations = {
 
   delete: (id: string) =>
     request<{ success: boolean }>(`/preparations/${id}`, { method: 'DELETE' }),
+};
+
+// Photos API
+export const photos = {
+  list: (preparationId: string) =>
+    request<{ photos: Photo[] }>(`/preparations/${preparationId}/photos`),
+
+  upload: (preparationId: string, file: File) => {
+    const form = new FormData();
+    form.append('photo', file);
+    return requestFormData<{ photo: Photo }>(`/preparations/${preparationId}/photos`, form);
+  },
+
+  delete: (photoId: string) =>
+    request<{ success: boolean }>(`/photos/${photoId}`, { method: 'DELETE' }),
 };
 
 // Ratings API
@@ -448,6 +481,17 @@ export interface Preparation {
   preparedByName: string;
   preparedDate: string;
   notes: string | null;
+  createdAt: string;
+}
+
+export interface Photo {
+  id: string;
+  preparationId: string;
+  uploadedById: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  url: string;
   createdAt: string;
 }
 
