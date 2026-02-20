@@ -618,6 +618,19 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
+## Milestone 20: Leftovers
+
+**Goal:** Track leftover meals as a first-class dinner type, linked back to the original dish/preparation.
+
+- Add `leftovers` as a dinner entry type (alongside assembled, fend for self, dining out, custom)
+- Link a leftovers entry to the original `dinner_entry` or `dish` it came from
+- UI: when selecting leftovers, show recent preparations to pick from
+- History view shows leftover chains (e.g. "Chicken Tikka → leftovers ×2")
+- Suggestion engine accounts for leftover nights (avoids over-recommending dishes that typically generate multiple leftover nights)
+- Grocery list generation reduces quantities when leftovers are planned for upcoming nights
+
+---
+
 ## Future Enhancements (Unscheduled)
 
 - [ ] Video caching from social media
@@ -650,6 +663,7 @@ This document breaks the project into incremental milestones, each delivering us
 | **17**      | Nutrition         | Nutritional info per dish              | Planned     |
 | **18**      | Dietary Tags      | Structured dietary attributes          | Planned     |
 | **19**      | Planned vs Actual | Draft/confirmed/completed entry states | Planned     |
+| **20**      | Leftovers         | First-class leftovers dinner type      | Planned     |
 
 ---
 
