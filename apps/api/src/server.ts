@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
@@ -66,6 +67,12 @@ if (config.NODE_ENV !== 'production') {
 }
 
 // Register plugins
+await fastify.register(helmet, {
+  contentSecurityPolicy: {
+    directives: { defaultSrc: ["'none'"] },
+  },
+});
+
 await fastify.register(cors, {
   origin: config.CORS_ORIGIN,
   credentials: true,

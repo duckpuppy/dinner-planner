@@ -1,32 +1,101 @@
 import * as cheerio from 'cheerio';
+import dns from 'node:dns';
 import type { ImportedRecipe } from '@dinner-planner/shared';
 
-// SSRF protection: block private/loopback/link-local IP ranges and non-http(s) schemes
-const PRIVATE_IP_PATTERNS = [
+/**
+ * Custom error thrown when a URL is blocked for SSRF reasons.
+ * The route layer catches this and returns HTTP 400.
+ */
+export class SsrfBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SsrfBlockedError';
+  }
+}
+
+/**
+ * Returns true if the given IP address falls within a private, loopback,
+ * link-local, or otherwise reserved range that should not be reachable
+ * from a public-facing service.
+ */
+export function isPrivateIP(ip: string): boolean {
+  // IPv4 ranges
+  const ipv4Patterns = [
+    /^127\./, // 127.0.0.0/8  loopback
+    /^10\./, // 10.0.0.0/8   private
+    /^172\.(1[6-9]|2\d|3[01])\./, // 172.16.0.0/12 private
+    /^192\.168\./, // 192.168.0.0/16 private
+    /^169\.254\./, // 169.254.0.0/16 link-local (AWS metadata etc.)
+    /^0\.0\.0\.0$/, // unspecified
+  ];
+
+  // IPv6 ranges
+  const ipv6Patterns = [
+    /^::1$/, // ::1 loopback
+    /^fc[0-9a-f]{2}:/i, // fc00::/7 unique local (first half)
+    /^fd[0-9a-f]{2}:/i, // fd00::/8 unique local (second half of fc00::/7)
+    /^fe80:/i, // fe80::/10 link-local
+  ];
+
+  const lower = ip.toLowerCase();
+  return ipv4Patterns.some((p) => p.test(lower)) || ipv6Patterns.some((p) => p.test(lower));
+}
+
+// Static hostname-level SSRF block (defense in depth before DNS resolution)
+const PRIVATE_HOST_PATTERNS = [
   /^127\./,
   /^10\./,
   /^172\.(1[6-9]|2\d|3[01])\./,
   /^192\.168\./,
   /^169\.254\./,
   /^::1$/,
-  /^fc00:/i,
+  /^fc[0-9a-f]{2}:/i,
+  /^fd[0-9a-f]{2}:/i,
   /^fe80:/i,
   /^0\.0\.0\.0$/,
 ];
 
-export function validateRecipeUrl(rawUrl: string): void {
+/**
+ * Validate the URL before any network activity:
+ * - Must be https only
+ * - Must not be localhost or a private/loopback/link-local address (static check)
+ * Returns the parsed URL for further use.
+ */
+export function validateRecipeUrl(rawUrl: string): URL {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
     throw new Error('Invalid URL');
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error('Only http and https URLs are supported');
+
+  if (parsed.protocol !== 'https:') {
+    throw new SsrfBlockedError('Only https URLs are supported');
   }
+
   const host = parsed.hostname.toLowerCase();
-  if (host === 'localhost' || PRIVATE_IP_PATTERNS.some((p) => p.test(host))) {
-    throw new Error('Requests to private or internal addresses are not allowed');
+  if (host === 'localhost' || PRIVATE_HOST_PATTERNS.some((p) => p.test(host))) {
+    throw new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked');
+  }
+
+  return parsed;
+}
+
+/**
+ * Resolve the hostname to an IP via DNS and verify it is not a private address.
+ * Throws SsrfBlockedError if the resolved IP is in a blocked range.
+ */
+async function assertPublicHost(hostname: string): Promise<void> {
+  let address: string;
+  try {
+    const result = await dns.promises.lookup(hostname);
+    address = result.address;
+  } catch {
+    throw new Error('Could not resolve hostname');
+  }
+
+  if (isPrivateIP(address)) {
+    throw new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked');
   }
 }
 
@@ -192,11 +261,14 @@ function extractVideoUrl(recipe: Record<string, unknown>): string | null {
   return typeof url === 'string' ? validateUrl(url) : null;
 }
 
-const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // Fetch URL, extract recipe, throw if not found
 export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> {
-  validateRecipeUrl(url);
+  const parsed = validateRecipeUrl(url);
+
+  // DNS-based SSRF check: resolve hostname and block private IPs
+  await assertPublicHost(parsed.hostname);
 
   let res: Response;
   try {

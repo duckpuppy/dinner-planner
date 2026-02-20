@@ -52,6 +52,12 @@ vi.mock('../services/dishes.js', () => ({
 vi.mock('../services/recipeImport.js', () => ({
   importRecipeFromUrl: vi.fn(),
   validateRecipeUrl: vi.fn().mockReturnValue(true),
+  SsrfBlockedError: class SsrfBlockedError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'SsrfBlockedError';
+    }
+  },
 }));
 
 vi.mock('../services/auth.js', () => ({
@@ -108,7 +114,7 @@ import {
   deletePattern,
 } from '../services/patterns.js';
 import { getDishes, getDishById, createDish } from '../services/dishes.js';
-import { importRecipeFromUrl } from '../services/recipeImport.js';
+import { importRecipeFromUrl, SsrfBlockedError } from '../services/recipeImport.js';
 import * as authService from '../services/auth.js';
 import * as settingsService from '../services/settings.js';
 import * as menusService from '../services/menus.js';
@@ -758,6 +764,23 @@ describe('POST /api/dishes/import-url', () => {
       body: JSON.stringify({ url: 'not-a-url' }),
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when import service throws SsrfBlockedError', async () => {
+    vi.mocked(importRecipeFromUrl).mockRejectedValueOnce(
+      new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked')
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/dishes/import-url',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ url: 'https://example.com/recipe' }),
+    });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({
+      error: 'URL not allowed: private or loopback addresses are blocked',
+    });
   });
 
   it('returns 422 when import service throws', async () => {
