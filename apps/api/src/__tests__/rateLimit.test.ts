@@ -42,7 +42,7 @@ vi.mock('../services/recipeImport.js', () => ({
 
 const TEST_SECRET = 'rate-limit-test-secret-must-be-32-chars!!';
 
-async function buildRateLimitApp(max: number) {
+async function buildRateLimitApp() {
   const app = Fastify({ logger: false });
   await app.register(rateLimit, {
     global: false,
@@ -64,7 +64,7 @@ describe('Rate limiting', () => {
   describe('POST /api/auth/login', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
     beforeAll(async () => {
-      app = await buildRateLimitApp(10);
+      app = await buildRateLimitApp();
     });
     afterAll(async () => {
       await app.close();
@@ -88,7 +88,7 @@ describe('Rate limiting', () => {
   describe('POST /api/auth/refresh', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
     beforeAll(async () => {
-      app = await buildRateLimitApp(20);
+      app = await buildRateLimitApp();
     });
     afterAll(async () => {
       await app.close();
@@ -106,7 +106,7 @@ describe('Rate limiting', () => {
   describe('POST /api/dishes/import-url', () => {
     let app: Awaited<ReturnType<typeof buildRateLimitApp>>;
     beforeAll(async () => {
-      app = await buildRateLimitApp(5);
+      app = await buildRateLimitApp();
     });
     afterAll(async () => {
       await app.close();
