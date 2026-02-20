@@ -27,35 +27,36 @@ export async function authRoutes(fastify: FastifyInstance) {
     '/api/auth/login',
     { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request: FastifyRequest, reply: FastifyReply) => {
-    const parseResult = loginSchema.safeParse(request.body);
+      const parseResult = loginSchema.safeParse(request.body);
 
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: 'Validation failed',
-        details: parseResult.error.flatten().fieldErrors,
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { username, password } = parseResult.data;
+
+      const result = await authService.login(username, password, (payload) =>
+        fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
+      );
+
+      if (!result) {
+        return reply.status(401).send({
+          error: 'Invalid username or password',
+        });
+      }
+
+      // Set refresh token as httpOnly cookie
+      reply.setCookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+
+      return reply.send({
+        user: result.user,
+        accessToken: result.accessToken,
       });
     }
-
-    const { username, password } = parseResult.data;
-
-    const result = await authService.login(username, password, (payload) =>
-      fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
-    );
-
-    if (!result) {
-      return reply.status(401).send({
-        error: 'Invalid username or password',
-      });
-    }
-
-    // Set refresh token as httpOnly cookie
-    reply.setCookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    return reply.send({
-      user: result.user,
-      accessToken: result.accessToken,
-    });
-  });
+  );
 
   /**
    * POST /api/auth/refresh
@@ -65,31 +66,32 @@ export async function authRoutes(fastify: FastifyInstance) {
     '/api/auth/refresh',
     { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request: FastifyRequest, reply: FastifyReply) => {
-    const refreshToken = request.cookies.refreshToken;
+      const refreshToken = request.cookies.refreshToken;
 
-    if (!refreshToken) {
-      return reply.status(401).send({
-        error: 'No refresh token provided',
+      if (!refreshToken) {
+        return reply.status(401).send({
+          error: 'No refresh token provided',
+        });
+      }
+
+      const result = await authService.refreshAccessToken(refreshToken, (payload) =>
+        fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
+      );
+
+      if (!result) {
+        // Clear invalid cookie
+        reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
+        return reply.status(401).send({
+          error: 'Invalid or expired refresh token',
+        });
+      }
+
+      return reply.send({
+        user: result.user,
+        accessToken: result.accessToken,
       });
     }
-
-    const result = await authService.refreshAccessToken(refreshToken, (payload) =>
-      fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
-    );
-
-    if (!result) {
-      // Clear invalid cookie
-      reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
-      return reply.status(401).send({
-        error: 'Invalid or expired refresh token',
-      });
-    }
-
-    return reply.send({
-      user: result.user,
-      accessToken: result.accessToken,
-    });
-  });
+  );
 
   /**
    * POST /api/auth/logout
