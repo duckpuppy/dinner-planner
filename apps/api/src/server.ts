@@ -28,6 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const fastify = Fastify({
+  trustProxy: true, // Required for correct client IP detection behind Nginx/reverse proxies
   logger: {
     level: config.NODE_ENV === 'development' ? 'debug' : 'info',
     transport:
