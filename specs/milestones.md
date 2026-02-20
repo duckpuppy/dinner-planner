@@ -520,10 +520,12 @@ This document breaks the project into incremental milestones, each delivering us
 
 #### Prep Task Management
 
-- [ ] `prep_tasks` table linked to `dinner_entries` (description, remind_at timestamp, completed bool)
-- [ ] API CRUD for prep tasks
-- [ ] UI in week/day view to add/check off prep tasks
-- [ ] Tomorrow's prep tasks surface in Today view
+- [ ] `prep_tasks` table linked to `dinner_entries` (id, entry_id FK, description, completed bool, created_at)
+- [ ] API CRUD: `GET/POST /api/entries/:id/prep-tasks`, `PATCH/DELETE /api/prep-tasks/:id`
+- [ ] Week view: day cards show prep task count badge; click opens inline checklist
+- [ ] Today view: "Prep for tomorrow" section showing tomorrow's incomplete prep tasks
+
+> **Deferred:** Time-based push notifications (web Push API, Android native) are out of scope for M13 — to be addressed in a future enhancement.
 
 ---
 
