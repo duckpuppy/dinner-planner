@@ -1,7 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menus, preparations, ratings, type DinnerEntry } from '@/lib/api';
+import { PrepTaskList } from '@/components/PrepTaskList';
 import { PreparationPhotos } from '@/components/PreparationPhotos';
-import { Calendar, ChefHat, Check, Clock, UtensilsCrossed, Star, CalendarX } from 'lucide-react';
+import {
+  Calendar,
+  ChefHat,
+  Check,
+  Clock,
+  UtensilsCrossed,
+  Star,
+  CalendarX,
+  ClipboardList,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -12,6 +22,16 @@ import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function formatDateForApi(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+function getTomorrowDateStr(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return formatDateForApi(tomorrow);
+}
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   assembled: 'Home Cooked',
@@ -77,6 +97,40 @@ export function TodayPage() {
       </div>
 
       <TodayCard entry={entry} />
+
+      <TomorrowPrepSection />
+    </div>
+  );
+}
+
+function TomorrowPrepSection() {
+  const tomorrowStr = getTomorrowDateStr();
+
+  const { data } = useQuery({
+    queryKey: ['week', tomorrowStr],
+    queryFn: () => menus.getWeek(tomorrowStr),
+  });
+
+  const tomorrowEntry = data?.menu.entries.find((e) => e.date === tomorrowStr);
+
+  if (!tomorrowEntry) return null;
+
+  const tomorrowDayName = DAY_NAMES[tomorrowEntry.dayOfWeek];
+
+  return (
+    <div className="mt-6 border rounded-lg overflow-hidden">
+      <div className="px-4 py-3 bg-muted/40 flex items-center gap-2 border-b">
+        <ClipboardList className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <h2 className="text-sm font-semibold text-balance">Prep for {tomorrowDayName}</h2>
+        {tomorrowEntry.mainDish && (
+          <span className="text-sm text-muted-foreground truncate">
+            — {tomorrowEntry.mainDish.name}
+          </span>
+        )}
+      </div>
+      <div className="p-4">
+        <PrepTaskList entryId={tomorrowEntry.id} />
+      </div>
     </div>
   );
 }

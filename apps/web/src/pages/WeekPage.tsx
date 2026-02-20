@@ -3,10 +3,12 @@ import {
   menus,
   dishes,
   patterns,
+  prepTasks,
   type DinnerEntry,
   type UpdateEntryData,
   type SuggestedDish,
 } from '@/lib/api';
+import { PrepTaskList } from '@/components/PrepTaskList';
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +18,9 @@ import {
   Sparkles,
   ShoppingCart,
   Zap,
+  ClipboardList,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -181,7 +186,16 @@ interface DayCardProps {
 
 function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [showPrepTasks, setShowPrepTasks] = useState(false);
   const queryClient = useQueryClient();
+
+  const { data: prepTasksData } = useQuery({
+    queryKey: ['prepTasks', entry.id],
+    queryFn: () => prepTasks.list(entry.id),
+  });
+
+  const prepTaskCount = prepTasksData?.prepTasks.length ?? 0;
+  const completedCount = prepTasksData?.prepTasks.filter((t) => t.completed).length ?? 0;
 
   const isToday = entry.date === formatDateForApi(new Date());
   const date = new Date(entry.date + 'T00:00:00');
@@ -228,63 +242,97 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
     >
       <div
         className={cn(
-          'border rounded-lg p-3 flex items-center gap-4',
+          'border rounded-lg overflow-hidden',
           isToday && 'ring-2 ring-primary',
           entry.completed && 'bg-muted/50'
         )}
       >
-        {/* Date */}
-        <div className="w-16 text-center flex-shrink-0">
-          <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
-          <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>
-            {date.getDate()}
+        {/* Main card row */}
+        <div className="p-3 flex items-center gap-4">
+          {/* Date */}
+          <div className="w-16 text-center flex-shrink-0">
+            <div className="text-xs text-muted-foreground">{DAY_NAMES[entry.dayOfWeek]}</div>
+            <div className={cn('text-2xl font-bold tabular-nums', isToday && 'text-primary')}>
+              {date.getDate()}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {entry.type === 'assembled' && entry.mainDish ? (
+              <>
+                <div className="font-medium truncate">{entry.mainDish.name}</div>
+                {entry.sideDishes.length > 0 && (
+                  <div className="text-sm text-muted-foreground truncate">
+                    with {entry.sideDishes.map((d) => d.name).join(', ')}
+                  </div>
+                )}
+              </>
+            ) : entry.type === 'assembled' ? (
+              <div className="text-muted-foreground">No dish selected</div>
+            ) : entry.type === 'fend_for_self' ? (
+              <div className="text-muted-foreground">Fend for Yourself</div>
+            ) : entry.type === 'dining_out' ? (
+              <div className="text-muted-foreground">
+                {entry.restaurantName || entry.customText
+                  ? `Dining Out: ${entry.restaurantName || entry.customText}`
+                  : 'Dining Out'}
+                {entry.restaurantNotes && (
+                  <div className="text-xs truncate">{entry.restaurantNotes}</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
+            )}
+          </div>
+
+          {/* Status & Actions */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {entry.completed && (
+              <span className="text-green-600 dark:text-green-400">
+                <Check className="h-5 w-5" />
+              </span>
+            )}
+            {/* Prep tasks toggle */}
+            <button
+              onClick={() => setShowPrepTasks((v) => !v)}
+              className={cn(
+                'p-3 md:p-2 rounded-md touch-manipulation flex items-center gap-1',
+                showPrepTasks
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+              aria-label={showPrepTasks ? 'Hide prep tasks' : 'Show prep tasks'}
+              aria-expanded={showPrepTasks}
+            >
+              <ClipboardList className="h-4 w-4" />
+              {prepTaskCount > 0 && (
+                <span className="text-xs tabular-nums font-medium">
+                  {completedCount}/{prepTaskCount}
+                </span>
+              )}
+              {showPrepTasks ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
+              aria-label="Edit"
+            >
+              <Edit2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {entry.type === 'assembled' && entry.mainDish ? (
-            <>
-              <div className="font-medium truncate">{entry.mainDish.name}</div>
-              {entry.sideDishes.length > 0 && (
-                <div className="text-sm text-muted-foreground truncate">
-                  with {entry.sideDishes.map((d) => d.name).join(', ')}
-                </div>
-              )}
-            </>
-          ) : entry.type === 'assembled' ? (
-            <div className="text-muted-foreground">No dish selected</div>
-          ) : entry.type === 'fend_for_self' ? (
-            <div className="text-muted-foreground">Fend for Yourself</div>
-          ) : entry.type === 'dining_out' ? (
-            <div className="text-muted-foreground">
-              {entry.restaurantName || entry.customText
-                ? `Dining Out: ${entry.restaurantName || entry.customText}`
-                : 'Dining Out'}
-              {entry.restaurantNotes && (
-                <div className="text-xs truncate">{entry.restaurantNotes}</div>
-              )}
-            </div>
-          ) : (
-            <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
-          )}
-        </div>
-
-        {/* Status & Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {entry.completed && (
-            <span className="text-green-600 dark:text-green-400">
-              <Check className="h-5 w-5" />
-            </span>
-          )}
-          <button
-            onClick={() => setIsEditing(true)}
-            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
-            aria-label="Edit"
-          >
-            <Edit2 className="h-4 w-4" />
-          </button>
-        </div>
+        {/* Prep tasks panel */}
+        {showPrepTasks && (
+          <div className="px-3 pb-3 pt-1 border-t">
+            <PrepTaskList entryId={entry.id} />
+          </div>
+        )}
       </div>
     </SwipeableListItem>
   );
