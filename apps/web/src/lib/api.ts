@@ -582,3 +582,31 @@ export interface Pattern {
   createdById: string;
   createdAt: string;
 }
+
+export interface PrepTask {
+  id: string;
+  entryId: string;
+  description: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Prep Tasks API
+export const prepTasks = {
+  list: (entryId: string) => request<{ prepTasks: PrepTask[] }>(`/entries/${entryId}/prep-tasks`),
+
+  create: (entryId: string, description: string) =>
+    request<PrepTask>(`/entries/${entryId}/prep-tasks`, {
+      method: 'POST',
+      body: JSON.stringify({ description }),
+    }),
+
+  update: (id: string, data: { description?: string; completed?: boolean }) =>
+    request<PrepTask>(`/prep-tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) => request<Record<string, never>>(`/prep-tasks/${id}`, { method: 'DELETE' }),
+};
