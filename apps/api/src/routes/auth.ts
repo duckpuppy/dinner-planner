@@ -23,7 +23,7 @@ export async function authRoutes(fastify: FastifyInstance) {
    * POST /api/auth/login
    * Authenticate user and return tokens
    */
-  fastify.post('/api/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/api/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parseResult = loginSchema.safeParse(request.body);
 
     if (!parseResult.success) {
@@ -58,7 +58,7 @@ export async function authRoutes(fastify: FastifyInstance) {
    * POST /api/auth/refresh
    * Refresh access token using refresh token cookie
    */
-  fastify.post('/api/auth/refresh', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/api/auth/refresh', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request: FastifyRequest, reply: FastifyReply) => {
     const refreshToken = request.cookies.refreshToken;
 
     if (!refreshToken) {

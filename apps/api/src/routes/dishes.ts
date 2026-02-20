@@ -16,7 +16,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     '/api/dishes/import-url',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: [fastify.authenticate], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = importRecipeUrlSchema.safeParse(request.body);
       if (!parsed.success) {
