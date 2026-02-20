@@ -643,29 +643,29 @@ This document breaks the project into incremental milestones, each delivering us
 
 ## Summary
 
-| Milestone   | Focus             | Key Deliverable                | Status      |
-| ----------- | ----------------- | ------------------------------ | ----------- |
-| **0**       | Foundation        | Dev environment, scaffolding   | ✅ Complete |
-| **1 (MVP)** | Core Planning     | Basic meal planning app        | ✅ Complete |
-| **2**       | Ratings & Recipes | Full recipe + rating system    | ✅ Complete |
-| **3**       | Polish            | Themes, admin, UX improvements | ✅ Complete |
-| **4**       | Offline / PWA     | Installable PWA, offline view  | ✅ Complete |
-| **5**       | Mobile            | Native iOS/Android apps        | ✅ Complete |
-| **6**       | Suggestions       | Smart meal suggestions         | ✅ Complete |
-| **7**       | Grocery Lists     | Generated, shareable lists     | ✅ Complete |
-| **8**       | Recipe Import     | Import from URL (JSON-LD)      | ✅ Complete |
-| **9**       | Planning          | Patterns, dining out tracking  | ✅ Complete |
-| **10**      | Visual & Scaling  | Photo uploads, portion scaling | ✅ Complete |
-| **11**      | Test Coverage     | 80%+ coverage, CI gates        | ✅ Complete |
-| **12**      | Security          | Rate limiting, headers, SSRF   | ✅ Complete |
-| **13**      | Prep Scheduling   | Day-before prep tasks & reminders      | Planned     |
-| **14**      | Cook Log          | Persistent recipe notes per dish       | Planned     |
-| **15**      | Multiple Preparers| Credit multiple cooks per meal         | Planned     |
-| **16**      | Pantry            | Pantry tracking, smarter grocery lists | Planned     |
-| **17**      | Nutrition         | Nutritional info per dish              | Planned     |
-| **18**      | Dietary Tags      | Structured dietary attributes          | Planned     |
-| **19**      | Planned vs Actual | Draft/confirmed/completed entry states | Planned     |
-| **20**      | Leftovers         | First-class leftovers dinner type      | Planned     |
+| Milestone   | Focus              | Key Deliverable                        | Status      |
+| ----------- | ------------------ | -------------------------------------- | ----------- |
+| **0**       | Foundation         | Dev environment, scaffolding           | ✅ Complete |
+| **1 (MVP)** | Core Planning      | Basic meal planning app                | ✅ Complete |
+| **2**       | Ratings & Recipes  | Full recipe + rating system            | ✅ Complete |
+| **3**       | Polish             | Themes, admin, UX improvements         | ✅ Complete |
+| **4**       | Offline / PWA      | Installable PWA, offline view          | ✅ Complete |
+| **5**       | Mobile             | Native iOS/Android apps                | ✅ Complete |
+| **6**       | Suggestions        | Smart meal suggestions                 | ✅ Complete |
+| **7**       | Grocery Lists      | Generated, shareable lists             | ✅ Complete |
+| **8**       | Recipe Import      | Import from URL (JSON-LD)              | ✅ Complete |
+| **9**       | Planning           | Patterns, dining out tracking          | ✅ Complete |
+| **10**      | Visual & Scaling   | Photo uploads, portion scaling         | ✅ Complete |
+| **11**      | Test Coverage      | 80%+ coverage, CI gates                | ✅ Complete |
+| **12**      | Security           | Rate limiting, headers, SSRF           | ✅ Complete |
+| **13**      | Prep Scheduling    | Day-before prep tasks & reminders      | Planned     |
+| **14**      | Cook Log           | Persistent recipe notes per dish       | Planned     |
+| **15**      | Multiple Preparers | Credit multiple cooks per meal         | Planned     |
+| **16**      | Pantry             | Pantry tracking, smarter grocery lists | Planned     |
+| **17**      | Nutrition          | Nutritional info per dish              | Planned     |
+| **18**      | Dietary Tags       | Structured dietary attributes          | Planned     |
+| **19**      | Planned vs Actual  | Draft/confirmed/completed entry states | Planned     |
+| **20**      | Leftovers          | First-class leftovers dinner type      | Planned     |
 
 ---
 
