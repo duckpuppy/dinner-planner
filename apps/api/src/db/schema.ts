@@ -129,6 +129,17 @@ export const preparations = sqliteTable('preparations', {
   ...timestamps,
 });
 
+// Prep tasks table (M13: prep scheduling)
+export const prepTasks = sqliteTable('prep_tasks', {
+  id: text('id').primaryKey(),
+  entryId: text('entry_id')
+    .notNull()
+    .references(() => dinnerEntries.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  ...timestamps,
+});
+
 // Ratings table
 export const ratings = sqliteTable('ratings', {
   id: text('id').primaryKey(),

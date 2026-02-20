@@ -187,6 +187,25 @@ export const importedRecipeSchema = z.object({
   tags: z.array(z.string()),
 });
 
+// Prep task schemas (M13: prep scheduling)
+export const createPrepTaskSchema = z.object({
+  description: z.string().min(1).max(500),
+});
+
+export const updatePrepTaskSchema = z.object({
+  description: z.string().min(1).max(500).optional(),
+  completed: z.boolean().optional(),
+});
+
+export const prepTaskSchema = z.object({
+  id: z.string(),
+  entryId: z.string(),
+  description: z.string(),
+  completed: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -214,3 +233,6 @@ export type ImportRecipeUrlInput = z.infer<typeof importRecipeUrlSchema>;
 export type ImportedRecipe = z.infer<typeof importedRecipeSchema>;
 export type CreatePatternInput = z.infer<typeof createPatternSchema>;
 export type UpdatePatternInput = z.infer<typeof updatePatternSchema>;
+export type CreatePrepTaskInput = z.infer<typeof createPrepTaskSchema>;
+export type UpdatePrepTaskInput = z.infer<typeof updatePrepTaskSchema>;
+export type PrepTask = z.infer<typeof prepTaskSchema>;
