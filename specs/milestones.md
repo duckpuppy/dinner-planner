@@ -389,128 +389,237 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
-## Milestone 10: Visual & Scaling Enhancements
+## Milestone 10: Visual & Scaling Enhancements ✅ COMPLETE
 
 **Goal:** Photo uploads for preparations and client-side portion scaling.
+
+**Status:** Completed on 2026-02-19
 
 ### Features
 
 #### Photo Uploads
 
-- [ ] File storage in `apps/api/data/uploads/`, served at `/uploads/`
-- [ ] `photos` table linked to preparations
-- [ ] Upload/delete API endpoints (`@fastify/multipart`)
-- [ ] Photo grid in preparation detail (HistoryPage)
-- [ ] Show photos in TodayPage preparation card
+- [x] File storage in `apps/api/data/uploads/`, served at `/uploads/`
+- [x] `photos` table linked to preparations
+- [x] Upload/delete API endpoints (`@fastify/multipart`)
+- [x] Photo grid in preparation detail (HistoryPage)
+- [x] Show photos in TodayPage preparation card
 
 #### Portion Scaling
 
-- [ ] Servings scaler input in dish detail view
-- [ ] Client-side quantity recalculation proportional to default servings
-- [ ] Graceful handling of null quantities
+- [x] Servings scaler input in dish detail view
+- [x] Client-side quantity recalculation proportional to default servings
+- [x] Graceful handling of null quantities
 
 ---
 
-## Milestone 11: Test Coverage
+## Milestone 11: Test Coverage ✅ COMPLETE
 
 **Goal:** Achieve meaningful automated test coverage across API services and frontend components, especially for features added in M8–M10 that shipped without tests.
+
+**Status:** Completed on 2026-02-20
 
 ### Features
 
 #### API Service Tests
 
-- [ ] `recipeImport.ts` — unit tests for `parseSchemaOrgRecipe` (valid JSON-LD, `@graph` wrapper, `HowToStep` instructions, duration parsing, servings parsing, keywords, missing/invalid cases)
-- [ ] `patterns.ts` — unit tests for `applyPatternsToWeek` (no patterns, untouched entries, touched entries skipped, dining_out mapping, deterministic selection)
-- [ ] `dishes.ts` — unit tests for `getDishes` filters (archived, search, tag), `deleteDish` cascade
-- [ ] `menus.ts` — unit tests for `getOrCreateWeekMenu`, `updateDinnerEntry` field validation
+- [x] `recipeImport.ts` — unit tests for `parseSchemaOrgRecipe` (valid JSON-LD, `@graph` wrapper, `HowToStep` instructions, duration parsing, servings parsing, keywords, missing/invalid cases)
+- [x] `patterns.ts` — unit tests for `applyPatternsToWeek` (no patterns, untouched entries, touched entries skipped, dining_out mapping, deterministic selection)
+- [x] `dishes.ts` — unit tests for `getDishes` filters (archived, search, tag), `deleteDish` cascade
+- [x] `menus.ts` — unit tests for `getOrCreateWeekMenu`, `updateDinnerEntry` field validation
 
 #### API Integration Tests
 
-- [ ] Auth flow: login, refresh, logout
-- [ ] Patterns CRUD: create, read, update, delete; apply-patterns endpoint
-- [ ] Recipe import: successful parse, non-recipe URL 422, network error 422
-- [ ] Dishes: archived filter, hard delete cascade
+- [x] Auth flow: login, refresh, logout
+- [x] Patterns CRUD: create, read, update, delete; apply-patterns endpoint
+- [x] Recipe import: successful parse, non-recipe URL 422, network error 422
+- [x] Dishes: archived filter, hard delete cascade
 
 #### Frontend Component Tests
 
-- [ ] `PatternsPage` — renders patterns grouped by day, create/edit/delete flow
-- [ ] `WeekPage` — dining-out restaurant name/notes inputs, apply-patterns button
-- [ ] `RecipeImportModal` — URL input, loading state, success/error handling
-- [ ] `DishForm` — prefill from import, ingredient CRUD
+- [x] `PatternsPage` — renders patterns grouped by day, create/edit/delete flow
+- [x] `WeekPage` — dining-out restaurant name/notes inputs, apply-patterns button
+- [x] `RecipeImportModal` — URL input, loading state, success/error handling
+- [x] `DishForm` — prefill from import, ingredient CRUD
 
 #### Coverage Targets
 
-- [ ] API services: 80%+ line coverage
-- [ ] Frontend components: 70%+ line coverage
-- [ ] CI gate: fail if coverage drops below thresholds
+- [x] API services: 80%+ line coverage
+- [x] Frontend components: 70%+ line coverage
+- [x] CI gate: fail if coverage drops below thresholds
 
 ### Deliverables
 
-- Comprehensive test suite for all milestones M0–M10
-- Coverage reports in CI output
-- Zero untested critical paths (auth, data mutation, import)
+- ✅ Comprehensive test suite for all milestones M0–M10
+- ✅ Coverage reports in CI output
+- ✅ Zero untested critical paths (auth, data mutation, import)
 
 ---
 
-## Milestone 12: Security Hardening
+## Milestone 12: Security Hardening ✅ COMPLETE
 
 **Goal:** Audit and harden the application against common web vulnerabilities before broader deployment.
+
+**Status:** Completed on 2026-02-20
 
 ### Features
 
 #### Rate Limiting
 
-- [ ] Rate limit auth endpoints (`/api/auth/login`, `/api/auth/refresh`) — e.g. 10 req/min per IP
-- [ ] Rate limit recipe import endpoint (`/api/dishes/import-url`) — prevent abuse
-- [ ] Return `429 Too Many Requests` with `Retry-After` header
-- [ ] Use `@fastify/rate-limit` plugin
+- [x] Rate limit auth endpoints (`/api/auth/login`, `/api/auth/refresh`) — e.g. 10 req/min per IP
+- [x] Rate limit recipe import endpoint (`/api/dishes/import-url`) — prevent abuse
+- [x] Return `429 Too Many Requests` with `Retry-After` header
+- [x] Use `@fastify/rate-limit` plugin
 
 #### Security Headers
 
-- [ ] Add `@fastify/helmet` for standard security headers (CSP, X-Frame-Options, HSTS, etc.)
-- [ ] Configure CSP to allow app assets while blocking inline scripts from third-party origins
-- [ ] Verify headers in integration tests
+- [x] Add `@fastify/helmet` for standard security headers (CSP, X-Frame-Options, HSTS, etc.)
+- [x] Configure CSP to allow app assets while blocking inline scripts from third-party origins
+- [x] Verify headers in integration tests
 
 #### SSRF Protection (Recipe Import)
 
-- [ ] Validate URL against an allow list / deny list before fetching (block `localhost`, `127.x`, `10.x`, `192.168.x`, `169.254.x`, metadata endpoints)
-- [ ] Enforce `https://` only
-- [ ] Limit response size (e.g. 5 MB) to prevent memory exhaustion
+- [x] Validate URL against an allow list / deny list before fetching (block `localhost`, `127.x`, `10.x`, `192.168.x`, `169.254.x`, metadata endpoints)
+- [x] Enforce `https://` only
+- [x] Limit response size (e.g. 5 MB) to prevent memory exhaustion
 
 #### Input Validation Audit
 
-- [ ] Audit all API routes for unvalidated fields
-- [ ] Ensure all text inputs have `maxLength` constraints in Zod schemas
-- [ ] Verify no raw SQL string interpolation anywhere
+- [x] Audit all API routes for unvalidated fields
+- [x] Ensure all text inputs have `maxLength` constraints in Zod schemas
+- [x] Verify no raw SQL string interpolation anywhere
 
 #### Auth Security Review
 
-- [ ] Confirm refresh token rotation on use (invalidate old token)
-- [ ] Confirm `httpOnly`, `SameSite=Strict`, `Secure` flags on refresh cookie
-- [ ] Review JWT secret strength requirements in env validation
-- [ ] Add `env` validation at startup (fail fast if `JWT_SECRET` is missing or too short)
+- [x] Confirm refresh token rotation on use (invalidate old token)
+- [x] Confirm `httpOnly`, `SameSite=Strict`, `Secure` flags on refresh cookie
+- [x] Review JWT secret strength requirements in env validation
+- [x] Add `env` validation at startup (fail fast if `JWT_SECRET` is missing or too short)
 
 #### Dependency Audit
 
-- [ ] Run `pnpm audit` and resolve all high/critical vulnerabilities
-- [ ] Add `pnpm audit --audit-level=high` to CI pipeline
-- [ ] Document accepted low/medium risks
+- [x] Run `pnpm audit` and resolve all high/critical vulnerabilities
+- [x] Add `pnpm audit --audit-level=high` to CI pipeline
+- [x] Document accepted low/medium risks
 
 ### Deliverables
 
-- Rate limiting on sensitive endpoints
-- Security headers on all responses
-- SSRF protection on recipe import
-- Clean `pnpm audit` output (high/critical = 0)
-- Auth cookie flags verified correct
+- ✅ Rate limiting on sensitive endpoints
+- ✅ Security headers on all responses
+- ✅ SSRF protection on recipe import
+- ✅ Clean `pnpm audit` output (high/critical = 0)
+- ✅ Auth cookie flags verified correct
+
+---
+
+## Milestone 13: Prep Scheduling & Reminders
+
+**Goal:** Associate day-before prep tasks with planned meals (thawing, slow cooker setup, marinade).
+
+### Features
+
+#### Prep Task Management
+
+- [ ] `prep_tasks` table linked to `dinner_entries` (description, remind_at timestamp, completed bool)
+- [ ] API CRUD for prep tasks
+- [ ] UI in week/day view to add/check off prep tasks
+- [ ] Tomorrow's prep tasks surface in Today view
+
+---
+
+## Milestone 14: Recipe Notes & Cook Log
+
+**Goal:** Track evolving recipe knowledge on each dish — persistent notes that survive across preparations.
+
+### Features
+
+#### Persistent Dish Notes
+
+- [ ] `dish_notes` table (dish_id, note, created_at, created_by)
+- [ ] API endpoints to add/list/delete notes
+- [ ] Notes section in dish detail UI
+- [ ] Option to promote a preparation's free-text notes to a dish note
+
+---
+
+## Milestone 15: Multiple Preparers
+
+**Goal:** Credit multiple people for a single preparation.
+
+### Features
+
+#### Multi-Preparer Support
+
+- [ ] Replace single `prepared_by` field with join table `preparation_preparers` (preparation_id, user_id)
+- [ ] Update API and history display
+- [ ] Multi-select preparer picker in UI
+
+---
+
+## Milestone 16: Pantry Tracking
+
+**Goal:** Mark ingredients as already in the pantry so the grocery list excludes them.
+
+### Features
+
+#### Pantry Management
+
+- [ ] `pantry_items` table (household-scoped, ingredient name, quantity, expires_at)
+- [ ] API CRUD for pantry items
+- [ ] Pantry management page
+- [ ] Grocery list generation excludes pantry-covered items
+
+---
+
+## Milestone 17: Nutritional Information
+
+**Goal:** Capture and display nutritional data for dishes.
+
+### Features
+
+#### Nutritional Data
+
+- [ ] Extend `dishes` with calories, protein, carbs, fat (per serving, nullable)
+- [ ] Auto-populate from schema.org Recipe `nutrition` during URL import
+- [ ] Manual entry in DishForm
+- [ ] Display in dish detail, scaled by portion scaler
+
+---
+
+## Milestone 18: Dietary Tags & Restrictions
+
+**Goal:** Structured dietary attributes for filtering and user preferences.
+
+### Features
+
+#### Dietary System
+
+- [ ] Predefined tags: vegetarian, vegan, gluten-free, dairy-free, nut-free, low-carb
+- [ ] Multi-value field on dishes
+- [ ] Filter dishes by dietary tag
+- [ ] User dietary preferences stored in settings
+- [ ] Suggestion engine respects user dietary preferences
+
+---
+
+## Milestone 19: Planned vs. Actual Tracking
+
+**Goal:** Distinguish tentatively planned meals from confirmed ones.
+
+### Features
+
+#### Entry Status Tracking
+
+- [ ] Add `status` enum to `dinner_entries`: `draft | confirmed | completed`
+- [ ] Default new entries to `draft`
+- [ ] UI affordance to confirm a plan (week view)
+- [ ] Today view highlights unconfirmed entries
+- [ ] History and suggestions only count `completed` entries
 
 ---
 
 ## Future Enhancements (Unscheduled)
 
-- [ ] Multiple preparers per meal
-- [ ] Notifications/reminders
-- [ ] Dietary restriction filtering
 - [ ] Video caching from social media
 - [ ] Multiple meals per day
 - [ ] Data export/import
@@ -531,9 +640,16 @@ This document breaks the project into incremental milestones, each delivering us
 | **7**       | Grocery Lists     | Generated, shareable lists     | ✅ Complete |
 | **8**       | Recipe Import     | Import from URL (JSON-LD)      | ✅ Complete |
 | **9**       | Planning          | Patterns, dining out tracking  | ✅ Complete |
-| **10**      | Visual & Scaling  | Photo uploads, portion scaling | Planned     |
-| **11**      | Test Coverage     | 80%+ coverage, CI gates        | Planned     |
-| **12**      | Security          | Rate limiting, headers, SSRF   | Planned     |
+| **10**      | Visual & Scaling  | Photo uploads, portion scaling | ✅ Complete |
+| **11**      | Test Coverage     | 80%+ coverage, CI gates        | ✅ Complete |
+| **12**      | Security          | Rate limiting, headers, SSRF   | ✅ Complete |
+| **13**      | Prep Scheduling   | Day-before prep tasks & reminders      | Planned     |
+| **14**      | Cook Log          | Persistent recipe notes per dish       | Planned     |
+| **15**      | Multiple Preparers| Credit multiple cooks per meal         | Planned     |
+| **16**      | Pantry            | Pantry tracking, smarter grocery lists | Planned     |
+| **17**      | Nutrition         | Nutritional info per dish              | Planned     |
+| **18**      | Dietary Tags      | Structured dietary attributes          | Planned     |
+| **19**      | Planned vs Actual | Draft/confirmed/completed entry states | Planned     |
 
 ---
 
