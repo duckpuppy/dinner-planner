@@ -25,7 +25,14 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('../db/index.js', () => ({
   db: mockDb,
   schema: {
-    dishes: { id: null, archived: null, name: null, type: null, description: null, updatedAt: null },
+    dishes: {
+      id: null,
+      archived: null,
+      name: null,
+      type: null,
+      description: null,
+      updatedAt: null,
+    },
     ingredients: { dishId: null, sortOrder: null },
     dishTags: { dishId: null, tagId: null },
     tags: { id: null, name: null },

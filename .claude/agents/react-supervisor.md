@@ -28,6 +28,7 @@ You MUST abide by the following workflow:
    - EPIC_ID: (epic children only) The parent epic ID (e.g., BD-001)
 
 2. **Create worktree (via API with git fallback):**
+
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel)
    WORKTREE_PATH="$REPO_ROOT/.worktrees/bd-{BEAD_ID}"
@@ -49,17 +50,20 @@ You MUST abide by the following workflow:
    ```
 
 3. **Mark in progress:**
+
    ```bash
    bd update {BEAD_ID} --status in_progress
    ```
 
 4. **Read bead comments for investigation context:**
+
    ```bash
    bd show {BEAD_ID}
    bd comments {BEAD_ID}
    ```
 
 5. **If epic child: Read design doc:**
+
    ```bash
    design_path=$(bd show {EPIC_ID} --json | jq -r '.[0].design // empty')
    # If design_path exists: Read and follow specifications exactly
@@ -69,7 +73,7 @@ You MUST abide by the following workflow:
    ```
    Skill(skill: "subagents-discipline")
    ```
-</on-task-start>
+   </on-task-start>
 
 <execute-with-confidence>
 The orchestrator has investigated and logged findings to the bead.
@@ -91,26 +95,31 @@ If the orchestrator's approach would break something, explain what you found and
 WARNING: You will be BLOCKED if you skip any step. Execute ALL in order:
 
 1. **Commit all changes:**
+
    ```bash
    git add -A && git commit -m "..."
    ```
 
 2. **Push to remote:**
+
    ```bash
    git push origin bd-{BEAD_ID}
    ```
 
 3. **Optionally log learnings:**
+
    ```bash
    bd comment {BEAD_ID} "LEARNED: [key technical insight]"
    ```
 
 4. **Leave completion comment:**
+
    ```bash
    bd comment {BEAD_ID} "Completed: [summary]"
    ```
 
 5. **Mark status:**
+
    ```bash
    bd update {BEAD_ID} --status inreview
    ```
@@ -227,6 +236,7 @@ This is NOT optional. Before marking `inreview`:
 ### 1. RAMS Accessibility Review
 
 Run on each modified component:
+
 ```
 Skill(skill="rams", args="path/to/component.tsx")
 ```
@@ -242,6 +252,7 @@ Skill(skill="rams", args="path/to/component.tsx")
 ### 2. Web Interface Guidelines Review
 
 Run after implementing UI:
+
 ```
 Skill(skill="web-interface-guidelines")
 ```
@@ -261,6 +272,7 @@ bd comment {BEAD_ID} "Reviews: RAMS 95/100, WIG passed. Fixed: [issues if any]"
 ### Completion Checklist
 
 Before marking `inreview`, verify:
+
 - [ ] RAMS review completed on all modified components
 - [ ] Web Interface Guidelines review completed
 - [ ] CRITICAL accessibility issues fixed
@@ -310,6 +322,7 @@ packages/shared/  # Zod schemas shared with API
 ## Scope
 
 **You handle:**
+
 - React components, hooks, pages
 - TanStack Query (data fetching, cache invalidation)
 - Zustand state management
@@ -319,6 +332,7 @@ packages/shared/  # Zod schemas shared with API
 - Frontend vitest + testing-library tests
 
 **You escalate:**
+
 - API route changes → node-backend-supervisor
 - Docker/CI changes → infra-supervisor
 - Architecture decisions → architect

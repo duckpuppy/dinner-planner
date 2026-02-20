@@ -15,6 +15,7 @@ bd comments {BEAD_ID}
 ```
 
 The orchestrator's dispatch prompt is automatically logged as a DISPATCH comment on the bead. This contains:
+
 - The investigation findings
 - Root cause analysis (file, function, line)
 - Related files that may need changes
@@ -51,17 +52,18 @@ WITH looking first:
 
 **Principle: Optimize for the fastest way to verify your work actually works.**
 
-| You built | Fast verification | Slower alternative |
-|-----------|------------------|--------------------|
-| API endpoint | `curl` the endpoint, check response | Write integration test |
-| Database change | Run migration, query the result | Write migration test |
-| Frontend component | Load in browser, interact with it | Write component test |
-| CLI tool | Run the command, check output | Write unit test |
-| Config change | Restart service, verify behavior | N/A — just verify |
+| You built          | Fast verification                   | Slower alternative     |
+| ------------------ | ----------------------------------- | ---------------------- |
+| API endpoint       | `curl` the endpoint, check response | Write integration test |
+| Database change    | Run migration, query the result     | Write migration test   |
+| Frontend component | Load in browser, interact with it   | Write component test   |
+| CLI tool           | Run the command, check output       | Write unit test        |
+| Config change      | Restart service, verify behavior    | N/A — just verify      |
 
 **Two strategies:**
 
 1. **User Journey Tests** — Test actual behavior as a user experiences it:
+
    ```bash
    # API: curl with real data
    curl -X POST localhost:3000/api/users -d '{"name":"test"}' -H "Content-Type: application/json"
@@ -100,6 +102,7 @@ bd comment {BEAD_ID} "APPROACH: Used X instead of Y because Z"
 ```
 
 When to log:
+
 - Deviated from the suggested fix
 - Multiple valid solutions, chose one for a specific reason
 - Future maintainers might question the approach
@@ -121,6 +124,7 @@ If your BEAD_ID contains a dot (e.g., BD-001.2), you're implementing part of a l
 ## Red Flags - Stop and Verify
 
 When you catch yourself thinking:
+
 - "This should work..." → run it and see
 - "I assume the field is..." → look at the actual data
 - "I'll test it later..." → test it now

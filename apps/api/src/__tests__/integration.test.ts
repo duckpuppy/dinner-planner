@@ -100,7 +100,13 @@ vi.mock('../services/groceries.js', () => ({
   getGroceriesForEntry: vi.fn(),
 }));
 
-import { listPatterns, getPattern, createPattern, updatePattern, deletePattern } from '../services/patterns.js';
+import {
+  listPatterns,
+  getPattern,
+  createPattern,
+  updatePattern,
+  deletePattern,
+} from '../services/patterns.js';
 import { getDishes, getDishById, createDish } from '../services/dishes.js';
 import { importRecipeFromUrl } from '../services/recipeImport.js';
 import * as authService from '../services/auth.js';
@@ -252,8 +258,12 @@ const mockSettings = {
 
 describe('GET /health', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 with status ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
@@ -273,8 +283,12 @@ describe('GET /health', () => {
 
 describe('Authentication guard', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 401 when Authorization header is missing', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/patterns' });
@@ -312,9 +326,15 @@ describe('Authentication guard', () => {
 
 describe('Auth routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('POST /api/auth/login → 400 when body is invalid', async () => {
     const res = await app.inject({
@@ -339,7 +359,14 @@ describe('Auth routes', () => {
 
   it('POST /api/auth/login → 200 with user and token on success', async () => {
     vi.mocked(authService.login).mockResolvedValueOnce({
-      user: { id: 'u-1', username: 'alice', displayName: 'Alice', role: 'member', theme: 'light', homeView: 'today' },
+      user: {
+        id: 'u-1',
+        username: 'alice',
+        displayName: 'Alice',
+        role: 'member',
+        theme: 'light',
+        homeView: 'today',
+      },
       accessToken: 'access-tok',
       refreshToken: 'refresh-tok',
     });
@@ -350,7 +377,10 @@ describe('Auth routes', () => {
       body: JSON.stringify({ username: 'alice', password: 'secret' }),
     });
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body)).toMatchObject({ user: { username: 'alice' }, accessToken: 'access-tok' });
+    expect(JSON.parse(res.body)).toMatchObject({
+      user: { username: 'alice' },
+      accessToken: 'access-tok',
+    });
   });
 
   it('POST /api/auth/refresh → 401 when no cookie', async () => {
@@ -371,7 +401,14 @@ describe('Auth routes', () => {
   it('POST /api/auth/refresh → 200 on success', async () => {
     vi.mocked(authService.refreshAccessToken).mockResolvedValueOnce({
       accessToken: 'new-tok',
-      user: { id: 'u-1', username: 'alice', displayName: 'Alice', role: 'member', theme: 'light', homeView: 'today' },
+      user: {
+        id: 'u-1',
+        username: 'alice',
+        displayName: 'Alice',
+        role: 'member',
+        theme: 'light',
+        homeView: 'today',
+      },
     });
     const res = await app.inject({
       method: 'POST',
@@ -393,7 +430,9 @@ describe('Auth routes', () => {
   });
 
   it('GET /api/auth/me → 200 with user data', async () => {
-    vi.mocked(authService.getUserById).mockResolvedValueOnce(mockUser as ReturnType<typeof authService.getUserById> extends Promise<infer T> ? T : never);
+    vi.mocked(authService.getUserById).mockResolvedValueOnce(
+      mockUser as ReturnType<typeof authService.getUserById> extends Promise<infer T> ? T : never
+    );
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/me',
@@ -420,9 +459,15 @@ describe('Auth routes', () => {
 
 describe('Settings routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/settings → 200', async () => {
     vi.mocked(settingsService.getSettings).mockResolvedValueOnce(mockSettings);
@@ -442,7 +487,10 @@ describe('Settings routes', () => {
   });
 
   it('PATCH /api/settings → 200 for admin', async () => {
-    vi.mocked(settingsService.updateSettings).mockResolvedValueOnce({ ...mockSettings, weekStartDay: 1 });
+    vi.mocked(settingsService.updateSettings).mockResolvedValueOnce({
+      ...mockSettings,
+      weekStartDay: 1,
+    });
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/settings',
@@ -460,9 +508,15 @@ describe('Settings routes', () => {
 
 describe('Patterns routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/patterns → 200 with patterns array', async () => {
     vi.mocked(listPatterns).mockResolvedValueOnce([mockPattern]);
@@ -519,7 +573,12 @@ describe('Patterns routes', () => {
       method: 'POST',
       url: '/api/patterns',
       headers: jsonHeaders(app),
-      body: JSON.stringify({ label: 'Test Pattern', dayOfWeek: 1, type: 'assembled', sideDishIds: [] }),
+      body: JSON.stringify({
+        label: 'Test Pattern',
+        dayOfWeek: 1,
+        type: 'assembled',
+        sideDishIds: [],
+      }),
     });
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(res.body)).toEqual({ pattern: mockPattern });
@@ -591,9 +650,15 @@ describe('Patterns routes', () => {
 
 describe('Dishes routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/dishes → 200 with dishes and total', async () => {
     vi.mocked(getDishes).mockResolvedValueOnce({ dishes: [mockDish], total: 1 });
@@ -636,7 +701,14 @@ describe('Dishes routes', () => {
       method: 'POST',
       url: '/api/dishes',
       headers: jsonHeaders(app),
-      body: JSON.stringify({ name: 'Pasta', type: 'main', description: '', instructions: '', ingredients: [], tags: [] }),
+      body: JSON.stringify({
+        name: 'Pasta',
+        type: 'main',
+        description: '',
+        instructions: '',
+        ingredients: [],
+        tags: [],
+      }),
     });
     expect(res.statusCode).toBe(201);
   });
@@ -658,9 +730,15 @@ describe('Dishes routes', () => {
 
 describe('POST /api/dishes/import-url', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns 400 for missing url', async () => {
     const res = await app.inject({
@@ -697,9 +775,17 @@ describe('POST /api/dishes/import-url', () => {
 
   it('returns 200 with recipe on success', async () => {
     const importedRecipe = {
-      name: 'Pasta', description: 'Delicious', type: 'main' as const, ingredients: [],
-      instructions: 'Cook it', prepTime: 15, cookTime: 30, servings: 4,
-      sourceUrl: 'https://example.com/recipe', videoUrl: null, tags: ['italian'],
+      name: 'Pasta',
+      description: 'Delicious',
+      type: 'main' as const,
+      ingredients: [],
+      instructions: 'Cook it',
+      prepTime: 15,
+      cookTime: 30,
+      servings: 4,
+      sourceUrl: 'https://example.com/recipe',
+      videoUrl: null,
+      tags: ['italian'],
     };
     vi.mocked(importRecipeFromUrl).mockResolvedValueOnce(importedRecipe);
 
@@ -720,9 +806,15 @@ describe('POST /api/dishes/import-url', () => {
 
 describe('Menus routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   const mockMenu = {
     id: 'menu-1',
@@ -753,7 +845,10 @@ describe('Menus routes', () => {
   });
 
   it('GET /api/menus/week/:date/groceries → 200', async () => {
-    vi.mocked(groceriesService.getWeekGroceries).mockResolvedValueOnce({ groceries: [], weekStartDate: '2024-01-15' });
+    vi.mocked(groceriesService.getWeekGroceries).mockResolvedValueOnce({
+      groceries: [],
+      weekStartDate: '2024-01-15',
+    });
     const res = await app.inject({
       method: 'GET',
       url: '/api/menus/week/2024-01-15/groceries',
@@ -841,7 +936,10 @@ describe('Menus routes', () => {
   });
 
   it('DELETE /api/preparations/:id → 404 when not found', async () => {
-    vi.mocked(menusService.deletePreparation).mockResolvedValueOnce({ success: false, error: 'Not found' });
+    vi.mocked(menusService.deletePreparation).mockResolvedValueOnce({
+      success: false,
+      error: 'Not found',
+    });
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/preparations/nonexistent',
@@ -867,9 +965,15 @@ describe('Menus routes', () => {
 
 describe('Ratings routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/preparations/:id/ratings → 200', async () => {
     vi.mocked(ratingsService.getRatingsForPreparation).mockResolvedValueOnce([mockRating]);
@@ -893,7 +997,9 @@ describe('Ratings routes', () => {
   });
 
   it('POST /api/preparations/:id/ratings → 404 when prep not found', async () => {
-    vi.mocked(ratingsService.createRating).mockRejectedValueOnce(new Error('Preparation not found'));
+    vi.mocked(ratingsService.createRating).mockRejectedValueOnce(
+      new Error('Preparation not found')
+    );
     const res = await app.inject({
       method: 'POST',
       url: '/api/preparations/nonexistent/ratings',
@@ -952,7 +1058,10 @@ describe('Ratings routes', () => {
   });
 
   it('DELETE /api/ratings/:id → 404 when not found', async () => {
-    vi.mocked(ratingsService.deleteRating).mockResolvedValueOnce({ success: false, error: 'Rating not found' });
+    vi.mocked(ratingsService.deleteRating).mockResolvedValueOnce({
+      success: false,
+      error: 'Rating not found',
+    });
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/ratings/nonexistent',
@@ -972,7 +1081,10 @@ describe('Ratings routes', () => {
   });
 
   it('GET /api/dishes/:id/rating-stats → 200', async () => {
-    vi.mocked(ratingsService.getDishRatingStats).mockResolvedValueOnce({ averageRating: 4.2, totalRatings: 5 });
+    vi.mocked(ratingsService.getDishRatingStats).mockResolvedValueOnce({
+      averageRating: 4.2,
+      totalRatings: 5,
+    });
     const res = await app.inject({
       method: 'GET',
       url: '/api/dishes/dish-1/rating-stats',
@@ -989,9 +1101,15 @@ describe('Ratings routes', () => {
 
 describe('History routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/history → 200 with entries', async () => {
     vi.mocked(historyService.getHistory).mockResolvedValueOnce({ entries: [], total: 0 });
@@ -1032,12 +1150,25 @@ describe('History routes', () => {
 
 describe('Suggestions routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/dishes/suggestions → 200', async () => {
-    const mockSuggestion = { ...mockDish, avgRating: null, totalRatings: 0, lastPreparedDate: null, score: 1, reasons: [] };
+    const mockSuggestion = {
+      ...mockDish,
+      avgRating: null,
+      totalRatings: 0,
+      lastPreparedDate: null,
+      score: 1,
+      reasons: [],
+    };
     vi.mocked(suggestionsService.getSuggestions).mockResolvedValueOnce([mockSuggestion]);
     const res = await app.inject({
       method: 'GET',
@@ -1055,9 +1186,15 @@ describe('Suggestions routes', () => {
 
 describe('Users routes', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('GET /api/users → 403 for non-admin', async () => {
     const res = await app.inject({
@@ -1124,7 +1261,12 @@ describe('Users routes', () => {
       method: 'POST',
       url: '/api/users',
       headers: jsonHeaders(app, 'admin'),
-      body: JSON.stringify({ username: 'alice', displayName: 'Alice', password: 'secret123', role: 'member' }),
+      body: JSON.stringify({
+        username: 'alice',
+        displayName: 'Alice',
+        password: 'secret123',
+        role: 'member',
+      }),
     });
     expect(res.statusCode).toBe(409);
   });
@@ -1135,7 +1277,12 @@ describe('Users routes', () => {
       method: 'POST',
       url: '/api/users',
       headers: jsonHeaders(app, 'admin'),
-      body: JSON.stringify({ username: 'newuser', displayName: 'New User', password: 'secret123', role: 'member' }),
+      body: JSON.stringify({
+        username: 'newuser',
+        displayName: 'New User',
+        password: 'secret123',
+        role: 'member',
+      }),
     });
     expect(res.statusCode).toBe(201);
   });

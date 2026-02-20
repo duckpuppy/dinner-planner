@@ -42,10 +42,6 @@ import {
   getDishRatingStats,
 } from '../services/ratings.js';
 
-function selWhere(result: unknown[]) {
-  return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
-}
-
 function selWhereOrderBy(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
@@ -136,17 +132,17 @@ describe('getUserRatingForPreparation', () => {
 describe('createRating', () => {
   it('throws when user already rated this preparation', async () => {
     mockDb.query.ratings.findFirst.mockResolvedValueOnce(mockRating); // existing check
-    await expect(
-      createRating('prep-1', 'user-1', { stars: 5 })
-    ).rejects.toThrow('You have already rated this preparation');
+    await expect(createRating('prep-1', 'user-1', { stars: 5 })).rejects.toThrow(
+      'You have already rated this preparation'
+    );
   });
 
   it('throws when preparation not found', async () => {
     mockDb.query.ratings.findFirst.mockResolvedValueOnce(null); // no existing
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(null); // prep not found
-    await expect(
-      createRating('prep-1', 'user-1', { stars: 5 })
-    ).rejects.toThrow('Preparation not found');
+    await expect(createRating('prep-1', 'user-1', { stars: 5 })).rejects.toThrow(
+      'Preparation not found'
+    );
   });
 
   it('creates and returns rating on success', async () => {

@@ -7,6 +7,7 @@
    - EPIC_ID: (epic children only) The parent epic ID (e.g., BD-001)
 
 2. **Create worktree (via API with git fallback):**
+
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel)
    WORKTREE_PATH="$REPO_ROOT/.worktrees/bd-{BEAD_ID}"
@@ -28,17 +29,20 @@
    ```
 
 3. **Mark in progress:**
+
    ```bash
    bd update {BEAD_ID} --status in_progress
    ```
 
 4. **Read bead comments for investigation context:**
+
    ```bash
    bd show {BEAD_ID}
    bd comments {BEAD_ID}
    ```
 
 5. **If epic child: Read design doc:**
+
    ```bash
    design_path=$(bd show {EPIC_ID} --json | jq -r '.[0].design // empty')
    # If design_path exists: Read and follow specifications exactly
@@ -48,7 +52,7 @@
    ```
    Skill(skill: "subagents-discipline")
    ```
-</on-task-start>
+   </on-task-start>
 
 <execute-with-confidence>
 The orchestrator has investigated and logged findings to the bead.
@@ -70,27 +74,33 @@ If the orchestrator's approach would break something, explain what you found and
 WARNING: You will be BLOCKED if you skip any step. Execute ALL in order:
 
 1. **Commit all changes:**
+
    ```bash
    git add -A && git commit -m "..."
    ```
 
 2. **Push to remote:**
+
    ```bash
    git push origin bd-{BEAD_ID}
    ```
 
 3. **Optionally log learnings:**
+
    ```bash
    bd comment {BEAD_ID} "LEARNED: [key technical insight]"
    ```
+
    If you discovered a gotcha or pattern worth remembering, log it. Not required.
 
 4. **Leave completion comment:**
+
    ```bash
    bd comment {BEAD_ID} "Completed: [summary]"
    ```
 
 5. **Mark status:**
+
    ```bash
    bd update {BEAD_ID} --status inreview
    ```

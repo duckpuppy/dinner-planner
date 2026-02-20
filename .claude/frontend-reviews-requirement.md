@@ -8,6 +8,7 @@ This is NOT optional. Before marking `inreview`:
 ### 1. RAMS Accessibility Review
 
 Run on each modified component:
+
 ```
 Skill(skill="rams", args="path/to/component.tsx")
 ```
@@ -23,11 +24,13 @@ Skill(skill="rams", args="path/to/component.tsx")
 ### 2. Web Interface Guidelines Review
 
 Run after implementing UI:
+
 ```
 Skill(skill="web-interface-guidelines")
 ```
 
 **What It Checks:**
+
 - Vercel Web Interface Guidelines compliance
 - Design system consistency
 - Component patterns and best practices
@@ -42,6 +45,7 @@ Implement → Run tests → Run RAMS → Run web-interface-guidelines → Fix is
 ### 3. Document Results on Bead
 
 After running both reviews, add a comment to the bead:
+
 ```bash
 bd comment {BEAD_ID} "Reviews: RAMS 95/100, WIG passed. Fixed: [issues if any]"
 ```
@@ -51,6 +55,7 @@ This creates an audit trail and confirms you read and acted on the results.
 ### Completion Checklist
 
 Before marking `inreview`, verify:
+
 - [ ] RAMS review completed on all modified components
 - [ ] Web Interface Guidelines review completed
 - [ ] CRITICAL accessibility issues fixed

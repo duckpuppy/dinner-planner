@@ -111,7 +111,19 @@ describe('RecipeImportModal', () => {
 
   it('calls importFromUrl with the entered URL', async () => {
     vi.mocked(dishesApi.importFromUrl).mockResolvedValueOnce({
-      recipe: { name: 'Test', description: '', type: 'main', ingredients: [], instructions: '', prepTime: null, cookTime: null, servings: null, sourceUrl: null, videoUrl: null, tags: [] },
+      recipe: {
+        name: 'Test',
+        description: '',
+        type: 'main',
+        ingredients: [],
+        instructions: '',
+        prepTime: null,
+        cookTime: null,
+        servings: null,
+        sourceUrl: null,
+        videoUrl: null,
+        tags: [],
+      },
     });
 
     render(<RecipeImportModal onImported={onImported} onClose={onClose} />, { wrapper });
@@ -121,7 +133,9 @@ describe('RecipeImportModal', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(vi.mocked(dishesApi.importFromUrl)).toHaveBeenCalledWith('https://allrecipes.com/recipe/123');
+      expect(vi.mocked(dishesApi.importFromUrl)).toHaveBeenCalledWith(
+        'https://allrecipes.com/recipe/123'
+      );
     });
   });
 

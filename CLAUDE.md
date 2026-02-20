@@ -92,6 +92,7 @@ Use when: new feature, multiple approaches, multi-file changes, or unclear requi
 3. Create bead(s) from approved plan → dispatch supervisors
 
 **Plan → Bead mapping:**
+
 - Single-domain plan → standalone bead
 - Cross-domain plan → epic + children with dependencies
 
@@ -112,12 +113,12 @@ bd dep relate {NEW_ID} {OLD_ID}                       # Link related beads
 
 ## When to Use Standalone or Epic
 
-| Signals | Workflow |
-|---------|----------|
-| Single tech domain | **Standalone** |
-| Multiple supervisors needed | **Epic** |
-| "First X, then Y" in your thinking | **Epic** |
-| DB + API + frontend change | **Epic** |
+| Signals                            | Workflow       |
+| ---------------------------------- | -------------- |
+| Single tech domain                 | **Standalone** |
+| Multiple supervisors needed        | **Epic**       |
+| "First X, then Y" in your thinking | **Epic**       |
+| DB + API + frontend change         | **Epic**       |
 
 Cross-domain = Epic. No exceptions.
 

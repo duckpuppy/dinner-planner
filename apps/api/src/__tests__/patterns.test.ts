@@ -21,11 +21,27 @@ vi.mock('drizzle-orm', () => ({ eq: vi.fn().mockReturnValue(null) }));
 vi.mock('../db/index.js', () => ({
   db: mockDb,
   schema: {
-    recurringPatterns: { id: null, label: null, dayOfWeek: null, type: null, mainDishId: null, customText: null, createdById: null, createdAt: null },
+    recurringPatterns: {
+      id: null,
+      label: null,
+      dayOfWeek: null,
+      type: null,
+      mainDishId: null,
+      customText: null,
+      createdById: null,
+      createdAt: null,
+    },
     patternSideDishes: { patternId: null, dishId: null },
     dishes: { id: null, name: null, type: null },
     weeklyMenus: { weekStartDate: null, id: null },
-    dinnerEntries: { id: null, menuId: null, type: null, mainDishId: null, customText: null, date: null },
+    dinnerEntries: {
+      id: null,
+      menuId: null,
+      type: null,
+      mainDishId: null,
+      customText: null,
+      date: null,
+    },
     entrySideDishes: { entryId: null, dishId: null },
   },
 }));
@@ -212,7 +228,12 @@ describe('listPatterns', () => {
 
 describe('createPattern', () => {
   it('inserts the pattern record', async () => {
-    const input = { label: 'Pasta Night', dayOfWeek: 2, type: 'assembled' as const, sideDishIds: [] };
+    const input = {
+      label: 'Pasta Night',
+      dayOfWeek: 2,
+      type: 'assembled' as const,
+      sideDishIds: [],
+    };
     setupGetPatternRelations(makePattern({ label: 'Pasta Night', dayOfWeek: 2 }));
 
     await createPattern(input, 'user-1');
@@ -243,7 +264,12 @@ describe('createPattern', () => {
 
   it('returns the created pattern', async () => {
     const pat = makePattern({ label: 'Taco Tuesday', dayOfWeek: 2 });
-    const input = { label: 'Taco Tuesday', dayOfWeek: 2, type: 'assembled' as const, sideDishIds: [] };
+    const input = {
+      label: 'Taco Tuesday',
+      dayOfWeek: 2,
+      type: 'assembled' as const,
+      sideDishIds: [],
+    };
     setupGetPatternRelations(pat);
 
     const result = await createPattern(input, 'user-1');
@@ -351,8 +377,8 @@ describe('applyPatternsToWeek', () => {
   it('returns {applied: 0} when no entries exist', async () => {
     mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(menu);
     mockDb.select
-      .mockReturnValueOnce(selWhere([]))       // entries
-      .mockReturnValueOnce(selFrom([]));       // allPatterns
+      .mockReturnValueOnce(selWhere([])) // entries
+      .mockReturnValueOnce(selFrom([])); // allPatterns
 
     expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
   });
@@ -402,7 +428,7 @@ describe('applyPatternsToWeek', () => {
     mockDb.select
       .mockReturnValueOnce(selWhere([tuesdayEntry]))
       .mockReturnValueOnce(selFrom([mondayPattern])) // only Monday pattern
-      .mockReturnValueOnce(selWhere([]));             // no existing sides for entry
+      .mockReturnValueOnce(selWhere([])); // no existing sides for entry
 
     expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
   });
@@ -413,7 +439,7 @@ describe('applyPatternsToWeek', () => {
     mockDb.select
       .mockReturnValueOnce(selWhere([entry]))
       .mockReturnValueOnce(selFrom([mondayPattern]))
-      .mockReturnValueOnce(selWhere([]))  // no existing sides
+      .mockReturnValueOnce(selWhere([])) // no existing sides
       .mockReturnValueOnce(selWhere([])); // no pattern side links
 
     const result = await applyPatternsToWeek('2024-01-01');
@@ -496,8 +522,18 @@ describe('applyPatternsToWeek', () => {
   });
 
   it('uses earliest-createdAt pattern when multiple match same day', async () => {
-    const older = makePattern({ id: 'older', dayOfWeek: 1, createdAt: '2024-01-01T00:00:00.000Z', mainDishId: 'old-dish' });
-    const newer = makePattern({ id: 'newer', dayOfWeek: 1, createdAt: '2024-02-01T00:00:00.000Z', mainDishId: 'new-dish' });
+    const older = makePattern({
+      id: 'older',
+      dayOfWeek: 1,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      mainDishId: 'old-dish',
+    });
+    const newer = makePattern({
+      id: 'newer',
+      dayOfWeek: 1,
+      createdAt: '2024-02-01T00:00:00.000Z',
+      mainDishId: 'new-dish',
+    });
     const entry = makeEntry();
     let capturedSet: Record<string, unknown> = {};
 
@@ -536,9 +572,9 @@ describe('applyPatternsToWeek', () => {
     mockDb.select
       .mockReturnValueOnce(selWhere([entry1, entry2]))
       .mockReturnValueOnce(selFrom([mondayPattern]))
-      .mockReturnValueOnce(selWhere([]))  // e1 no existing sides
-      .mockReturnValueOnce(selWhere([]))  // e1 pattern side links
-      .mockReturnValueOnce(selWhere([]))  // e2 no existing sides
+      .mockReturnValueOnce(selWhere([])) // e1 no existing sides
+      .mockReturnValueOnce(selWhere([])) // e1 pattern side links
+      .mockReturnValueOnce(selWhere([])) // e2 no existing sides
       .mockReturnValueOnce(selWhere([])); // e2 pattern side links
 
     const result = await applyPatternsToWeek('2024-01-01');
