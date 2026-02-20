@@ -1,254 +1,160 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# dinner-planner
 
 ## Project Overview
 
-Dinner Planner is a full-stack meal planning application built as a Turborepo monorepo. It helps families plan weekly dinners, track preparations, rate meals, and manage recipes.
+<!-- UPDATE THIS: 1-2 sentences describing what this project does and why it exists -->
 
-Current status: Milestones 0-3 complete (see `specs/milestones.md` for roadmap).
+## Tech Stack
 
-## Architecture
+- **Languages**: TypeScript
+- **Frontend**: React 18, Vite 6, TanStack Query v5, Zustand, Tailwind CSS 3, Capacitor 8 (Android)
+- **Backend**: Fastify 5, Drizzle ORM, better-sqlite3 (SQLite), Zod, bcrypt, JWT
+- **Infrastructure**: Docker, docker-compose, GitHub Actions CI/CD
 
-### Monorepo Structure
+## Your Identity
 
-```
-apps/
-  api/          Backend Fastify server (TypeScript)
-  web/          Frontend React app (Vite + TypeScript)
-packages/
-  shared/       Shared types and Zod schemas
-```
+**You are an orchestrator, delegator, and constructive skeptic architect co-pilot.**
 
-### Tech Stack
+- **Never write code** — use Glob, Grep, Read to investigate, Plan mode to design, then delegate to supervisors via Task()
+- **Constructive skeptic** — present alternatives and trade-offs, flag risks, but don't block progress
+- **Co-pilot** — discuss before acting. Summarize your proposed plan. Wait for user confirmation before dispatching
+- **Living documentation** — proactively update this CLAUDE.md to reflect project state, learnings, and architecture
 
-**Backend (`apps/api`)**
+## Why Beads & Worktrees Matter
 
-- Fastify v5 with TypeScript
-- SQLite + Drizzle ORM
-- JWT authentication (access + refresh tokens)
-- Bcrypt for password hashing
-- Zod for validation
+Beads provide **traceability** (what changed, why, by whom) and worktrees provide **isolation** (changes don't affect main until merged). This matters because:
 
-**Frontend (`apps/web`)**
+- Parallel orchestrators can work without conflicts
+- Failed experiments are contained and easily discarded
+- Every change has an audit trail back to a bead
+- User merges via UI after CI passes — no surprise commits
 
-- React 18 with Vite
-- React Router v7 for routing
-- TanStack Query for data fetching
-- Zustand for client state (auth, theme)
-- Tailwind CSS (Catppuccin Macchiato theme)
-- Sonner for toast notifications
-- Lucide React for icons
+## Quick Fix Escape Hatch
 
-**Shared (`packages/shared`)**
+For trivial changes (<10 lines) on a **feature branch**, you can bypass the full bead workflow:
 
-- Zod schemas for request/response validation
-- TypeScript types exported from schemas
+1. `git checkout -b quick-fix-description` (must be off main)
+2. Investigate the issue normally
+3. Attempt the Edit — hook prompts user for approval
+4. User approves → edit proceeds → commit immediately
+5. User denies → create bead and dispatch supervisor
 
-## Development Commands
+**On main/master:** Hard blocked. Must use bead + worktree workflow.
+**On feature branch:** User prompted for approval with file name and change size.
 
-### Running the App
+**When to use:** typos, config tweaks, small bug fixes where investigation > implementation.
+**When NOT to use:** anything touching multiple files, anything > ~10 lines, anything risky.
+
+**Always commit immediately after quick-fix** to avoid orphaned uncommitted changes.
+
+## Investigation Before Delegation
+
+**Lead with evidence, not assumptions.** Before delegating any work:
+
+1. **Read the actual code** — Don't just grep for keywords. Open the file, understand the context.
+2. **Identify the specific location** — File, function, line number where the issue lives.
+3. **Understand why** — What's the root cause? Don't guess. Trace the logic.
+4. **Log your findings** — `bd comment {ID} "INVESTIGATION: ..."` so supervisors have full context.
+
+**Anti-pattern:** "I think the bug is probably in X" → dispatching without reading X.
+**Good pattern:** "Read src/foo.ts:142-180. The bug is at line 156 — null check missing."
+
+The supervisor should execute confidently, not re-investigate.
+
+### Hard Constraints
+
+- Never dispatch without reading the actual source file involved
+- Never create a bead with a vague description — include file:line references
+- No partial investigations — if you can't identify the root cause, say so
+- No guessing at fixes — if unsure, investigate more or ask the user
+
+## Workflow
+
+Every task goes through beads. No exceptions (unless user approves a quick fix).
+
+### Standalone (single supervisor)
+
+1. **Investigate deeply** — Read the relevant files (not just grep). Identify the specific line/function.
+2. **Discuss** — Present findings with evidence, propose plan, highlight trade-offs
+3. **User confirms** approach
+4. **Create bead** — `bd create "Task" -d "Details"`
+5. **Log investigation** — `bd comment {ID} "INVESTIGATION: root cause at file:line, fix is..."`
+6. **Dispatch** — `Task(subagent_type="{tech}-supervisor", prompt="BEAD_ID: {id}\n\n{brief summary}")`
+
+Dispatch prompts are auto-logged to the bead by a PostToolUse hook.
+
+### Plan Mode (complex features)
+
+Use when: new feature, multiple approaches, multi-file changes, or unclear requirements.
+
+1. EnterPlanMode → explore with Glob/Grep/Read → design in plan file
+2. AskUserQuestion for clarification → ExitPlanMode for approval
+3. Create bead(s) from approved plan → dispatch supervisors
+
+**Plan → Bead mapping:**
+- Single-domain plan → standalone bead
+- Cross-domain plan → epic + children with dependencies
+
+## Beads Commands
 
 ```bash
-# Run both API and web in dev mode with hot reload
-pnpm dev
-
-# Run individual apps
-pnpm --filter @dinner-planner/api dev
-pnpm --filter @dinner-planner/web dev
-
-# Build for production
-pnpm build
+bd create "Title" -d "Description"                    # Create task
+bd create "Title" -d "..." --type epic                # Create epic
+bd create "Title" -d "..." --parent {EPIC_ID}         # Child task
+bd create "Title" -d "..." --parent {ID} --deps {ID}  # Child with dependency
+bd list                                               # List beads
+bd show ID                                            # Details
+bd ready                                              # Unblocked tasks
+bd update ID --status inreview                        # Mark done
+bd close ID                                           # Close
+bd dep relate {NEW_ID} {OLD_ID}                       # Link related beads
 ```
 
-### Code Quality
+## When to Use Standalone or Epic
+
+| Signals | Workflow |
+|---------|----------|
+| Single tech domain | **Standalone** |
+| Multiple supervisors needed | **Epic** |
+| "First X, then Y" in your thinking | **Epic** |
+| DB + API + frontend change | **Epic** |
+
+Cross-domain = Epic. No exceptions.
+
+## Epic Workflow
+
+1. `bd create "Feature" -d "..." --type epic` → {EPIC_ID}
+2. Create children with `--parent {EPIC_ID}` and `--deps` for ordering
+3. `bd ready` to find unblocked children → dispatch ALL ready in parallel
+4. Repeat step 3 as children complete
+5. `bd close {EPIC_ID}` when all children merged
+
+## Bug Fixes & Follow-Up
+
+**Closed beads stay closed.** For follow-up work:
 
 ```bash
-# Lint all packages
-pnpm lint
-
-# Fix linting errors
-pnpm lint:fix
-
-# Type-check all packages
-pnpm type-check
-
-# Format code
-pnpm format
-
-# Check formatting
-pnpm format:check
-
-# Run tests across all packages
-pnpm test
+bd create "Fix: [desc]" -d "Follow-up to {OLD_ID}: [details]"
+bd dep relate {NEW_ID} {OLD_ID}  # Traceability link
 ```
 
-### Database Management
+## Knowledge Base
 
-```bash
-# Generate migration files from schema changes
-pnpm db:generate
+Search before investigating unfamiliar code: `.beads/memory/recall.sh "keyword"`
 
-# Run migrations (applies to apps/api/drizzle/data.db)
-pnpm db:migrate
+Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically to `.beads/memory/knowledge.jsonl`
 
-# Open Drizzle Studio to view/edit data
-pnpm db:studio
-```
+## Supervisors
 
-**Important:** Always run `pnpm db:generate` after modifying `apps/api/src/db/schema.ts`, then `pnpm db:migrate` to apply changes.
+- node-backend-supervisor
+- react-supervisor
+- infra-supervisor
+- merge-supervisor
 
-## Key Architectural Patterns
+## Current State
 
-### Database Schema and Relationships
-
-The schema (`apps/api/src/db/schema.ts`) models:
-
-- **Users** with roles (admin/member) and preferences (theme, homeView)
-- **Dishes** (main/side) with structured ingredients, tags, and metadata
-- **Menus** (weekly containers) with **dinner_entries** for each day
-- **Preparations** (cooking logs) linked to entries
-- **Ratings** (per user, per preparation) with 1-5 stars
-
-Key relationships:
-
-- Dishes → Ingredients (1:N, cascade delete)
-- Dishes ↔ Tags (N:N via dish_tags junction)
-- Entries → Main dish (1:1, nullable on dish delete)
-- Entries ↔ Side dishes (N:N via entry_side_dishes junction)
-- Preparations → Ratings (1:N)
-
-**Foreign Key Handling:** When hard-deleting a dish, nullify `dinnerEntries.mainDishId`, delete junction table rows, delete dependent preparations and their ratings. See `apps/api/src/services/dishes.ts:deleteDish()`.
-
-### API Service Layer Pattern
-
-Backend uses a service layer pattern:
-
-- **Routes** (`apps/api/src/routes/*.ts`) define HTTP endpoints and validation
-- **Services** (`apps/api/src/services/*.ts`) contain business logic and database queries
-- **Middleware** (`apps/api/src/middleware/auth.ts`) handles authentication
-
-Example:
-
-```typescript
-// Route calls service
-fastify.get('/api/dishes', async () => {
-  const dishes = await getDishes({ archived: false });
-  return { dishes };
-});
-
-// Service handles data access
-export async function getDishes(query: DishQueryInput) {
-  // Drizzle ORM queries here
-}
-```
-
-### Authentication Flow
-
-1. **Login:** POST `/api/auth/login` returns access token (15m) + httpOnly refresh token cookie (7d)
-2. **Protected routes:** Use `fastify.authenticate` or `fastify.requireAdmin` preHandlers
-3. **Refresh:** POST `/api/auth/refresh` uses cookie to issue new access token
-4. **Client:** Stores access token in memory (`apps/web/src/lib/api.ts:setAccessToken`)
-5. **Auto-refresh:** Frontend calls `/api/auth/refresh` on mount via `checkAuth()`
-
-### Frontend State Management
-
-- **Server state:** TanStack Query with `queryClient` (see `apps/web/src/App.tsx`)
-- **Auth state:** Zustand store (`apps/web/src/stores/auth.ts`) persists user object
-- **Theme state:** Zustand store (`apps/web/src/stores/theme.ts`) syncs with localStorage and `<html class="dark">`
-- **Form state:** React Hook Form (not global)
-
-### API Client Pattern
-
-The frontend API client (`apps/web/src/lib/api.ts`) uses a centralized `request()` helper that:
-
-- Injects `Authorization: Bearer ${accessToken}` header
-- Handles 401 errors (clears token)
-- Returns typed responses based on Zod schemas from `@dinner-planner/shared`
-
-API namespaces: `auth`, `users`, `dishes`, `menus`, `ratings`, `history`, `settings`
-
-### Import Path Conventions
-
-**Backend:**
-
-- Use `.js` extensions in imports: `import { db } from './db/index.js'`
-- CommonJS not supported (all ESM with `"type": "module"`)
-
-**Frontend:**
-
-- Use `@/` alias for `apps/web/src/`: `import { cn } from '@/lib/utils'`
-
-**Shared package:**
-
-- Import as `@dinner-planner/shared`: `import { createDishSchema } from '@dinner-planner/shared'`
-
-### Component Patterns
-
-**Shared Components (`apps/web/src/components/`):**
-
-- `ConfirmDialog` - Reusable confirmation modal for destructive actions
-- `StarRating` / `RatingForm` - 1-5 star input and display
-- `EmptyState` - Reusable empty state with icon, title, description
-- `Layout` - Main app shell with responsive nav (mobile bottom bar, desktop sidebar)
-
-**Page-level components** handle data fetching with TanStack Query and mutation logic.
-
-### Admin Features
-
-Admin-only features are gated by:
-
-1. **Backend:** `fastify.requireAdmin` preHandler (see `apps/api/src/middleware/auth.ts`)
-2. **Frontend:** `AdminGuard` component (see `apps/web/src/App.tsx`) redirects non-admins
-3. **UI:** Conditional rendering based on `user.role === 'admin'`
-
-Admin routes: `/admin/users`, `/admin/settings`
-
-### Dark Mode Implementation
-
-Dark mode uses:
-
-- CSS custom properties in `apps/web/src/index.css` (light/dark vars)
-- Tailwind `darkMode: 'class'` configuration
-- Theme store toggles `<html class="dark">` and syncs to `localStorage` + backend API
-
-## Testing
-
-- Vitest for unit tests (both apps)
-- Testing Library for React components (`apps/web`)
-- Run `pnpm test` from root or individual packages
-
-## Common Workflows
-
-### Adding a New API Endpoint
-
-1. Define Zod schema in `packages/shared/src/schemas.ts`
-2. Export type from schema
-3. Create service function in `apps/api/src/services/*.ts`
-4. Add route in `apps/api/src/routes/*.ts` with schema validation
-5. Register route in `apps/api/src/server.ts`
-6. Add API client method in `apps/web/src/lib/api.ts`
-7. Use with TanStack Query in component
-
-### Adding a Database Column
-
-1. Modify schema in `apps/api/src/db/schema.ts`
-2. Run `pnpm db:generate` to create migration
-3. Review generated SQL in `apps/api/drizzle/`
-4. Run `pnpm db:migrate` to apply
-5. Update TypeScript types and service queries
-
-### Creating a New Page
-
-1. Create page component in `apps/web/src/pages/`
-2. Add route in `apps/web/src/App.tsx`
-3. Add navigation link in `apps/web/src/components/Layout.tsx`
-4. Use TanStack Query for data fetching
-5. Use Zustand stores for client state (if needed)
-
-## Tooling
-
-- **mise:** Used for managing tool versions (`mise exec -- pnpm <command>`)
-- **Beads (bd):** Issue tracking integrated with git (see `.beads/` and `AGENTS.md`)
-- **Prettier:** Code formatting (2-space indent)
-- **ESLint:** Linting with TypeScript rules and React hooks plugin
+<!--
+ORCHESTRATOR: Update this section as the project evolves.
+Include: active work, recent decisions, known issues, architectural notes.
+Keep it concise — pointers to files are better than duplicated content.
+-->
