@@ -16,7 +16,31 @@ export async function dishesRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     '/api/dishes/import-url',
-    { preHandler: [fastify.authenticate], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    {
+      preHandler: [fastify.authenticate],
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+          // Key by authenticated user ID so limits apply per-user, not per-IP.
+          // Decodes JWT payload without verification (safe: rate limiting is not a security boundary).
+          keyGenerator: (request: FastifyRequest) => {
+            const auth = request.headers.authorization;
+            if (auth?.startsWith('Bearer ')) {
+              try {
+                const payload = JSON.parse(
+                  Buffer.from(auth.slice(7).split('.')[1], 'base64url').toString()
+                );
+                if (payload.userId) return `user-${payload.userId}`;
+              } catch {
+                // fall through to IP
+              }
+            }
+            return request.ip;
+          },
+        },
+      },
+    },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = importRecipeUrlSchema.safeParse(request.body);
       if (!parsed.success) {
