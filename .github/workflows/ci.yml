@@ -39,6 +39,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Security audit
+        run: pnpm audit --audit-level=high
+
   test:
     name: Test
     runs-on: ubuntu-latest
