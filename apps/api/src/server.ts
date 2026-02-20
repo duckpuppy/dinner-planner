@@ -6,6 +6,7 @@ import fastifyStatic from '@fastify/static';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import rateLimit from '@fastify/rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from './config.js';
@@ -74,6 +75,14 @@ await fastify.register(cookie);
 await fastify.register(jwt, {
   secret: config.JWT_SECRET,
 });
+
+// Register rate limiting (disabled in test environment)
+if (config.NODE_ENV !== 'test') {
+  await fastify.register(rateLimit, {
+    // No global limit — per-route only
+    global: false,
+  });
+}
 
 // Register multipart (file uploads)
 await fastify.register(multipart);
