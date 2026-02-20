@@ -8,7 +8,20 @@ import {
   parseSchemaOrgRecipe,
   importRecipeFromUrl,
   validateRecipeUrl,
+  isPrivateIP,
+  SsrfBlockedError,
 } from '../services/recipeImport.js';
+
+// Mock dns module for DNS-based SSRF tests
+vi.mock('node:dns', () => ({
+  default: {
+    promises: {
+      lookup: vi.fn(),
+    },
+  },
+}));
+
+import dns from 'node:dns';
 
 // Helper: wrap a recipe object in a minimal HTML page with JSON-LD
 function makeHtml(jsonLd: unknown): string {
@@ -227,6 +240,62 @@ describe('parseSchemaOrgRecipe', () => {
 });
 
 // ------------------------------------------------------------------
+// isPrivateIP
+// ------------------------------------------------------------------
+describe('isPrivateIP', () => {
+  it('identifies loopback 127.0.0.1', () => {
+    expect(isPrivateIP('127.0.0.1')).toBe(true);
+  });
+
+  it('identifies loopback 127.x.x.x range', () => {
+    expect(isPrivateIP('127.255.0.1')).toBe(true);
+  });
+
+  it('identifies private 10.x.x.x', () => {
+    expect(isPrivateIP('10.0.0.1')).toBe(true);
+    expect(isPrivateIP('10.255.255.255')).toBe(true);
+  });
+
+  it('identifies private 172.16–31.x.x', () => {
+    expect(isPrivateIP('172.16.0.1')).toBe(true);
+    expect(isPrivateIP('172.31.255.255')).toBe(true);
+  });
+
+  it('does not block 172.15.x.x or 172.32.x.x', () => {
+    expect(isPrivateIP('172.15.0.1')).toBe(false);
+    expect(isPrivateIP('172.32.0.1')).toBe(false);
+  });
+
+  it('identifies private 192.168.x.x', () => {
+    expect(isPrivateIP('192.168.1.1')).toBe(true);
+  });
+
+  it('identifies link-local 169.254.x.x', () => {
+    expect(isPrivateIP('169.254.169.254')).toBe(true);
+  });
+
+  it('identifies IPv6 loopback ::1', () => {
+    expect(isPrivateIP('::1')).toBe(true);
+  });
+
+  it('identifies IPv6 unique local fc00:: range', () => {
+    expect(isPrivateIP('fc00::1')).toBe(true);
+    expect(isPrivateIP('fd00::1')).toBe(true);
+  });
+
+  it('identifies IPv6 link-local fe80::', () => {
+    expect(isPrivateIP('fe80::1')).toBe(true);
+  });
+
+  it('does not block public IPs', () => {
+    expect(isPrivateIP('8.8.8.8')).toBe(false);
+    expect(isPrivateIP('1.1.1.1')).toBe(false);
+    expect(isPrivateIP('93.184.216.34')).toBe(false);
+    expect(isPrivateIP('2606:2800:21f:cb07:6820:80da:af6b:8b2c')).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------------
 // validateRecipeUrl
 // ------------------------------------------------------------------
 describe('validateRecipeUrl', () => {
@@ -234,40 +303,46 @@ describe('validateRecipeUrl', () => {
     expect(() => validateRecipeUrl('https://www.allrecipes.com/recipe/123')).not.toThrow();
   });
 
-  it('accepts a valid http URL', () => {
-    expect(() => validateRecipeUrl('http://example.com/recipe')).not.toThrow();
+  it('rejects http URLs (https-only enforcement)', () => {
+    expect(() => validateRecipeUrl('http://example.com/recipe')).toThrow(SsrfBlockedError);
   });
 
   it('rejects non-http schemes', () => {
-    expect(() => validateRecipeUrl('file:///etc/passwd')).toThrow();
-    expect(() => validateRecipeUrl('ftp://example.com')).toThrow();
+    expect(() => validateRecipeUrl('file:///etc/passwd')).toThrow(SsrfBlockedError);
+    expect(() => validateRecipeUrl('ftp://example.com')).toThrow(SsrfBlockedError);
   });
 
   it('rejects localhost', () => {
-    expect(() => validateRecipeUrl('http://localhost/recipe')).toThrow();
+    expect(() => validateRecipeUrl('https://localhost/recipe')).toThrow(SsrfBlockedError);
   });
 
   it('rejects 127.0.0.1', () => {
-    expect(() => validateRecipeUrl('http://127.0.0.1/recipe')).toThrow();
+    expect(() => validateRecipeUrl('https://127.0.0.1/recipe')).toThrow(SsrfBlockedError);
   });
 
   it('rejects private IP ranges', () => {
-    expect(() => validateRecipeUrl('http://192.168.1.1/recipe')).toThrow();
-    expect(() => validateRecipeUrl('http://10.0.0.1/recipe')).toThrow();
-    expect(() => validateRecipeUrl('http://172.16.0.1/recipe')).toThrow();
+    expect(() => validateRecipeUrl('https://192.168.1.1/recipe')).toThrow(SsrfBlockedError);
+    expect(() => validateRecipeUrl('https://10.0.0.1/recipe')).toThrow(SsrfBlockedError);
+    expect(() => validateRecipeUrl('https://172.16.0.1/recipe')).toThrow(SsrfBlockedError);
   });
 
   it('rejects link-local addresses', () => {
-    expect(() => validateRecipeUrl('http://169.254.169.254/latest/meta-data')).toThrow();
+    expect(() => validateRecipeUrl('https://169.254.169.254/latest/meta-data')).toThrow(
+      SsrfBlockedError
+    );
   });
 
   it('rejects invalid URL', () => {
-    expect(() => validateRecipeUrl('not-a-url')).toThrow();
+    expect(() => validateRecipeUrl('not-a-url')).toThrow('Invalid URL');
+  });
+
+  it('throws SsrfBlockedError for private addresses', () => {
+    expect(() => validateRecipeUrl('https://192.168.1.1/recipe')).toThrow(SsrfBlockedError);
   });
 });
 
 // ------------------------------------------------------------------
-// importRecipeFromUrl (mocked fetch)
+// importRecipeFromUrl (mocked fetch + DNS)
 // ------------------------------------------------------------------
 
 const HTML_HEADERS = new Headers({ 'content-type': 'text/html; charset=utf-8' });
@@ -275,11 +350,39 @@ const HTML_HEADERS = new Headers({ 'content-type': 'text/html; charset=utf-8' })
 describe('importRecipeFromUrl', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    // Default: DNS resolves to a public IP
+    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '93.184.216.34', family: 4 });
   });
 
-  it('throws on SSRF attempt (private IP)', async () => {
-    await expect(importRecipeFromUrl('http://192.168.1.1/recipe')).rejects.toThrow(
-      'private or internal'
+  it('throws SsrfBlockedError on http URL (https-only)', async () => {
+    await expect(importRecipeFromUrl('http://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+  });
+
+  it('throws SsrfBlockedError on SSRF attempt (private IP in URL)', async () => {
+    await expect(importRecipeFromUrl('https://192.168.1.1/recipe')).rejects.toThrow(SsrfBlockedError);
+  });
+
+  it('throws SsrfBlockedError when DNS resolves to private IP', async () => {
+    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '10.0.0.1', family: 4 });
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+  });
+
+  it('throws SsrfBlockedError when DNS resolves to loopback', async () => {
+    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '127.0.0.1', family: 4 });
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(SsrfBlockedError);
+  });
+
+  it('throws SsrfBlockedError error message mentions private or loopback', async () => {
+    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '192.168.1.1', family: 4 });
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      'URL not allowed: private or loopback addresses are blocked'
+    );
+  });
+
+  it('throws when DNS lookup fails', async () => {
+    vi.mocked(dns.promises.lookup).mockRejectedValue(new Error('ENOTFOUND'));
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
+      'Could not resolve hostname'
     );
   });
 
@@ -316,6 +419,38 @@ describe('importRecipeFromUrl', () => {
     );
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
       'No recipe data found'
+    );
+  });
+
+  it('throws when Content-Length exceeds 5MB', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({
+          'content-type': 'text/html',
+          'content-length': String(6 * 1024 * 1024),
+        }),
+        text: async () => '<html></html>',
+      })
+    );
+    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
+      'Response too large to process'
+    );
+  });
+
+  it('throws when streaming body exceeds 5MB', async () => {
+    const bigBody = 'x'.repeat(6 * 1024 * 1024);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html' }),
+        text: async () => bigBody,
+      })
+    );
+    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
+      'Response too large to process'
     );
   });
 

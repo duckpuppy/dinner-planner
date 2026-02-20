@@ -6,7 +6,7 @@ import {
   importRecipeUrlSchema,
 } from '@dinner-planner/shared';
 import * as dishesService from '../services/dishes.js';
-import { importRecipeFromUrl } from '../services/recipeImport.js';
+import { importRecipeFromUrl, SsrfBlockedError } from '../services/recipeImport.js';
 
 export async function dishesRoutes(fastify: FastifyInstance) {
   /**
@@ -30,7 +30,8 @@ export async function dishesRoutes(fastify: FastifyInstance) {
         return reply.send({ recipe });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to import recipe';
-        return reply.status(422).send({ error: msg });
+        const status = err instanceof SsrfBlockedError ? 400 : 422;
+        return reply.status(status).send({ error: msg });
       }
     }
   );
