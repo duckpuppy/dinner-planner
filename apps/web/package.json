@@ -11,6 +11,7 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "cap:sync": "cap sync android",
     "cap:build": "cap sync android && cd android && ./gradlew assembleDebug"
