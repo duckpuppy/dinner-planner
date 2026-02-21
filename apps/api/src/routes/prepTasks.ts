@@ -32,6 +32,7 @@ export async function prepTasksRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
       const prepTask = await createPrepTask(entryId, parsed.data);
+      if (!prepTask) return reply.status(404).send({ error: 'Entry not found' });
       return reply.status(201).send(prepTask);
     }
   );

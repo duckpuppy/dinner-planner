@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { menus, preparations, ratings, type DinnerEntry } from '@/lib/api';
+import { menus, preparations, ratings, prepTasks, type DinnerEntry } from '@/lib/api';
 import { PrepTaskList } from '@/components/PrepTaskList';
 import { PreparationPhotos } from '@/components/PreparationPhotos';
 import {
@@ -113,7 +113,13 @@ function TomorrowPrepSection() {
 
   const tomorrowEntry = data?.menu.entries.find((e) => e.date === tomorrowStr);
 
-  if (!tomorrowEntry) return null;
+  const { data: tasksData } = useQuery({
+    queryKey: ['prepTasks', tomorrowEntry?.id],
+    queryFn: () => prepTasks.list(tomorrowEntry!.id),
+    enabled: !!tomorrowEntry,
+  });
+
+  if (!tomorrowEntry || !tasksData?.prepTasks?.length) return null;
 
   const tomorrowDayName = DAY_NAMES[tomorrowEntry.dayOfWeek];
 
