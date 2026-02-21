@@ -69,23 +69,27 @@ if (config.NODE_ENV !== 'production') {
 }
 
 // Register plugins
+// CSP only enforced in production — Swagger UI uses inline scripts in dev
+export const productionCspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'"],
+  styleSrc: ["'self'", "'unsafe-inline'"],
+  imgSrc: ["'self'", 'data:', 'blob:'],
+  connectSrc: ["'self'"],
+  fontSrc: ["'self'", 'data:'],
+  objectSrc: ["'none'"],
+  frameAncestors: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  workerSrc: ["'self'"],
+  manifestSrc: ["'self'"],
+} as const;
+
 await fastify.register(helmet, {
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'", 'data:'],
-      objectSrc: ["'none'"],
-      frameAncestors: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      workerSrc: ["'self'"],
-      manifestSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy:
+    config.NODE_ENV === 'production'
+      ? { directives: productionCspDirectives }
+      : false,
 });
 
 await fastify.register(cors, {
