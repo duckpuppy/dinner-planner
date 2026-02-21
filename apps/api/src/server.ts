@@ -71,7 +71,18 @@ if (config.NODE_ENV !== 'production') {
 // Register plugins
 await fastify.register(helmet, {
   contentSecurityPolicy: {
-    directives: { defaultSrc: ["'none'"] },
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
   },
 });
 
