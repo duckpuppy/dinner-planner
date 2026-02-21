@@ -82,6 +82,8 @@ await fastify.register(helmet, {
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
+      workerSrc: ["'self'"],
+      manifestSrc: ["'self'"],
     },
   },
 });
