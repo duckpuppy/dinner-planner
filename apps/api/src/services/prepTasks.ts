@@ -29,7 +29,12 @@ export async function getPrepTasksForEntry(entryId: string): Promise<PrepTask[]>
 export async function createPrepTask(
   entryId: string,
   data: CreatePrepTaskInput
-): Promise<PrepTask> {
+): Promise<PrepTask | null> {
+  const entry = await db.query.dinnerEntries.findFirst({
+    where: eq(schema.dinnerEntries.id, entryId),
+  });
+  if (!entry) return null;
+
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
