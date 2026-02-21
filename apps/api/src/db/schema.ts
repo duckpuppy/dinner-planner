@@ -140,6 +140,17 @@ export const prepTasks = sqliteTable('prep_tasks', {
   ...timestamps,
 });
 
+// Dish notes table (M14: recipe notes & cook log)
+export const dishNotes = sqliteTable('dish_notes', {
+  id: text('id').primaryKey(),
+  dishId: text('dish_id')
+    .notNull()
+    .references(() => dishes.id, { onDelete: 'cascade' }),
+  note: text('note').notNull(),
+  createdById: text('created_by_id').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+});
+
 // Ratings table
 export const ratings = sqliteTable('ratings', {
   id: text('id').primaryKey(),
