@@ -72,4 +72,4 @@ ENV DATABASE_URL=file:/app/data/dinner.db
 EXPOSE 3000
 
 # Run migrations then start the server
-CMD ["sh", "-c", "node apps/api/dist/db/migrate.js && node apps/api/dist/server.js"]
+CMD ["sh", "-c", "cd /app/apps/api && node dist/db/migrate.js && node dist/server.js"]
