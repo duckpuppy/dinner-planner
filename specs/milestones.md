@@ -633,6 +633,19 @@ This document breaks the project into incremental milestones, each delivering us
 
 ---
 
+## Milestone 21: First-Run Setup Wizard
+
+**Goal:** Replace the mandatory seeded admin user with an interactive setup wizard that runs on first start, while keeping ENV-based seeding as an optional convenience for automated deployments.
+
+- On first start, if no admin user exists and `ADMIN_USERNAME`/`ADMIN_PASSWORD` env vars are not set, the API exposes an unauthenticated `POST /api/setup` endpoint
+- The frontend detects "setup mode" via the health/status endpoint (e.g. `GET /api/health` returns `{ setupRequired: true }`) and redirects to a `/setup` wizard page
+- The wizard collects username and password for the first admin user, validates, and calls `POST /api/setup`
+- Once any admin user exists, the `/api/setup` endpoint returns 404 (disabled permanently)
+- ENV-based seeding (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) remains supported and runs before the setup check — if set, no wizard is shown
+- The wizard page is excluded from the authenticated route guard
+
+---
+
 ## Future Enhancements (Unscheduled)
 
 - [ ] Video caching from social media
@@ -666,6 +679,7 @@ This document breaks the project into incremental milestones, each delivering us
 | **18**      | Dietary Tags       | Structured dietary attributes          | Planned     |
 | **19**      | Planned vs Actual  | Draft/confirmed/completed entry states | Planned     |
 | **20**      | Leftovers          | First-class leftovers dinner type      | Planned     |
+| **21**      | Setup Wizard       | First-run wizard to create admin user  | Planned     |
 
 ---
 
