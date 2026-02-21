@@ -1,3 +1,5 @@
+import type { DishNote } from '@dinner-planner/shared';
+
 const API_BASE = '/api';
 
 let accessToken: string | null = null;
@@ -583,14 +585,7 @@ export interface Pattern {
   createdAt: string;
 }
 
-export interface DishNote {
-  id: string;
-  dishId: string;
-  note: string;
-  createdById: string;
-  createdByUsername: string;
-  createdAt: string;
-}
+export type { DishNote };
 
 export interface PrepTask {
   id: string;
