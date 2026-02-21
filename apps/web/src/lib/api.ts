@@ -583,6 +583,15 @@ export interface Pattern {
   createdAt: string;
 }
 
+export interface DishNote {
+  id: string;
+  dishId: string;
+  note: string;
+  createdById: string;
+  createdByUsername: string;
+  createdAt: string;
+}
+
 export interface PrepTask {
   id: string;
   entryId: string;
@@ -591,6 +600,19 @@ export interface PrepTask {
   createdAt: string;
   updatedAt: string;
 }
+
+// Dish Notes API
+export const dishNotes = {
+  list: (dishId: string) => request<{ notes: DishNote[] }>(`/dishes/${dishId}/notes`),
+
+  create: (dishId: string, note: string) =>
+    request<{ note: DishNote }>(`/dishes/${dishId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+
+  delete: (id: string) => request<Record<string, never>>(`/dish-notes/${id}`, { method: 'DELETE' }),
+};
 
 // Prep Tasks API
 export const prepTasks = {
