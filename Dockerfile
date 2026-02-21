@@ -30,6 +30,10 @@ RUN cd apps/api && npm rebuild bcrypt better-sqlite3
 # --legacy required for pnpm v10 without inject-workspace-packages
 RUN pnpm deploy --filter=@dinner-planner/api --prod --legacy /app/api-deploy
 
+# Rebuild native modules in the deploy directory (pnpm deploy does a fresh install,
+# not a copy, so the rebuild above doesn't carry over)
+RUN cd /app/api-deploy && npm rebuild better-sqlite3 bcrypt
+
 # Production stage
 FROM node:22-alpine AS runner
 
