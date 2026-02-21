@@ -5,6 +5,7 @@ import {
   type Dish,
   type CreateDishData,
 } from '@/lib/api';
+import { DishNotes } from '@/components/DishNotes';
 import {
   Plus,
   ChefHat,
@@ -651,6 +652,9 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
             <div className="whitespace-pre-wrap">{currentDish.instructions}</div>
           </div>
         )}
+
+        {/* Cook Notes */}
+        <DishNotes dishId={currentDish.id} />
 
         {/* Tags */}
         {currentDish.tags.length > 0 && (

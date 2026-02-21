@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { history, type HistoryEntry } from '@/lib/api';
+import { history, dishNotes as dishNotesApi, type HistoryEntry } from '@/lib/api';
 import { PreparationPhotos } from '@/components/PreparationPhotos';
 import {
   Calendar,
@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Trash2,
   Star,
+  BookmarkPlus,
 } from 'lucide-react';
 import { StarRating } from '@/components/StarRating';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
@@ -242,8 +243,20 @@ export function HistoryPage() {
 }
 
 function HistoryCard({ entry }: { entry: HistoryEntry }) {
+  const queryClient = useQueryClient();
   const date = new Date(entry.date);
   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const mainDishId = entry.mainDish?.id ?? null;
+
+  const saveAsNoteMutation = useMutation({
+    mutationFn: ({ dishId, note }: { dishId: string; note: string }) =>
+      dishNotesApi.create(dishId, note),
+    onSuccess: (_, { dishId }) => {
+      queryClient.invalidateQueries({ queryKey: ['dishNotes', dishId] });
+      toast.success('Saved as dish note');
+    },
+    onError: () => toast.error('Failed to save note'),
+  });
 
   // Calculate average rating across all preparations
   const allRatings = entry.preparations.flatMap((p) => p.ratings);
@@ -302,7 +315,28 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
                   <ChefHat className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium">{prep.preparedByName}</span>
-                    {prep.notes && <span className="text-muted-foreground"> - {prep.notes}</span>}
+                    {prep.notes && (
+                      <div className="mt-0.5">
+                        <span className="text-muted-foreground">{prep.notes}</span>
+                        {mainDishId && (
+                          <button
+                            onClick={() =>
+                              saveAsNoteMutation.mutate({
+                                dishId: mainDishId,
+                                note: prep.notes!,
+                              })
+                            }
+                            disabled={saveAsNoteMutation.isPending}
+                            className="flex items-center gap-1 mt-1 text-xs text-muted-foreground
+                                       hover:text-foreground border border-dashed rounded px-2 py-0.5
+                                       hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <BookmarkPlus className="h-3 w-3" />
+                            Save as dish note
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {prep.ratings.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-1">
                         {prep.ratings.map((rating) => (
