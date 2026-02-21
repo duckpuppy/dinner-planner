@@ -187,6 +187,20 @@ export const importedRecipeSchema = z.object({
   tags: z.array(z.string()),
 });
 
+// Dish note schemas (M14: recipe notes & cook log)
+export const createDishNoteSchema = z.object({
+  note: z.string().min(1).max(2000),
+});
+
+export const dishNoteSchema = z.object({
+  id: z.string(),
+  dishId: z.string(),
+  note: z.string(),
+  createdById: z.string().nullable(),
+  createdByUsername: z.string().nullable(),
+  createdAt: z.string(),
+});
+
 // Prep task schemas (M13: prep scheduling)
 export const createPrepTaskSchema = z.object({
   description: z.string().min(1).max(500),
@@ -236,3 +250,5 @@ export type UpdatePatternInput = z.infer<typeof updatePatternSchema>;
 export type CreatePrepTaskInput = z.infer<typeof createPrepTaskSchema>;
 export type UpdatePrepTaskInput = z.infer<typeof updatePrepTaskSchema>;
 export type PrepTask = z.infer<typeof prepTaskSchema>;
+export type CreateDishNoteInput = z.infer<typeof createDishNoteSchema>;
+export type DishNote = z.infer<typeof dishNoteSchema>;

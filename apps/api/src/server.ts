@@ -23,6 +23,7 @@ import { suggestionsRoutes } from './routes/suggestions.js';
 import { patternsRoutes } from './routes/patterns.js';
 import { photosRoutes } from './routes/photos.js';
 import { prepTasksRoutes } from './routes/prepTasks.js';
+import { dishNotesRoutes } from './routes/dishNotes.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 
@@ -119,6 +120,7 @@ await fastify.register(suggestionsRoutes);
 await fastify.register(patternsRoutes);
 await fastify.register(photosRoutes);
 await fastify.register(prepTasksRoutes);
+await fastify.register(dishNotesRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {
