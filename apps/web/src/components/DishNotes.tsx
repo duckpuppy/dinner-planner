@@ -83,7 +83,7 @@ export function DishNotes({ dishId }: DishNotesProps) {
               <div className="flex-1 min-w-0">
                 <p className="whitespace-pre-wrap text-pretty">{note.note}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {note.createdByUsername} &middot; {formatRelativeDate(note.createdAt)}
+                  {note.createdByUsername ?? 'Unknown user'} &middot; {formatRelativeDate(note.createdAt)}
                 </p>
               </div>
               {note.createdById === user?.id && (
