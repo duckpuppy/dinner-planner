@@ -6,7 +6,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import { healthRoutes } from '../routes/health.js';
-import { productionCspDirectives } from '../server.js';
+import { productionCspDirectives } from '../csp.js';
 
 const app = Fastify();
 
