@@ -26,6 +26,7 @@ vi.mock('../db/index.js', () => ({
     dishes: { id: null },
     users: { id: null },
     preparations: { id: null, dishId: null, dinnerEntryId: null },
+    preparationPreparers: { preparationId: null, userId: null },
     entrySideDishes: { entryId: null, dishId: null },
     ratings: { preparationId: null },
   },
@@ -71,7 +72,6 @@ function makePrep(overrides: Record<string, unknown> = {}) {
     id: 'prep-1',
     dishId: 'dish-1',
     dinnerEntryId: 'entry-1',
-    preparedById: 'user-1',
     preparedDate: '2024-01-01',
     notes: null,
     createdAt: '2024-01-01',
@@ -85,11 +85,12 @@ function makePrep(overrides: Record<string, unknown> = {}) {
  * 1. db.query.dinnerEntries.findFirst() → entry
  * 2. db.select().from(entrySideDishes).where() → []
  * 3. db.select().from(preparations).where() → []
+ * (No preparationPreparers select because preparations array is empty)
  */
 function setupGetEntryWithRelations(entry: ReturnType<typeof makeEntry>) {
   mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
   mockDb.select.mockReturnValueOnce(selWhere([])); // side dish links
-  mockDb.select.mockReturnValueOnce(selWhere([])); // preparations
+  mockDb.select.mockReturnValueOnce(selWhere([])); // preparations (empty → no preparationPreparers selects)
 }
 
 beforeEach(() => {

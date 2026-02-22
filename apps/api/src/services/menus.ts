@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
@@ -60,8 +60,7 @@ export interface PreparationResponse {
   id: string;
   dishId: string;
   dishName: string;
-  preparedById: string;
-  preparedByName: string;
+  preparers: { id: string; name: string }[];
   preparedDate: string;
   notes: string | null;
   createdAt: string;
@@ -119,15 +118,23 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
       const dish = await db.query.dishes.findFirst({
         where: eq(schema.dishes.id, prep.dishId),
       });
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, prep.preparedById),
-      });
+      const preparerLinks = await db
+        .select()
+        .from(schema.preparationPreparers)
+        .where(eq(schema.preparationPreparers.preparationId, prep.id));
+      const preparers = await Promise.all(
+        preparerLinks.map(async (link) => {
+          const user = await db.query.users.findFirst({
+            where: eq(schema.users.id, link.userId),
+          });
+          return { id: link.userId, name: user?.displayName ?? 'Unknown' };
+        })
+      );
       return {
         id: prep.id,
         dishId: prep.dishId,
         dishName: dish?.name ?? 'Unknown',
-        preparedById: prep.preparedById,
-        preparedByName: user?.displayName ?? 'Unknown',
+        preparers,
         preparedDate: prep.preparedDate,
         notes: prep.notes,
         createdAt: prep.createdAt,
@@ -324,12 +331,16 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
     id,
     dishId: input.dishId,
     dinnerEntryId: input.dinnerEntryId,
-    preparedById: input.preparedById,
     preparedDate: today,
     notes: input.notes,
     createdAt: now,
     updatedAt: now,
   });
+
+  // Insert all preparers into the join table
+  await db.insert(schema.preparationPreparers).values(
+    input.preparerIds.map((userId) => ({ preparationId: id, userId }))
+  );
 
   // Auto-complete the dinner entry
   await db
@@ -341,16 +352,18 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
     where: eq(schema.dishes.id, input.dishId),
   });
 
-  const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, input.preparedById),
-  });
+  const preparerUsers = await db
+    .select()
+    .from(schema.users)
+    .where(inArray(schema.users.id, input.preparerIds));
+
+  const preparers = preparerUsers.map((u) => ({ id: u.id, name: u.displayName }));
 
   return {
     id,
     dishId: input.dishId,
     dishName: dish?.name ?? 'Unknown',
-    preparedById: input.preparedById,
-    preparedByName: user?.displayName ?? 'Unknown',
+    preparers,
     preparedDate: today,
     notes: input.notes ?? null,
     createdAt: now,
@@ -371,15 +384,23 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
       const dish = await db.query.dishes.findFirst({
         where: eq(schema.dishes.id, prep.dishId),
       });
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, prep.preparedById),
-      });
+      const preparerLinks = await db
+        .select()
+        .from(schema.preparationPreparers)
+        .where(eq(schema.preparationPreparers.preparationId, prep.id));
+      const preparers = await Promise.all(
+        preparerLinks.map(async (link) => {
+          const user = await db.query.users.findFirst({
+            where: eq(schema.users.id, link.userId),
+          });
+          return { id: link.userId, name: user?.displayName ?? 'Unknown' };
+        })
+      );
       return {
         id: prep.id,
         dishId: prep.dishId,
         dishName: dish?.name ?? 'Unknown',
-        preparedById: prep.preparedById,
-        preparedByName: user?.displayName ?? 'Unknown',
+        preparers,
         preparedDate: prep.preparedDate,
         notes: prep.notes,
         createdAt: prep.createdAt,
