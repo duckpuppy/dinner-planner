@@ -28,7 +28,8 @@ vi.mock('../db/index.js', () => ({
       customText: null,
     },
     entrySideDishes: { entryId: null, dishId: null },
-    preparations: { id: null, dinnerEntryId: null, dishId: null, preparedById: null },
+    preparations: { id: null, dinnerEntryId: null, dishId: null },
+    preparationPreparers: { preparationId: null, userId: null },
     ratings: { id: null, preparationId: null, userId: null },
     dishes: { id: null },
     users: { id: null },
@@ -87,10 +88,11 @@ const mockPrep = {
   id: 'prep-1',
   dishId: 'dish-1',
   dinnerEntryId: 'entry-1',
-  preparedById: 'user-1',
   preparedDate: '2024-01-15',
   notes: null,
 };
+
+const mockPreparerLink = { preparationId: 'prep-1', userId: 'user-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -120,14 +122,15 @@ describe('getHistory', () => {
     mockDb.select.mockReturnValueOnce(selFromWhereOrderByLimitOffset([mockEntry]));
     mockDb.select.mockReturnValueOnce(selFromWhere([])); // no side dishes
     mockDb.select.mockReturnValueOnce(selFromWhere([mockPrep])); // preparations
-    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser); // preparer
+    mockDb.select.mockReturnValueOnce(selFromWhere([mockPreparerLink])); // preparationPreparers
+    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser); // preparer user lookup
     const mockRating = { id: 'r-1', stars: 5, userId: 'user-2' };
     mockDb.select.mockReturnValueOnce(selFromWhere([mockRating])); // ratings
     mockDb.query.users.findFirst.mockResolvedValueOnce({ id: 'user-2', displayName: 'Bob' }); // rater
 
     const result = await getHistory({});
     expect(result.entries[0].preparations).toHaveLength(1);
-    expect(result.entries[0].preparations[0].preparedByName).toBe('Alice');
+    expect(result.entries[0].preparations[0].preparers).toEqual([{ id: 'user-1', name: 'Alice' }]);
     expect(result.entries[0].preparations[0].ratings).toHaveLength(1);
     expect(result.entries[0].preparations[0].ratings[0].userName).toBe('Bob');
   });
@@ -155,11 +158,12 @@ describe('getHistory', () => {
     mockDb.select.mockReturnValueOnce(selFromWhereOrderByLimitOffset([mockEntry]));
     mockDb.select.mockReturnValueOnce(selFromWhere([])); // side dishes
     mockDb.select.mockReturnValueOnce(selFromWhere([mockPrep])); // preparations
-    mockDb.query.users.findFirst.mockResolvedValueOnce(null); // preparer not found
+    mockDb.select.mockReturnValueOnce(selFromWhere([mockPreparerLink])); // preparationPreparers
+    mockDb.query.users.findFirst.mockResolvedValueOnce(null); // preparer not found → "Unknown"
     mockDb.select.mockReturnValueOnce(selFromWhere([])); // no ratings
 
     const result = await getHistory({});
-    expect(result.entries[0].preparations[0].preparedByName).toBe('Unknown');
+    expect(result.entries[0].preparations[0].preparers).toEqual([{ id: 'user-1', name: 'Unknown' }]);
   });
 });
 
@@ -172,14 +176,15 @@ describe('getDishHistory', () => {
 
   it('returns preparations with ratings', async () => {
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([mockPrep]));
-    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
+    mockDb.select.mockReturnValueOnce(selFromWhere([mockPreparerLink])); // preparationPreparers
+    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser); // preparer user
     const mockRating = { id: 'r-1', stars: 4, note: 'Nice', userId: 'user-2' };
     mockDb.select.mockReturnValueOnce(selFromWhere([mockRating]));
     mockDb.query.users.findFirst.mockResolvedValueOnce({ id: 'user-2', displayName: 'Bob' });
 
     const result = await getDishHistory('dish-1');
     expect(result.preparations).toHaveLength(1);
-    expect(result.preparations[0].preparedByName).toBe('Alice');
+    expect(result.preparations[0].preparers).toEqual([{ id: 'user-1', name: 'Alice' }]);
     expect(result.preparations[0].ratings).toHaveLength(1);
     expect(result.preparations[0].ratings[0].userName).toBe('Bob');
     expect(result.preparations[0].ratings[0].note).toBe('Nice');
@@ -187,11 +192,12 @@ describe('getDishHistory', () => {
 
   it('uses "Unknown" when user not found', async () => {
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([mockPrep]));
-    mockDb.query.users.findFirst.mockResolvedValueOnce(null);
+    mockDb.select.mockReturnValueOnce(selFromWhere([mockPreparerLink])); // preparationPreparers
+    mockDb.query.users.findFirst.mockResolvedValueOnce(null); // user not found → "Unknown"
     mockDb.select.mockReturnValueOnce(selFromWhere([]));
 
     const result = await getDishHistory('dish-1');
-    expect(result.preparations[0].preparedByName).toBe('Unknown');
+    expect(result.preparations[0].preparers).toEqual([{ id: 'user-1', name: 'Unknown' }]);
   });
 });
 

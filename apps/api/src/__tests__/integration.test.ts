@@ -219,8 +219,7 @@ const mockPreparation = {
   dishId: 'dish-1',
   dishName: 'Pasta',
   dinnerEntryId: 'entry-1',
-  preparedById: 'user-1',
-  preparedByName: 'Alice',
+  preparers: [{ id: 'user-1', name: 'Alice' }],
   preparedDate: '2024-01-15',
   notes: null,
   ratings: [],
@@ -952,7 +951,7 @@ describe('Menus routes', () => {
       body: JSON.stringify({
         dishId: '00000000-0000-0000-0000-000000000001',
         dinnerEntryId: '00000000-0000-0000-0000-000000000002',
-        preparedById: '00000000-0000-0000-0000-000000000003',
+        preparerIds: ['00000000-0000-0000-0000-000000000003'],
       }),
     });
     expect(res.statusCode).toBe(201);

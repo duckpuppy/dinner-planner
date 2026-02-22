@@ -1,6 +1,7 @@
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 
+
 export interface HistoryEntry {
   id: string;
   date: string;
@@ -17,7 +18,7 @@ export interface HistoryEntry {
   }[];
   preparations: {
     id: string;
-    preparedByName: string;
+    preparers: { id: string; name: string }[];
     notes: string | null;
     ratings: {
       id: string;
@@ -135,9 +136,18 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
 
     const preparations = [];
     for (const prep of preps) {
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, prep.preparedById),
-      });
+      // Get preparers from join table
+      const preparerLinks = await db
+        .select()
+        .from(schema.preparationPreparers)
+        .where(eq(schema.preparationPreparers.preparationId, prep.id));
+      const preparers: { id: string; name: string }[] = [];
+      for (const link of preparerLinks) {
+        const user = await db.query.users.findFirst({
+          where: eq(schema.users.id, link.userId),
+        });
+        preparers.push({ id: link.userId, name: user?.displayName ?? 'Unknown' });
+      }
 
       // Get ratings for this preparation
       const ratings = await db
@@ -159,7 +169,7 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
 
       preparations.push({
         id: prep.id,
-        preparedByName: user?.displayName ?? 'Unknown',
+        preparers,
         notes: prep.notes,
         ratings: enrichedRatings,
       });
@@ -187,7 +197,7 @@ export async function getDishHistory(dishId: string): Promise<{
   preparations: {
     id: string;
     date: string;
-    preparedByName: string;
+    preparers: { id: string; name: string }[];
     notes: string | null;
     ratings: {
       id: string;
@@ -206,9 +216,18 @@ export async function getDishHistory(dishId: string): Promise<{
   const preparations = [];
 
   for (const prep of preps) {
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.id, prep.preparedById),
-    });
+    // Get preparers from join table
+    const preparerLinks = await db
+      .select()
+      .from(schema.preparationPreparers)
+      .where(eq(schema.preparationPreparers.preparationId, prep.id));
+    const preparers: { id: string; name: string }[] = [];
+    for (const link of preparerLinks) {
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, link.userId),
+      });
+      preparers.push({ id: link.userId, name: user?.displayName ?? 'Unknown' });
+    }
 
     const ratings = await db
       .select()
@@ -231,7 +250,7 @@ export async function getDishHistory(dishId: string): Promise<{
     preparations.push({
       id: prep.id,
       date: prep.preparedDate,
-      preparedByName: user?.displayName ?? 'Unknown',
+      preparers,
       notes: prep.notes,
       ratings: enrichedRatings,
     });
