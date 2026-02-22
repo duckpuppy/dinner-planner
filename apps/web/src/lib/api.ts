@@ -243,7 +243,7 @@ export const menus = {
 
 // Preparations API
 export const preparations = {
-  create: (data: { dinnerEntryId: string; dishId: string; notes?: string | null }) =>
+  create: (data: { dinnerEntryId: string; dishId: string; preparerIds: string[]; notes?: string | null }) =>
     request<{ preparation: Preparation }>('/preparations', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -479,8 +479,7 @@ export interface Preparation {
   id: string;
   dishId: string;
   dishName: string;
-  preparedById: string;
-  preparedByName: string;
+  preparers: { id: string; name: string }[];
   preparedDate: string;
   notes: string | null;
   createdAt: string;
@@ -523,7 +522,7 @@ export interface HistoryEntry {
   sideDishes: { id: string; name: string }[];
   preparations: {
     id: string;
-    preparedByName: string;
+    preparers: { id: string; name: string }[];
     notes: string | null;
     ratings: { id: string; stars: number; userName: string }[];
   }[];
@@ -532,7 +531,7 @@ export interface HistoryEntry {
 export interface DishPreparationHistory {
   id: string;
   date: string;
-  preparedByName: string;
+  preparers: { id: string; name: string }[];
   notes: string | null;
   ratings: {
     id: string;

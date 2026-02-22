@@ -699,7 +699,7 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
                 {preparations.slice(0, 10).map((prep) => (
                   <div key={prep.id} className="p-2 bg-muted/50 rounded text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">{prep.preparedByName}</span>
+                      <span className="font-medium">{prep.preparers.map((p) => p.name).join(' & ')}</span>
                       <span className="text-muted-foreground text-xs">
                         {new Date(prep.preparedDate).toLocaleDateString()}
                       </span>
