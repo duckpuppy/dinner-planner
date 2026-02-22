@@ -121,13 +121,24 @@ export const preparations = sqliteTable('preparations', {
   dinnerEntryId: text('dinner_entry_id')
     .notNull()
     .references(() => dinnerEntries.id),
-  preparedById: text('prepared_by_id')
-    .notNull()
-    .references(() => users.id),
   preparedDate: text('prepared_date').notNull(),
   notes: text('notes'),
   ...timestamps,
 });
+
+// Preparation preparers join table (M15: multiple preparers)
+export const preparationPreparers = sqliteTable(
+  'preparation_preparers',
+  {
+    preparationId: text('preparation_id')
+      .notNull()
+      .references(() => preparations.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.preparationId, table.userId] })]
+);
 
 // Prep tasks table (M13: prep scheduling)
 export const prepTasks = sqliteTable('prep_tasks', {
