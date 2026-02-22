@@ -139,11 +139,14 @@ export async function menusRoutes(fastify: FastifyInstance) {
     '/api/preparations',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      // Use the authenticated user as preparedById
+      // Default preparerIds to the authenticated user if not provided
       const body = request.body as Record<string, unknown>;
       const prepData = {
         ...body,
-        preparedById: body.preparedById ?? request.user.userId,
+        preparerIds:
+          Array.isArray(body.preparerIds) && body.preparerIds.length > 0
+            ? body.preparerIds
+            : [request.user.userId],
       };
 
       const parseResult = createPreparationSchema.safeParse(prepData);
