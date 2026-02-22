@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { menus, preparations, ratings, prepTasks, type DinnerEntry } from '@/lib/api';
+import { menus, preparations, ratings, prepTasks, users, type DinnerEntry } from '@/lib/api';
 import { PrepTaskList } from '@/components/PrepTaskList';
 import { PreparationPhotos } from '@/components/PreparationPhotos';
 import {
@@ -145,16 +145,30 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState('');
   const [showPrepForm, setShowPrepForm] = useState(false);
+  const [selectedPreparerIds, setSelectedPreparerIds] = useState<string[]>([]);
   const user = useAuthStore((s) => s.user);
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => users.list(),
+  });
+  const usersList = usersData?.users ?? [];
+
+  const togglePreparer = (id: string) => {
+    setSelectedPreparerIds((curr) =>
+      curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id]
+    );
+  };
+
   const logPrepMutation = useMutation({
-    mutationFn: (data: { dinnerEntryId: string; dishId: string; notes?: string | null }) =>
+    mutationFn: (data: { dinnerEntryId: string; dishId: string; preparerIds: string[]; notes?: string | null }) =>
       preparations.create(data),
     onSuccess: () => {
       toast.success('Preparation logged successfully');
       queryClient.invalidateQueries({ queryKey: ['today'] });
       setShowPrepForm(false);
       setNotes('');
+      setSelectedPreparerIds([]);
     },
     onError: (error) => {
       toast.error('Failed to log preparation');
@@ -167,6 +181,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
     logPrepMutation.mutate({
       dinnerEntryId: entry.id,
       dishId: entry.mainDish.id,
+      preparerIds: selectedPreparerIds,
       notes: notes || null,
     });
   };
@@ -184,12 +199,12 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
       >
         {entry.completed ? (
           <>
-            <Check className="h-4 w-4" />
+            <Check className="h-4 w-4" aria-hidden="true" />
             Completed
           </>
         ) : (
           <>
-            <Clock className="h-4 w-4" />
+            <Clock className="h-4 w-4" aria-hidden="true" />
             Not yet prepared
           </>
         )}
@@ -198,7 +213,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
       <div className="p-4 space-y-4">
         {/* Entry type */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <UtensilsCrossed className="h-4 w-4" />
+          <UtensilsCrossed className="h-4 w-4" aria-hidden="true" />
           {ENTRY_TYPE_LABELS[entry.type]}
         </div>
 
@@ -263,7 +278,35 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
           <div className="pt-4 border-t">
             {showPrepForm ? (
               <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium mb-2">Who cooked?</p>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select preparers">
+                    {usersList.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => togglePreparer(u.id)}
+                        aria-pressed={selectedPreparerIds.includes(u.id)}
+                        className={cn(
+                          'px-3 py-2 rounded-full text-sm font-medium transition-colors',
+                          selectedPreparerIds.includes(u.id)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        )}
+                      >
+                        {u.displayName}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPreparerIds.length === 0 && logPrepMutation.isError && (
+                    <p className="text-sm text-destructive mt-1">At least one preparer is required.</p>
+                  )}
+                </div>
+                <label htmlFor="prep-notes" className="sr-only">
+                  Preparation notes
+                </label>
                 <textarea
+                  id="prep-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add notes (optional)"
@@ -274,14 +317,18 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                 <div className="flex gap-2">
                   <button
                     onClick={handleLogPrep}
-                    disabled={logPrepMutation.isPending}
+                    disabled={logPrepMutation.isPending || selectedPreparerIds.length === 0}
                     className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-md
                                text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
                   >
                     {logPrepMutation.isPending ? 'Logging...' : 'Log Preparation'}
                   </button>
                   <button
-                    onClick={() => setShowPrepForm(false)}
+                    onClick={() => {
+                      setShowPrepForm(false);
+                      setSelectedPreparerIds([]);
+                      setNotes('');
+                    }}
                     className="py-2 px-4 border rounded-md text-sm hover:bg-muted"
                   >
                     Cancel
@@ -294,7 +341,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                 className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md
                            font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
               >
-                <ChefHat className="h-4 w-4" />I Made This!
+                <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
               </button>
             )}
           </div>
@@ -356,9 +403,9 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
   return (
     <div className="bg-muted/30 rounded-lg p-3">
       <div className="flex items-start gap-2 text-sm">
-        <ChefHat className="h-4 w-4 text-muted-foreground mt-0.5" />
+        <ChefHat className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden="true" />
         <div className="flex-1">
-          <span className="font-medium">{preparation.preparedByName}</span>
+          <span className="font-medium">{preparation.preparers.map((p) => p.name).join(' & ')}</span>
           {preparation.notes && (
             <p className="text-muted-foreground text-sm">{preparation.notes}</p>
           )}
@@ -400,6 +447,7 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Add a note (optional)"
+                    aria-label="Rating note"
                     className="w-full px-2 py-1 text-sm border rounded bg-background"
                   />
                   <div className="flex gap-2">
@@ -427,7 +475,7 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
                   onClick={() => setShowRatingForm(true)}
                   className="flex items-center gap-1 text-sm text-primary hover:text-primary/80"
                 >
-                  <Star className="h-4 w-4" />
+                  <Star className="h-4 w-4" aria-hidden="true" />
                   Rate this meal
                 </button>
               )}
