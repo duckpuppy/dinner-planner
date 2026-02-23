@@ -243,7 +243,12 @@ export const menus = {
 
 // Preparations API
 export const preparations = {
-  create: (data: { dinnerEntryId: string; dishId: string; preparerIds: string[]; notes?: string | null }) =>
+  create: (data: {
+    dinnerEntryId: string;
+    dishId: string;
+    preparerIds: string[];
+    notes?: string | null;
+  }) =>
     request<{ preparation: Preparation }>('/preparations', {
       method: 'POST',
       body: JSON.stringify(data),
