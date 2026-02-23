@@ -233,6 +233,18 @@ export const photos = sqliteTable('photos', {
     .default(sql`(datetime('now'))`),
 });
 
+// Pantry items table (M16: pantry tracking)
+export const pantryItems = sqliteTable('pantry_items', {
+  id: text('id').primaryKey(),
+  ingredientName: text('ingredient_name').notNull(),
+  quantity: real('quantity'),
+  unit: text('unit'),
+  expiresAt: text('expires_at'), // ISO date string YYYY-MM-DD, nullable
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {
   id: text('id').primaryKey(),
