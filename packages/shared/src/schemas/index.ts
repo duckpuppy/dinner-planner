@@ -161,6 +161,7 @@ export const groceryItemSchema = z.object({
   unit: z.string().nullable(),
   dishes: z.array(z.string()),
   notes: z.array(z.string()),
+  inPantry: z.boolean().default(false),
 });
 
 export const groceriesResponseSchema = z.object({
@@ -186,6 +187,30 @@ export const importedRecipeSchema = z.object({
   videoUrl: z.string().url().nullable(),
   tags: z.array(z.string()),
 });
+
+// Pantry schemas (M16: pantry tracking)
+export const createPantryItemSchema = z.object({
+  ingredientName: z.string().min(1).max(200),
+  quantity: z.number().positive().nullable().optional(),
+  unit: z.string().max(50).nullable().optional(),
+  expiresAt: z.string().nullable().optional(), // YYYY-MM-DD
+});
+
+export const updatePantryItemSchema = z.object({
+  ingredientName: z.string().min(1).max(200).optional(),
+  quantity: z.number().positive().nullable().optional(),
+  unit: z.string().max(50).nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+});
+
+export type PantryItem = {
+  id: string;
+  ingredientName: string;
+  quantity: number | null;
+  unit: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+};
 
 // Dish note schemas (M14: recipe notes & cook log)
 export const createDishNoteSchema = z.object({
@@ -252,3 +277,5 @@ export type UpdatePrepTaskInput = z.infer<typeof updatePrepTaskSchema>;
 export type PrepTask = z.infer<typeof prepTaskSchema>;
 export type CreateDishNoteInput = z.infer<typeof createDishNoteSchema>;
 export type DishNote = z.infer<typeof dishNoteSchema>;
+export type CreatePantryItemInput = z.infer<typeof createPantryItemSchema>;
+export type UpdatePantryItemInput = z.infer<typeof updatePantryItemSchema>;

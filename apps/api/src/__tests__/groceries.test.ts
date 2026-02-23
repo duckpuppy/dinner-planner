@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock db to avoid loading native better-sqlite3 bindings in unit tests
-vi.mock('../db/index.js', () => ({ db: {}, schema: {} }));
+vi.mock('../db/index.js', () => ({
+  db: { select: vi.fn(), query: { pantryItems: { findFirst: vi.fn() } } },
+  schema: {},
+}));
 
 import { aggregateIngredients } from '../services/groceries.js';
 
@@ -15,7 +18,7 @@ describe('aggregateIngredients', () => {
       { dishName: 'Pasta', quantity: 200, unit: 'g', name: 'Flour', notes: null },
     ]);
     expect(result).toEqual([
-      { name: 'Flour', quantity: 200, unit: 'g', dishes: ['Pasta'], notes: [] },
+      { name: 'Flour', quantity: 200, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
     ]);
   });
 
@@ -25,7 +28,14 @@ describe('aggregateIngredients', () => {
       { dishName: 'Pizza', quantity: 300, unit: 'g', name: 'Flour', notes: null },
     ]);
     expect(result).toEqual([
-      { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta', 'Pizza'], notes: [] },
+      {
+        name: 'Flour',
+        quantity: 500,
+        unit: 'g',
+        dishes: ['Pasta', 'Pizza'],
+        notes: [],
+        inPantry: false,
+      },
     ]);
   });
 
@@ -94,5 +104,12 @@ describe('aggregateIngredients', () => {
       { dishName: 'A', quantity: 1, unit: null, name: 'Mango', notes: null },
     ]);
     expect(result.map((r) => r.name)).toEqual(['Apple', 'Mango', 'Zucchini']);
+  });
+
+  it('defaults inPantry to false', () => {
+    const result = aggregateIngredients([
+      { dishName: 'A', quantity: 1, unit: null, name: 'Salt', notes: null },
+    ]);
+    expect(result[0].inPantry).toBe(false);
   });
 });

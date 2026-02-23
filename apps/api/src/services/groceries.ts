@@ -2,6 +2,7 @@ import { inArray, asc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { GroceryItem } from '@dinner-planner/shared';
 import { getOrCreateWeekMenu } from './menus.js';
+import { listPantryItems } from './pantry.js';
 
 interface IngredientSource {
   dishName: string;
@@ -42,6 +43,7 @@ export function aggregateIngredients(sources: IngredientSource[]): GroceryItem[]
         unit: src.unit,
         dishes: [src.dishName],
         notes: src.notes ? [src.notes] : [],
+        inPantry: false,
       });
     }
   }
@@ -92,8 +94,20 @@ export async function getWeekGroceries(
     notes: ing.notes,
   }));
 
+  const groceries = aggregateIngredients(sources);
+
+  // Mark pantry-covered items
+  const pantryItems = await listPantryItems();
+  const pantryNames = new Set(pantryItems.map((p) => p.ingredientName.trim().toLowerCase()));
+
+  for (const item of groceries) {
+    if (pantryNames.has(item.name.trim().toLowerCase())) {
+      item.inPantry = true;
+    }
+  }
+
   return {
-    groceries: aggregateIngredients(sources),
+    groceries,
     weekStartDate: menu.weekStartDate,
   };
 }
