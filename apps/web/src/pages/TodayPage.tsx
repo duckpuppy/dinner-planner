@@ -161,8 +161,12 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
   };
 
   const logPrepMutation = useMutation({
-    mutationFn: (data: { dinnerEntryId: string; dishId: string; preparerIds: string[]; notes?: string | null }) =>
-      preparations.create(data),
+    mutationFn: (data: {
+      dinnerEntryId: string;
+      dishId: string;
+      preparerIds: string[];
+      notes?: string | null;
+    }) => preparations.create(data),
     onSuccess: () => {
       toast.success('Preparation logged successfully');
       queryClient.invalidateQueries({ queryKey: ['today'] });
@@ -298,8 +302,10 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                       </button>
                     ))}
                   </div>
-                  {selectedPreparerIds.length === 0 && logPrepMutation.isError && (
-                    <p className="text-sm text-destructive mt-1">At least one preparer is required.</p>
+                  {selectedPreparerIds.length === 0 && (
+                    <p className="text-sm text-destructive mt-1">
+                      At least one preparer is required.
+                    </p>
                   )}
                 </div>
                 <label htmlFor="prep-notes" className="sr-only">
@@ -405,7 +411,9 @@ function PreparationWithRating({ preparation, currentUserId }: PreparationWithRa
       <div className="flex items-start gap-2 text-sm">
         <ChefHat className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden="true" />
         <div className="flex-1">
-          <span className="font-medium">{preparation.preparers.map((p) => p.name).join(' & ')}</span>
+          <span className="font-medium">
+            {preparation.preparers.map((p) => p.name).join(' & ')}
+          </span>
           {preparation.notes && (
             <p className="text-muted-foreground text-sm">{preparation.notes}</p>
           )}
