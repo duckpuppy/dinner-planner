@@ -31,7 +31,7 @@ function formatExpiryDate(expiresAt: string): string {
 }
 
 function sortByExpiry(items: PantryItem[]): PantryItem[] {
-  return items.toSorted((a, b) => {
+  return items.slice().sort((a, b) => {
     if (a.expiresAt && b.expiresAt) {
       return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
     }
