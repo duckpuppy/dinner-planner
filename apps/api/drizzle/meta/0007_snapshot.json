@@ -145,12 +145,8 @@
           "name": "dinner_entries_menu_id_weekly_menus_id_fk",
           "tableFrom": "dinner_entries",
           "tableTo": "weekly_menus",
-          "columnsFrom": [
-            "menu_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["menu_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -158,12 +154,8 @@
           "name": "dinner_entries_main_dish_id_dishes_id_fk",
           "tableFrom": "dinner_entries",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "main_dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["main_dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -217,12 +209,8 @@
           "name": "dish_notes_dish_id_dishes_id_fk",
           "tableFrom": "dish_notes",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -230,12 +218,8 @@
           "name": "dish_notes_created_by_id_users_id_fk",
           "tableFrom": "dish_notes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -268,12 +252,8 @@
           "name": "dish_tags_dish_id_dishes_id_fk",
           "tableFrom": "dish_tags",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -281,12 +261,8 @@
           "name": "dish_tags_tag_id_tags_id_fk",
           "tableFrom": "dish_tags",
           "tableTo": "tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -408,12 +384,8 @@
           "name": "dishes_created_by_id_users_id_fk",
           "tableFrom": "dishes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -446,12 +418,8 @@
           "name": "entry_side_dishes_entry_id_dinner_entries_id_fk",
           "tableFrom": "entry_side_dishes",
           "tableTo": "dinner_entries",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -459,12 +427,8 @@
           "name": "entry_side_dishes_dish_id_dishes_id_fk",
           "tableFrom": "entry_side_dishes",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -533,12 +497,8 @@
           "name": "ingredients_dish_id_dishes_id_fk",
           "tableFrom": "ingredients",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -571,12 +531,8 @@
           "name": "pattern_side_dishes_pattern_id_recurring_patterns_id_fk",
           "tableFrom": "pattern_side_dishes",
           "tableTo": "recurring_patterns",
-          "columnsFrom": [
-            "pattern_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["pattern_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -584,22 +540,15 @@
           "name": "pattern_side_dishes_dish_id_dishes_id_fk",
           "tableFrom": "pattern_side_dishes",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "pattern_side_dishes_pattern_id_dish_id_pk": {
-          "columns": [
-            "pattern_id",
-            "dish_id"
-          ],
+          "columns": ["pattern_id", "dish_id"],
           "name": "pattern_side_dishes_pattern_id_dish_id_pk"
         }
       },
@@ -666,12 +615,8 @@
           "name": "photos_preparation_id_preparations_id_fk",
           "tableFrom": "photos",
           "tableTo": "preparations",
-          "columnsFrom": [
-            "preparation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["preparation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -679,12 +624,8 @@
           "name": "photos_uploaded_by_id_users_id_fk",
           "tableFrom": "photos",
           "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -748,12 +689,8 @@
           "name": "prep_tasks_entry_id_dinner_entries_id_fk",
           "tableFrom": "prep_tasks",
           "tableTo": "dinner_entries",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -786,12 +723,8 @@
           "name": "preparation_preparers_preparation_id_preparations_id_fk",
           "tableFrom": "preparation_preparers",
           "tableTo": "preparations",
-          "columnsFrom": [
-            "preparation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["preparation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -799,22 +732,15 @@
           "name": "preparation_preparers_user_id_users_id_fk",
           "tableFrom": "preparation_preparers",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "preparation_preparers_preparation_id_user_id_pk": {
-          "columns": [
-            "preparation_id",
-            "user_id"
-          ],
+          "columns": ["preparation_id", "user_id"],
           "name": "preparation_preparers_preparation_id_user_id_pk"
         }
       },
@@ -882,12 +808,8 @@
           "name": "preparations_dish_id_dishes_id_fk",
           "tableFrom": "preparations",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -895,12 +817,8 @@
           "name": "preparations_dinner_entry_id_dinner_entries_id_fk",
           "tableFrom": "preparations",
           "tableTo": "dinner_entries",
-          "columnsFrom": [
-            "dinner_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dinner_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -970,12 +888,8 @@
           "name": "ratings_preparation_id_preparations_id_fk",
           "tableFrom": "ratings",
           "tableTo": "preparations",
-          "columnsFrom": [
-            "preparation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["preparation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -983,12 +897,8 @@
           "name": "ratings_user_id_users_id_fk",
           "tableFrom": "ratings",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1065,12 +975,8 @@
           "name": "recurring_patterns_main_dish_id_dishes_id_fk",
           "tableFrom": "recurring_patterns",
           "tableTo": "dishes",
-          "columnsFrom": [
-            "main_dish_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["main_dish_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1078,12 +984,8 @@
           "name": "recurring_patterns_created_by_id_users_id_fk",
           "tableFrom": "recurring_patterns",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1138,12 +1040,8 @@
           "name": "refresh_tokens_user_id_users_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1173,9 +1071,7 @@
       "indexes": {
         "tags_name_unique": {
           "name": "tags_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -1259,9 +1155,7 @@
       "indexes": {
         "users_username_unique": {
           "name": "users_username_unique",
-          "columns": [
-            "username"
-          ],
+          "columns": ["username"],
           "isUnique": true
         }
       },
@@ -1307,9 +1201,7 @@
       "indexes": {
         "weekly_menus_week_start_date_unique": {
           "name": "weekly_menus_week_start_date_unique",
-          "columns": [
-            "week_start_date"
-          ],
+          "columns": ["week_start_date"],
           "isUnique": true
         }
       },
