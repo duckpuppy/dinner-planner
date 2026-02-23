@@ -12,6 +12,10 @@ export interface DishResponse {
   prepTime: number | null;
   cookTime: number | null;
   servings: number | null;
+  calories: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
   sourceUrl: string | null;
   videoUrl: string | null;
   archived: boolean;
@@ -72,6 +76,10 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     prepTime: dish.prepTime,
     cookTime: dish.cookTime,
     servings: dish.servings,
+    calories: dish.calories,
+    proteinG: dish.proteinG,
+    carbsG: dish.carbsG,
+    fatG: dish.fatG,
     sourceUrl: dish.sourceUrl,
     videoUrl: dish.videoUrl,
     archived: dish.archived,
@@ -184,6 +192,10 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
     prepTime: input.prepTime,
     cookTime: input.cookTime,
     servings: input.servings,
+    calories: input.calories,
+    proteinG: input.proteinG,
+    carbsG: input.carbsG,
+    fatG: input.fatG,
     sourceUrl: input.sourceUrl,
     videoUrl: input.videoUrl,
     archived: false,
@@ -256,6 +268,10 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
   if (input.prepTime !== undefined) updateData.prepTime = input.prepTime;
   if (input.cookTime !== undefined) updateData.cookTime = input.cookTime;
   if (input.servings !== undefined) updateData.servings = input.servings;
+  if (input.calories !== undefined) updateData.calories = input.calories;
+  if (input.proteinG !== undefined) updateData.proteinG = input.proteinG;
+  if (input.carbsG !== undefined) updateData.carbsG = input.carbsG;
+  if (input.fatG !== undefined) updateData.fatG = input.fatG;
   if (input.sourceUrl !== undefined) updateData.sourceUrl = input.sourceUrl;
   if (input.videoUrl !== undefined) updateData.videoUrl = input.videoUrl;
 
