@@ -652,7 +652,7 @@ export const pantry = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: string) => request<{ success: boolean }>(`/pantry/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<Record<string, never>>(`/pantry/${id}`, { method: 'DELETE' }),
 };
 
 // Prep Tasks API

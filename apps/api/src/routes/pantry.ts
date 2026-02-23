@@ -23,7 +23,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
         .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
     }
     const item = await createPantryItem(parsed.data);
-    return reply.status(201).send(item);
+    return reply.status(201).send({ item });
   });
 
   // PATCH /api/pantry/:id
@@ -40,7 +40,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
       }
       const item = await updatePantryItem(id, parsed.data);
       if (!item) return reply.status(404).send({ error: 'Pantry item not found' });
-      return reply.send(item);
+      return reply.send({ item });
     }
   );
 
