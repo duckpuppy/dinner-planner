@@ -14,6 +14,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { GroceryPage } from './pages/GroceryPage';
+import { PantryPage } from './pages/PantryPage';
 import { PatternsPage } from './pages/PatternsPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="/week" element={<WeekPage />} />
             <Route path="/dishes" element={<DishesPage />} />
             <Route path="/grocery" element={<GroceryPage />} />
+            <Route path="/pantry" element={<PantryPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/patterns" element={<PatternsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

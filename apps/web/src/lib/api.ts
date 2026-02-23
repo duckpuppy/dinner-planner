@@ -560,6 +560,16 @@ export interface GroceryItem {
   unit: string | null;
   dishes: string[];
   notes: string[];
+  inPantry: boolean;
+}
+
+export interface PantryItem {
+  id: string;
+  ingredientName: string;
+  quantity: number | null;
+  unit: string | null;
+  expiresAt: string | null;
+  createdAt: string;
 }
 
 export interface SuggestedDish {
@@ -611,6 +621,38 @@ export const dishNotes = {
     }),
 
   delete: (id: string) => request<Record<string, never>>(`/dish-notes/${id}`, { method: 'DELETE' }),
+};
+
+// Pantry API
+export const pantry = {
+  list: () => request<{ items: PantryItem[] }>('/pantry'),
+
+  create: (data: {
+    ingredientName: string;
+    quantity?: number | null;
+    unit?: string | null;
+    expiresAt?: string | null;
+  }) =>
+    request<{ item: PantryItem }>('/pantry', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (
+    id: string,
+    data: Partial<{
+      ingredientName: string;
+      quantity: number | null;
+      unit: string | null;
+      expiresAt: string | null;
+    }>
+  ) =>
+    request<{ item: PantryItem }>(`/pantry/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) => request<{ success: boolean }>(`/pantry/${id}`, { method: 'DELETE' }),
 };
 
 // Prep Tasks API

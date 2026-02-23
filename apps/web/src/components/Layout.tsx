@@ -8,6 +8,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Package,
   ShoppingCart,
   Zap,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/week', icon: Calendar, label: 'Week' },
   { to: '/dishes', icon: ChefHat, label: 'Dishes' },
   { to: '/grocery', icon: ShoppingCart, label: 'Grocery' },
+  { to: '/pantry', icon: Package, label: 'Pantry' },
   { to: '/history', icon: Clock, label: 'History' },
   { to: '/patterns', icon: Zap, label: 'Patterns' },
   { to: '/profile', icon: User, label: 'Profile' },
