@@ -32,6 +32,36 @@ function parseDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// Batch-fetch preparers for multiple preparation IDs (avoids N+1)
+async function fetchPreparersMap(
+  prepIds: string[]
+): Promise<Map<string, { id: string; name: string }[]>> {
+  if (prepIds.length === 0) return new Map();
+
+  const links = await db
+    .select()
+    .from(schema.preparationPreparers)
+    .where(inArray(schema.preparationPreparers.preparationId, prepIds));
+
+  const result = new Map<string, { id: string; name: string }[]>(prepIds.map((id) => [id, []]));
+
+  if (links.length === 0) return result;
+
+  const userIds = [...new Set(links.map((l) => l.userId))];
+  const userRows = await db.select().from(schema.users).where(inArray(schema.users.id, userIds));
+
+  const userMap = new Map(userRows.map((u) => [u.id, u.displayName]));
+
+  for (const link of links) {
+    result.get(link.preparationId)!.push({
+      id: link.userId,
+      name: userMap.get(link.userId) ?? 'Unknown',
+    });
+  }
+
+  return result;
+}
+
 export interface DinnerEntryResponse {
   id: string;
   date: string;
@@ -113,28 +143,18 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     .from(schema.preparations)
     .where(eq(schema.preparations.dinnerEntryId, entryId));
 
+  const preparersMap = await fetchPreparersMap(preps.map((p) => p.id));
+
   const preparations = await Promise.all(
     preps.map(async (prep) => {
       const dish = await db.query.dishes.findFirst({
         where: eq(schema.dishes.id, prep.dishId),
       });
-      const preparerLinks = await db
-        .select()
-        .from(schema.preparationPreparers)
-        .where(eq(schema.preparationPreparers.preparationId, prep.id));
-      const preparers = await Promise.all(
-        preparerLinks.map(async (link) => {
-          const user = await db.query.users.findFirst({
-            where: eq(schema.users.id, link.userId),
-          });
-          return { id: link.userId, name: user?.displayName ?? 'Unknown' };
-        })
-      );
       return {
         id: prep.id,
         dishId: prep.dishId,
         dishName: dish?.name ?? 'Unknown',
-        preparers,
+        preparers: preparersMap.get(prep.id) ?? [],
         preparedDate: prep.preparedDate,
         notes: prep.notes,
         createdAt: prep.createdAt,
@@ -338,9 +358,9 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
   });
 
   // Insert all preparers into the join table
-  await db.insert(schema.preparationPreparers).values(
-    input.preparerIds.map((userId) => ({ preparationId: id, userId }))
-  );
+  await db
+    .insert(schema.preparationPreparers)
+    .values(input.preparerIds.map((userId) => ({ preparationId: id, userId })));
 
   // Auto-complete the dinner entry
   await db
@@ -379,28 +399,18 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
     .from(schema.preparations)
     .where(eq(schema.preparations.dishId, dishId));
 
+  const preparersMap = await fetchPreparersMap(preps.map((p) => p.id));
+
   const preparations = await Promise.all(
     preps.map(async (prep) => {
       const dish = await db.query.dishes.findFirst({
         where: eq(schema.dishes.id, prep.dishId),
       });
-      const preparerLinks = await db
-        .select()
-        .from(schema.preparationPreparers)
-        .where(eq(schema.preparationPreparers.preparationId, prep.id));
-      const preparers = await Promise.all(
-        preparerLinks.map(async (link) => {
-          const user = await db.query.users.findFirst({
-            where: eq(schema.users.id, link.userId),
-          });
-          return { id: link.userId, name: user?.displayName ?? 'Unknown' };
-        })
-      );
       return {
         id: prep.id,
         dishId: prep.dishId,
         dishName: dish?.name ?? 'Unknown',
-        preparers,
+        preparers: preparersMap.get(prep.id) ?? [],
         preparedDate: prep.preparedDate,
         notes: prep.notes,
         createdAt: prep.createdAt,

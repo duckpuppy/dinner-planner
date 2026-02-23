@@ -1,6 +1,35 @@
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 
+// Batch-fetch preparers for multiple preparation IDs (avoids N+1)
+async function fetchPreparersMap(
+  prepIds: string[]
+): Promise<Map<string, { id: string; name: string }[]>> {
+  if (prepIds.length === 0) return new Map();
+
+  const links = await db
+    .select()
+    .from(schema.preparationPreparers)
+    .where(inArray(schema.preparationPreparers.preparationId, prepIds));
+
+  const result = new Map<string, { id: string; name: string }[]>(prepIds.map((id) => [id, []]));
+
+  if (links.length === 0) return result;
+
+  const userIds = [...new Set(links.map((l) => l.userId))];
+  const userRows = await db.select().from(schema.users).where(inArray(schema.users.id, userIds));
+
+  const userMap = new Map(userRows.map((u) => [u.id, u.displayName]));
+
+  for (const link of links) {
+    result.get(link.preparationId)!.push({
+      id: link.userId,
+      name: userMap.get(link.userId) ?? 'Unknown',
+    });
+  }
+
+  return result;
+}
 
 export interface HistoryEntry {
   id: string;
@@ -134,20 +163,11 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
       .from(schema.preparations)
       .where(eq(schema.preparations.dinnerEntryId, entry.id));
 
+    const entryPreparersMap = await fetchPreparersMap(preps.map((p) => p.id));
+
     const preparations = [];
     for (const prep of preps) {
-      // Get preparers from join table
-      const preparerLinks = await db
-        .select()
-        .from(schema.preparationPreparers)
-        .where(eq(schema.preparationPreparers.preparationId, prep.id));
-      const preparers: { id: string; name: string }[] = [];
-      for (const link of preparerLinks) {
-        const user = await db.query.users.findFirst({
-          where: eq(schema.users.id, link.userId),
-        });
-        preparers.push({ id: link.userId, name: user?.displayName ?? 'Unknown' });
-      }
+      const preparers = entryPreparersMap.get(prep.id) ?? [];
 
       // Get ratings for this preparation
       const ratings = await db
@@ -214,20 +234,10 @@ export async function getDishHistory(dishId: string): Promise<{
     .orderBy(desc(schema.preparations.preparedDate));
 
   const preparations = [];
+  const dishPreparersMap = await fetchPreparersMap(preps.map((p) => p.id));
 
   for (const prep of preps) {
-    // Get preparers from join table
-    const preparerLinks = await db
-      .select()
-      .from(schema.preparationPreparers)
-      .where(eq(schema.preparationPreparers.preparationId, prep.id));
-    const preparers: { id: string; name: string }[] = [];
-    for (const link of preparerLinks) {
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, link.userId),
-      });
-      preparers.push({ id: link.userId, name: user?.displayName ?? 'Unknown' });
-    }
+    const preparers = dishPreparersMap.get(prep.id) ?? [];
 
     const ratings = await db
       .select()
