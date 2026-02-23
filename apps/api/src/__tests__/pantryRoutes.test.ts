@@ -56,8 +56,12 @@ const mockItem = {
 
 describe('GET /api/pantry', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 with items list', async () => {
     vi.mocked(pantryService.listPantryItems).mockResolvedValueOnce([mockItem]);
@@ -99,8 +103,12 @@ describe('GET /api/pantry', () => {
 
 describe('POST /api/pantry', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 201 with created item', async () => {
     vi.mocked(pantryService.createPantryItem).mockResolvedValueOnce(mockItem);
@@ -159,8 +167,12 @@ describe('POST /api/pantry', () => {
 
 describe('PATCH /api/pantry/:id', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 with updated item', async () => {
     const updated = { ...mockItem, unit: 'litre' };
@@ -221,8 +233,12 @@ describe('PATCH /api/pantry/:id', () => {
 
 describe('DELETE /api/pantry/:id', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 204 on success', async () => {
     vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ success: true });
