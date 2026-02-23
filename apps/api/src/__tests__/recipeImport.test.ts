@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   parseDuration,
   parseServings,
+  parseNutritionValue,
   extractTags,
   parseInstructions,
   findRecipeInJsonLd,
@@ -95,6 +96,48 @@ describe('parseServings', () => {
 
   it('returns null for undefined', () => {
     expect(parseServings(undefined)).toBeNull();
+  });
+});
+
+// ------------------------------------------------------------------
+// parseNutritionValue
+// ------------------------------------------------------------------
+describe('parseNutritionValue', () => {
+  it('returns null for undefined', () => {
+    expect(parseNutritionValue(undefined)).toBeNull();
+  });
+
+  it('returns null for null', () => {
+    expect(parseNutritionValue(null)).toBeNull();
+  });
+
+  it('returns number as-is', () => {
+    expect(parseNutritionValue(250)).toBe(250);
+    expect(parseNutritionValue(12.5)).toBe(12.5);
+  });
+
+  it('parses "250 kcal" → 250', () => {
+    expect(parseNutritionValue('250 kcal')).toBe(250);
+  });
+
+  it('parses "12g" → 12', () => {
+    expect(parseNutritionValue('12g')).toBe(12);
+  });
+
+  it('parses "12 g" → 12', () => {
+    expect(parseNutritionValue('12 g')).toBe(12);
+  });
+
+  it('parses "3.5g" → 3.5', () => {
+    expect(parseNutritionValue('3.5g')).toBe(3.5);
+  });
+
+  it('returns null for non-numeric string', () => {
+    expect(parseNutritionValue('unknown')).toBeNull();
+  });
+
+  it('returns null for object', () => {
+    expect(parseNutritionValue({})).toBeNull();
   });
 });
 
@@ -236,6 +279,53 @@ describe('parseSchemaOrgRecipe', () => {
     const html = makeHtml(BASE_RECIPE);
     const result = parseSchemaOrgRecipe(html, 'https://example.com');
     expect(result!.type).toBe('main');
+  });
+
+  it('returns null nutrition fields when no nutrition object present', () => {
+    const html = makeHtml(BASE_RECIPE);
+    const result = parseSchemaOrgRecipe(html, 'https://example.com');
+    expect(result!.calories).toBeNull();
+    expect(result!.proteinG).toBeNull();
+    expect(result!.carbsG).toBeNull();
+    expect(result!.fatG).toBeNull();
+  });
+
+  it('extracts numeric nutrition values from schema.org NutritionInformation', () => {
+    const recipe = {
+      ...BASE_RECIPE,
+      nutrition: {
+        '@type': 'NutritionInformation',
+        calories: 450,
+        proteinContent: 28,
+        carbohydrateContent: 55,
+        fatContent: 12,
+      },
+    };
+    const html = makeHtml(recipe);
+    const result = parseSchemaOrgRecipe(html, 'https://example.com');
+    expect(result!.calories).toBe(450);
+    expect(result!.proteinG).toBe(28);
+    expect(result!.carbsG).toBe(55);
+    expect(result!.fatG).toBe(12);
+  });
+
+  it('extracts string nutrition values like "250 kcal"', () => {
+    const recipe = {
+      ...BASE_RECIPE,
+      nutrition: {
+        '@type': 'NutritionInformation',
+        calories: '250 kcal',
+        proteinContent: '18g',
+        carbohydrateContent: '30 g',
+        fatContent: '8.5g',
+      },
+    };
+    const html = makeHtml(recipe);
+    const result = parseSchemaOrgRecipe(html, 'https://example.com');
+    expect(result!.calories).toBe(250);
+    expect(result!.proteinG).toBe(18);
+    expect(result!.carbsG).toBe(30);
+    expect(result!.fatG).toBe(8.5);
   });
 });
 

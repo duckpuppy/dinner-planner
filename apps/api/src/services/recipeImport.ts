@@ -121,6 +121,20 @@ export function parseDuration(iso: unknown): number | null {
   return total > 0 ? total : null;
 }
 
+// Parse a nutrition value like "250 kcal", "12g", "12 g", 12 → number or null
+export function parseNutritionValue(val: unknown): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return isFinite(val) ? val : null;
+  if (typeof val === 'string') {
+    const match = val.match(/^[\s]*([0-9]+(?:\.[0-9]+)?)/);
+    if (match) {
+      const n = parseFloat(match[1]);
+      return isFinite(n) ? n : null;
+    }
+  }
+  return null;
+}
+
 // Parse recipeYield: "4 servings" | "4-6" | 4 → first integer found, or null
 export function parseServings(raw: unknown): number | null {
   if (typeof raw === 'number') return raw > 0 ? Math.round(raw) : null;
@@ -225,6 +239,11 @@ export function parseSchemaOrgRecipe(html: string, sourceUrl: string): ImportedR
         ? (recipe['recipeIngredient'] as unknown[]).filter((s) => typeof s === 'string')
         : [];
 
+      const nutrition =
+        recipe['nutrition'] && typeof recipe['nutrition'] === 'object'
+          ? (recipe['nutrition'] as Record<string, unknown>)
+          : null;
+
       return {
         name,
         description:
@@ -242,6 +261,10 @@ export function parseSchemaOrgRecipe(html: string, sourceUrl: string): ImportedR
         prepTime: parseDuration(recipe['prepTime']),
         cookTime: parseDuration(recipe['cookTime']),
         servings: parseServings(recipe['recipeYield']),
+        calories: nutrition ? parseNutritionValue(nutrition['calories']) : null,
+        proteinG: nutrition ? parseNutritionValue(nutrition['proteinContent']) : null,
+        carbsG: nutrition ? parseNutritionValue(nutrition['carbohydrateContent']) : null,
+        fatG: nutrition ? parseNutritionValue(nutrition['fatContent']) : null,
         sourceUrl,
         videoUrl: extractVideoUrl(recipe),
         tags: extractTags(recipe),
