@@ -189,18 +189,24 @@ export const importedRecipeSchema = z.object({
 });
 
 // Pantry schemas (M16: pantry tracking)
+const pantryDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)')
+  .nullable()
+  .optional();
+
 export const createPantryItemSchema = z.object({
   ingredientName: z.string().min(1).max(200),
   quantity: z.number().positive().nullable().optional(),
   unit: z.string().max(50).nullable().optional(),
-  expiresAt: z.string().nullable().optional(), // YYYY-MM-DD
+  expiresAt: pantryDateSchema,
 });
 
 export const updatePantryItemSchema = z.object({
   ingredientName: z.string().min(1).max(200).optional(),
   quantity: z.number().positive().nullable().optional(),
   unit: z.string().max(50).nullable().optional(),
-  expiresAt: z.string().nullable().optional(),
+  expiresAt: pantryDateSchema,
 });
 
 export type PantryItem = {

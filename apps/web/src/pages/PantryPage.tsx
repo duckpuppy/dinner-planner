@@ -13,12 +13,13 @@ import { useSwipeActions } from '@/hooks/useSwipeActions';
 
 function getExpiryStatus(expiresAt: string | null): 'expired' | 'soon' | 'ok' | null {
   if (!expiresAt) return null;
-  const now = new Date();
-  const expiry = new Date(expiresAt);
-  const diffMs = expiry.getTime() - now.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-  if (diffDays < 0) return 'expired';
-  if (diffDays <= 7) return 'soon';
+  // Compare date strings directly to avoid timezone shift (YYYY-MM-DD is date-only)
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (expiresAt < todayStr) return 'expired';
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 7);
+  const soonStr = soon.toISOString().split('T')[0];
+  if (expiresAt <= soonStr) return 'soon';
   return 'ok';
 }
 
@@ -117,7 +118,7 @@ function AddItemForm({ onClose, onAdded }: AddItemFormProps) {
           <input
             id="pantry-qty"
             type="number"
-            min="0"
+            min="0.01"
             step="any"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
@@ -247,6 +248,7 @@ export function PantryPage() {
     onSuccess: () => {
       toast.success('Item removed from pantry');
       queryClient.invalidateQueries({ queryKey: ['pantry'] });
+      queryClient.invalidateQueries({ queryKey: ['groceries'] });
       setItemToDelete(null);
     },
     onError: () => {
@@ -259,6 +261,7 @@ export function PantryPage() {
   function handleAdded() {
     setShowAddForm(false);
     queryClient.invalidateQueries({ queryKey: ['pantry'] });
+    queryClient.invalidateQueries({ queryKey: ['groceries'] });
   }
 
   async function handleRefresh() {
