@@ -25,6 +25,7 @@ import { photosRoutes } from './routes/photos.js';
 import { prepTasksRoutes } from './routes/prepTasks.js';
 import { dishNotesRoutes } from './routes/dishNotes.js';
 import { pantryRoutes } from './routes/pantry.js';
+import { setupRoutes } from './routes/setup.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
@@ -110,6 +111,7 @@ await fastify.register(fastifyStatic, {
 await fastify.register(authPlugin);
 
 // Register routes
+await fastify.register(setupRoutes);
 await fastify.register(healthRoutes);
 await fastify.register(authRoutes);
 await fastify.register(usersRoutes);

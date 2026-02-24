@@ -2,11 +2,16 @@
  * Security header tests — verifies the production CSP is emitted correctly
  * so regressions (e.g. losing connect-src 'self') are caught before release.
  */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import { healthRoutes } from '../routes/health.js';
 import { productionCspDirectives } from '../csp.js';
+
+vi.mock('../services/setup.js', () => ({
+  isSetupRequired: vi.fn().mockResolvedValue(false),
+  createFirstAdmin: vi.fn(),
+}));
 
 const app = Fastify();
 

@@ -107,6 +107,11 @@ vi.mock('../services/groceries.js', () => ({
   getGroceriesForEntry: vi.fn(),
 }));
 
+vi.mock('../services/setup.js', () => ({
+  isSetupRequired: vi.fn().mockResolvedValue(false),
+  createFirstAdmin: vi.fn(),
+}));
+
 import {
   listPatterns,
   getPattern,
