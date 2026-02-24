@@ -409,6 +409,10 @@ export interface Dish {
   prepTime: number | null;
   cookTime: number | null;
   servings: number | null;
+  calories: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
   sourceUrl: string | null;
   videoUrl: string | null;
   archived: boolean;
@@ -436,6 +440,10 @@ export interface CreateDishData {
   prepTime?: number | null;
   cookTime?: number | null;
   servings?: number | null;
+  calories?: number | null;
+  proteinG?: number | null;
+  carbsG?: number | null;
+  fatG?: number | null;
   sourceUrl?: string | null;
   videoUrl?: string | null;
   ingredients?: Array<{

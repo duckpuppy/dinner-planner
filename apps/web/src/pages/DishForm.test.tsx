@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DishForm } from './DishesPage';
+import { DishForm, DishDetail } from './DishesPage';
 import type { Dish } from '@/lib/api';
 
 // Mock the api module
@@ -9,10 +9,39 @@ vi.mock('@/lib/api', () => ({
   dishes: {
     create: vi.fn(),
     update: vi.fn(),
+    get: vi.fn(),
+    archive: vi.fn(),
+    unarchive: vi.fn(),
+    hardDelete: vi.fn(),
+    getPreparations: vi.fn(),
+  },
+  ratings: {
+    getDishStats: vi.fn(),
   },
 }));
 
-import { dishes as dishesApi } from '@/lib/api';
+// Mock auth store
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: vi.fn((selector) =>
+    selector({
+      user: {
+        id: 'user-1',
+        role: 'member',
+        username: 'test',
+        displayName: 'Test',
+        theme: 'light',
+        homeView: 'today',
+      },
+    })
+  ),
+}));
+
+// Mock DishNotes component
+vi.mock('@/components/DishNotes', () => ({
+  DishNotes: () => null,
+}));
+
+import { dishes as dishesApi, ratings as ratingsApi } from '@/lib/api';
 
 const mockDish: Dish = {
   id: 'dish-1',
@@ -23,6 +52,10 @@ const mockDish: Dish = {
   prepTime: 15,
   cookTime: 45,
   servings: 4,
+  calories: 450,
+  proteinG: 25,
+  carbsG: 60,
+  fatG: 12,
   sourceUrl: null,
   videoUrl: null,
   archived: false,
@@ -36,6 +69,15 @@ const mockDish: Dish = {
   ],
 };
 
+const mockDishNoNutrition: Dish = {
+  ...mockDish,
+  id: 'dish-2',
+  calories: null,
+  proteinG: null,
+  carbsG: null,
+  fatG: null,
+};
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -46,6 +88,9 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   vi.mocked(dishesApi.create).mockResolvedValue({} as Dish);
   vi.mocked(dishesApi.update).mockResolvedValue({} as Dish);
+  vi.mocked(dishesApi.get).mockResolvedValue({ dish: mockDish });
+  vi.mocked(dishesApi.getPreparations).mockResolvedValue({ preparations: [] });
+  vi.mocked(ratingsApi.getDishStats).mockResolvedValue({ stats: null });
 });
 
 afterEach(() => {
@@ -270,5 +315,108 @@ describe('DishForm - tag chip editor', () => {
     await waitFor(() => {
       expect(dishesApi.create).toHaveBeenCalledWith(expect.objectContaining({ tags: ['pasta'] }));
     });
+  });
+});
+
+describe('DishForm - nutrition fields', () => {
+  it('renders nutrition inputs', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.getByLabelText('Calories')).toBeDefined();
+    expect(screen.getByLabelText('Protein')).toBeDefined();
+    expect(screen.getByLabelText('Carbs')).toBeDefined();
+    expect(screen.getByLabelText('Fat')).toBeDefined();
+  });
+
+  it('pre-populates nutrition inputs when editing an existing dish', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.getByLabelText('Calories')).toHaveProperty('value', '450');
+    expect(screen.getByLabelText('Protein')).toHaveProperty('value', '25');
+    expect(screen.getByLabelText('Carbs')).toHaveProperty('value', '60');
+    expect(screen.getByLabelText('Fat')).toHaveProperty('value', '12');
+  });
+
+  it('leaves nutrition inputs empty for a new dish', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.getByLabelText('Calories')).toHaveProperty('value', '');
+    expect(screen.getByLabelText('Protein')).toHaveProperty('value', '');
+    expect(screen.getByLabelText('Carbs')).toHaveProperty('value', '');
+    expect(screen.getByLabelText('Fat')).toHaveProperty('value', '');
+  });
+
+  it('submits nutrition values in the create payload', async () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    fireEvent.change(screen.getByPlaceholderText('Dish name'), { target: { value: 'Test Dish' } });
+    fireEvent.change(screen.getByLabelText('Calories'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('Protein'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Carbs'), { target: { value: '55' } });
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '15' } });
+
+    fireEvent.submit(screen.getByRole('button', { name: /create dish/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(dishesApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calories: 500,
+          proteinG: 30,
+          carbsG: 55,
+          fatG: 15,
+        })
+      );
+    });
+  });
+
+  it('submits null for empty nutrition inputs', async () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    fireEvent.change(screen.getByPlaceholderText('Dish name'), { target: { value: 'Test Dish' } });
+    fireEvent.submit(screen.getByRole('button', { name: /create dish/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(dishesApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calories: null,
+          proteinG: null,
+          carbsG: null,
+          fatG: null,
+        })
+      );
+    });
+  });
+});
+
+describe('DishDetail - nutrition display', () => {
+  it('shows nutrition section when dish has nutrition data', () => {
+    render(<DishDetail dish={mockDish} onBack={vi.fn()} />, { wrapper });
+
+    expect(screen.getByText(/nutrition/i)).toBeDefined();
+    expect(screen.getByText(/450 kcal/i)).toBeDefined();
+    expect(screen.getByText(/25 g/i)).toBeDefined();
+  });
+
+  it('hides nutrition section when all nutrition fields are null', () => {
+    render(<DishDetail dish={mockDishNoNutrition} onBack={vi.fn()} />, { wrapper });
+
+    expect(screen.queryByText(/nutrition/i)).toBeNull();
+  });
+
+  it('scales nutrition values when serving count is changed', async () => {
+    render(<DishDetail dish={mockDish} onBack={vi.fn()} />, { wrapper });
+
+    // Default: 4 servings, calories = 450
+    expect(screen.getByText(/450 kcal/i)).toBeDefined();
+
+    // Increase to 8 servings (2x scale)
+    const increaseBtn = screen.getByRole('button', { name: /increase servings/i });
+    fireEvent.click(increaseBtn);
+    fireEvent.click(increaseBtn);
+    fireEvent.click(increaseBtn);
+    fireEvent.click(increaseBtn);
+
+    // 450 * (8/4) = 900
+    expect(screen.getByText(/900 kcal/i)).toBeDefined();
   });
 });
