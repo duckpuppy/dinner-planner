@@ -26,7 +26,7 @@ function parseDietaryPreferences(raw: string): DietaryTag[] {
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? (parsed.filter((v): v is DietaryTag => (DIETARY_TAGS as readonly string[]).includes(v)))
+      ? parsed.filter((v): v is DietaryTag => (DIETARY_TAGS as readonly string[]).includes(v))
       : [];
   } catch {
     return [];
