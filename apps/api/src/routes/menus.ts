@@ -228,4 +228,18 @@ export async function menusRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true });
     }
   );
+
+  /**
+   * GET /api/entries/recent-completed
+   * Get recently completed entries (last 14 days) with a main dish.
+   * Used by the leftovers picker.
+   */
+  fastify.get(
+    '/api/entries/recent-completed',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const entries = await menusService.getRecentCompleted();
+      return reply.send({ entries });
+    }
+  );
 }

@@ -74,12 +74,13 @@ export const updateDishSchema = createDishSchema.partial();
 
 // Dinner entry schemas
 export const updateDinnerEntrySchema = z.object({
-  type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom']),
+  type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom', 'leftovers']),
   customText: z.string().max(500).nullable().default(null),
   restaurantName: z.string().max(200).nullable().default(null),
   restaurantNotes: z.string().max(500).nullable().default(null),
   mainDishId: z.string().uuid().nullable().default(null),
   sideDishIds: z.array(z.string().uuid()).default([]),
+  sourceEntryId: z.string().uuid().nullable().optional(),
 });
 
 // Recurring pattern schemas
