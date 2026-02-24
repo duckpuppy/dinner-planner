@@ -39,6 +39,7 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   fend_for_self: 'Fend for Yourself',
   dining_out: 'Dining Out',
   custom: 'Custom',
+  leftovers: 'Leftovers',
 };
 
 export function TodayPage() {
@@ -271,6 +272,14 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
               <p className="text-sm text-muted-foreground">{entry.restaurantNotes}</p>
             )}
           </div>
+        )}
+
+        {entry.type === 'leftovers' && (
+          <p className="text-lg text-muted-foreground">
+            {entry.sourceEntryDishName
+              ? `Leftovers from ${entry.sourceEntryDishName}`
+              : 'Leftovers'}
+          </p>
         )}
 
         {/* No dish selected */}

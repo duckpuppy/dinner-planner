@@ -247,6 +247,13 @@ export const menus = {
       method: 'PATCH',
       body: JSON.stringify({ skipped }),
     }),
+
+  recentCompleted: async (): Promise<{ id: string; date: string; mainDishName: string }[]> => {
+    const data = await request<{
+      entries: { id: string; date: string; mainDishName: string }[];
+    }>('/entries/recent-completed');
+    return data.entries;
+  },
 };
 
 // Preparations API
@@ -481,12 +488,14 @@ export interface DinnerEntry {
   id: string;
   date: string;
   dayOfWeek: number;
-  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
   completed: boolean;
   skipped: boolean;
+  sourceEntryId: string | null;
+  sourceEntryDishName: string | null;
   mainDish: { id: string; name: string; type: string } | null;
   sideDishes: { id: string; name: string; type: string }[];
   preparations: Preparation[];
@@ -495,12 +504,13 @@ export interface DinnerEntry {
 }
 
 export interface UpdateEntryData {
-  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText?: string | null;
   restaurantName?: string | null;
   restaurantNotes?: string | null;
   mainDishId?: string | null;
   sideDishIds?: string[];
+  sourceEntryId?: string | null;
 }
 
 export interface Preparation {
@@ -543,9 +553,11 @@ export interface DishRatingStats {
 export interface HistoryEntry {
   id: string;
   date: string;
-  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
   completed: boolean;
+  sourceEntryId: string | null;
+  sourceEntryDishName: string | null;
   mainDish: { id: string; name: string } | null;
   sideDishes: { id: string; name: string }[];
   preparations: {
