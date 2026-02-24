@@ -241,6 +241,12 @@ export const menus = {
       method: 'PATCH',
       body: JSON.stringify({ completed }),
     }),
+
+  skipEntry: (id: string, skipped: boolean) =>
+    request<{ entry: DinnerEntry }>(`/entries/${id}/skip`, {
+      method: 'PATCH',
+      body: JSON.stringify({ skipped }),
+    }),
 };
 
 // Preparations API
@@ -480,6 +486,7 @@ export interface DinnerEntry {
   restaurantName: string | null;
   restaurantNotes: string | null;
   completed: boolean;
+  skipped: boolean;
   mainDish: { id: string; name: string; type: string } | null;
   sideDishes: { id: string; name: string; type: string }[];
   preparations: Preparation[];
