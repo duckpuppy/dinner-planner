@@ -11,6 +11,7 @@ import {
   Star,
   CalendarX,
   ClipboardList,
+  SkipForward,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -148,6 +149,15 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
   const [selectedPreparerIds, setSelectedPreparerIds] = useState<string[]>([]);
   const user = useAuthStore((s) => s.user);
 
+  const skipMutation = useMutation({
+    mutationFn: (skipped: boolean) => menus.skipEntry(entry.id, skipped),
+    onSuccess: (_data, skipped) => {
+      toast.success(skipped ? 'Marked as skipped' : 'Unskipped');
+      queryClient.invalidateQueries({ queryKey: ['today'] });
+    },
+    onError: () => toast.error('Failed to update'),
+  });
+
   const { data: usersData } = useQuery({
     queryKey: ['users'],
     queryFn: () => users.list(),
@@ -198,13 +208,20 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
           'px-4 py-2 text-sm font-medium flex items-center gap-2',
           entry.completed
             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-muted text-muted-foreground'
+            : entry.skipped
+              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+              : 'bg-muted text-muted-foreground'
         )}
       >
         {entry.completed ? (
           <>
             <Check className="h-4 w-4" aria-hidden="true" />
             Completed
+          </>
+        ) : entry.skipped ? (
+          <>
+            <SkipForward className="h-4 w-4" aria-hidden="true" />
+            Skipped
           </>
         ) : (
           <>
@@ -277,8 +294,21 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
           </div>
         )}
 
+        {/* Unskip link */}
+        {entry.skipped && !entry.completed && (
+          <div className="pt-2">
+            <button
+              onClick={() => skipMutation.mutate(false)}
+              disabled={skipMutation.isPending}
+              className="py-1 min-h-[44px] text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              Unskip
+            </button>
+          </div>
+        )}
+
         {/* Log preparation */}
-        {!entry.completed && entry.type === 'assembled' && entry.mainDish && (
+        {!entry.completed && !entry.skipped && entry.type === 'assembled' && entry.mainDish && (
           <div className="pt-4 border-t">
             {showPrepForm ? (
               <div className="space-y-3">
@@ -350,6 +380,21 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                 <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
               </button>
             )}
+          </div>
+        )}
+
+        {/* Skip button */}
+        {!entry.completed && !entry.skipped && (
+          <div className="pt-2">
+            <button
+              onClick={() => skipMutation.mutate(true)}
+              disabled={skipMutation.isPending}
+              className="flex items-center gap-1.5 py-1 min-h-[44px] text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              aria-label="Skip this dinner entry"
+            >
+              <SkipForward className="h-4 w-4" aria-hidden="true" />
+              Skip
+            </button>
           </div>
         )}
       </div>
