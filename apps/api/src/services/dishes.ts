@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, and, like, desc, asc, sql, or, inArray } from 'drizzle-orm';
+import { eq, and, like, desc, asc, sql, or } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreateDishInput, UpdateDishInput, DishQueryInput } from '@dinner-planner/shared';
 
@@ -179,7 +179,11 @@ export async function getDishes(
     );
   }
 
-  return { dishes: filteredDishes, total };
+  const filteredTotal =
+    query.tag || (query.dietaryTags && query.dietaryTags.length > 0)
+      ? filteredDishes.length
+      : total;
+  return { dishes: filteredDishes, total: filteredTotal };
 }
 
 /**
@@ -467,6 +471,5 @@ export async function getAllTags(): Promise<{ name: string; count: number }[]> {
  */
 export async function getDishesByIds(ids: string[]): Promise<DishResponse[]> {
   if (ids.length === 0) return [];
-  const dishes = await db.select().from(schema.dishes).where(inArray(schema.dishes.id, ids));
-  return Promise.all(dishes.map((d) => getDishWithRelations(d.id).then((r) => r!)));
+  return Promise.all(ids.map((id) => getDishWithRelations(id).then((r) => r!)));
 }

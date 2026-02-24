@@ -345,7 +345,7 @@ export const suggestions = {
       params.exclude.forEach((id) => query.append('exclude', id));
     }
     if (params?.dietaryTags?.length) {
-      params.dietaryTags.forEach((tag) => query.append('dietaryTags[]', tag));
+      params.dietaryTags.forEach((tag) => query.append('dietaryTags', tag));
     }
     const qs = query.toString();
     return request<{ suggestions: SuggestedDish[] }>(`/dishes/suggestions${qs ? `?${qs}` : ''}`);
