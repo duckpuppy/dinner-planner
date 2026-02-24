@@ -21,6 +21,7 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -281,6 +282,12 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
                   <div className="text-xs truncate">{entry.restaurantNotes}</div>
                 )}
               </div>
+            ) : entry.type === 'leftovers' ? (
+              <div className="text-muted-foreground">
+                {entry.sourceEntryDishName
+                  ? `Leftovers from ${entry.sourceEntryDishName}`
+                  : 'Leftovers'}
+              </div>
             ) : (
               <div className="text-muted-foreground">{entry.customText || 'Custom'}</div>
             )}
@@ -354,7 +361,14 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
     entry.restaurantName ?? (entry.type === 'dining_out' ? entry.customText : null) ?? ''
   );
   const [restaurantNotes, setRestaurantNotes] = useState(entry.restaurantNotes || '');
+  const [sourceEntryId, setSourceEntryId] = useState(entry.sourceEntryId || '');
   const [showSuggest, setShowSuggest] = useState(false);
+
+  const { data: recentCompletedData } = useQuery({
+    queryKey: ['recentCompleted'],
+    queryFn: () => menus.recentCompleted(),
+    enabled: type === 'leftovers',
+  });
 
   const { data: dishesData } = useQuery({
     queryKey: ['dishes', { archived: 'false' }],
@@ -385,6 +399,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
       customText: type === 'custom' ? customText || null : null,
       restaurantName: type === 'dining_out' ? restaurantName || null : null,
       restaurantNotes: type === 'dining_out' ? restaurantNotes || null : null,
+      sourceEntryId: type === 'leftovers' ? sourceEntryId || null : null,
     });
   };
 
@@ -404,12 +419,13 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
       </div>
 
       {/* Type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {[
           { value: 'assembled', label: 'Home Cooked' },
           { value: 'fend_for_self', label: 'Fend' },
           { value: 'dining_out', label: 'Dining Out' },
           { value: 'custom', label: 'Custom' },
+          { value: 'leftovers', label: 'Leftovers' },
         ].map((opt) => (
           <button
             key={opt.value}
@@ -524,6 +540,44 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
             placeholder="What are you having?"
             className="w-full px-3 py-2 border rounded-md bg-background"
           />
+        </div>
+      )}
+
+      {/* Leftovers source picker */}
+      {type === 'leftovers' && (
+        <div>
+          <label htmlFor="source-entry" className="block text-sm font-medium mb-1">
+            Leftovers from...
+          </label>
+          {recentCompletedData && recentCompletedData.length > 0 ? (
+            <select
+              id="source-entry"
+              value={sourceEntryId}
+              onChange={(e) => setSourceEntryId(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md bg-background"
+            >
+              <option value="">Select a source meal...</option>
+              {recentCompletedData.map((recent) => {
+                const d = new Date(recent.date + 'T00:00:00');
+                const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return (
+                  <option key={recent.id} value={recent.id}>
+                    {dayName}, {dateStr} — {recent.mainDishName}
+                  </option>
+                );
+              })}
+            </select>
+          ) : recentCompletedData ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 border rounded-md bg-background">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              No recent meals found
+            </div>
+          ) : (
+            <div className="px-3 py-2 border rounded-md bg-background text-sm text-muted-foreground">
+              Loading recent meals...
+            </div>
+          )}
         </div>
       )}
 

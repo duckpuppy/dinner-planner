@@ -28,6 +28,7 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   fend_for_self: 'Fend for Yourself',
   dining_out: 'Dining Out',
   custom: 'Custom',
+  leftovers: 'Leftovers',
 };
 
 const PAGE_SIZE = 20;
@@ -305,6 +306,14 @@ function HistoryCard({ entry }: { entry: HistoryEntry }) {
 
           {entry.type === 'dining_out' && (
             <p className="text-muted-foreground">{entry.customText || 'Dining out'}</p>
+          )}
+
+          {entry.type === 'leftovers' && (
+            <p className="text-muted-foreground">
+              {entry.sourceEntryDishName
+                ? `Leftovers from ${entry.sourceEntryDishName}`
+                : 'Leftovers'}
+            </p>
           )}
 
           {/* Preparations and ratings */}
