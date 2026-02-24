@@ -4,6 +4,7 @@ import {
   ratings as ratingsApi,
   type Dish,
   type CreateDishData,
+  DIETARY_TAGS,
 } from '@/lib/api';
 import { DishNotes } from '@/components/DishNotes';
 import {
@@ -38,6 +39,15 @@ import { RecipeImportModal } from '@/components/RecipeImportModal';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
+const DIETARY_TAG_LABELS: Record<string, string> = {
+  vegetarian: 'Vegetarian',
+  vegan: 'Vegan',
+  gluten_free: 'Gluten-Free',
+  dairy_free: 'Dairy-Free',
+  nut_free: 'Nut-Free',
+  low_carb: 'Low-Carb',
+};
+
 export function DishesPage() {
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
@@ -48,6 +58,7 @@ export function DishesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedDietaryTag, setSelectedDietaryTag] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dishes', { archived: String(showArchived) }],
@@ -110,6 +121,11 @@ export function DishesPage() {
       result = result.filter((d) => d.tags.includes(selectedTag));
     }
 
+    // Apply dietary tag filter
+    if (selectedDietaryTag) {
+      result = result.filter((d) => d.dietaryTags.includes(selectedDietaryTag));
+    }
+
     // Apply sorting
     switch (sortBy) {
       case 'name':
@@ -125,7 +141,7 @@ export function DishesPage() {
     }
 
     return result;
-  }, [dishes, searchQuery, selectedTag, sortBy]);
+  }, [dishes, searchQuery, selectedTag, selectedDietaryTag, sortBy]);
 
   const mainDishes = filteredDishes.filter((d) => d.type === 'main');
   const sideDishes = filteredDishes.filter((d) => d.type === 'side');
@@ -260,6 +276,23 @@ export function DishesPage() {
               </select>
             </div>
           )}
+
+          {/* Dietary tag filter */}
+          <div className="flex items-center gap-1">
+            <select
+              value={selectedDietaryTag || ''}
+              onChange={(e) => setSelectedDietaryTag(e.target.value || null)}
+              aria-label="Filter by dietary tag"
+              className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">All Dietary</option>
+              {DIETARY_TAGS.map((tag) => (
+                <option key={tag} value={tag}>
+                  {DIETARY_TAG_LABELS[tag]}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {isLoading ? (
@@ -507,11 +540,19 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
       </div>
 
       <div className="space-y-6">
-        {/* Type badge */}
-        <div>
+        {/* Type badge + dietary tags */}
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-block px-3 py-1 text-sm rounded-full bg-secondary text-secondary-foreground">
             {currentDish.type === 'main' ? 'Main Dish' : 'Side Dish'}
           </span>
+          {currentDish.dietaryTags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-block px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800"
+            >
+              {DIETARY_TAG_LABELS[tag] ?? tag}
+            </span>
+          ))}
         </div>
 
         {/* Description */}
@@ -884,6 +925,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   );
   const [tags, setTags] = useState<string[]>(dish?.tags ?? prefill?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
+  const [dietaryTags, setDietaryTags] = useState<string[]>(dish?.dietaryTags ?? []);
 
   function addTag(value: string) {
     const tag = value.trim().toLowerCase();
@@ -986,6 +1028,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
       videoUrl: videoUrl || null,
       ingredients,
       tags,
+      dietaryTags,
     };
 
     if (isEditing) {
@@ -1355,6 +1398,33 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
             Press Enter or comma to add · Backspace to remove last
           </p>
         </div>
+
+        {/* Dietary Tags */}
+        <fieldset>
+          <legend className="block text-sm font-medium mb-2">Dietary Tags</legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {DIETARY_TAGS.map((tag) => (
+              <label
+                key={tag}
+                className="flex items-center gap-2 text-sm cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={dietaryTags.includes(tag)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setDietaryTags((prev) => [...prev, tag]);
+                    } else {
+                      setDietaryTags((prev) => prev.filter((t) => t !== tag));
+                    }
+                  }}
+                  className="rounded border-input"
+                />
+                {DIETARY_TAG_LABELS[tag]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         {/* Actions */}
         <div className="flex gap-2 pt-4">

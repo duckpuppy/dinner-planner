@@ -18,6 +18,7 @@ vi.mock('@/lib/api', () => ({
   ratings: {
     getDishStats: vi.fn(),
   },
+  DIETARY_TAGS: ['vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'nut_free', 'low_carb'] as const,
 }));
 
 // Mock auth store
@@ -63,6 +64,7 @@ const mockDish: Dish = {
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
   tags: ['italian'],
+  dietaryTags: ['vegetarian'],
   ingredients: [
     { id: 'ing-1', quantity: 2, unit: 'cups', name: 'flour', notes: null, sortOrder: 0 },
     { id: 'ing-2', quantity: null, unit: null, name: 'salt', notes: 'to taste', sortOrder: 1 },
@@ -76,6 +78,12 @@ const mockDishNoNutrition: Dish = {
   proteinG: null,
   carbsG: null,
   fatG: null,
+};
+
+const mockDishWithDietaryTags: Dish = {
+  ...mockDish,
+  id: 'dish-3',
+  dietaryTags: ['vegetarian', 'gluten_free'],
 };
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -385,6 +393,98 @@ describe('DishForm - nutrition fields', () => {
         })
       );
     });
+  });
+});
+
+describe('DishForm - dietary tags', () => {
+  it('renders all dietary tag checkboxes', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    expect(screen.getByLabelText('Vegetarian')).toBeDefined();
+    expect(screen.getByLabelText('Vegan')).toBeDefined();
+    expect(screen.getByLabelText('Gluten-Free')).toBeDefined();
+    expect(screen.getByLabelText('Dairy-Free')).toBeDefined();
+    expect(screen.getByLabelText('Nut-Free')).toBeDefined();
+    expect(screen.getByLabelText('Low-Carb')).toBeDefined();
+  });
+
+  it('initializes dietary tag checkboxes from existing dish', () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    const vegetarianCb = screen.getByLabelText('Vegetarian') as HTMLInputElement;
+    const veganCb = screen.getByLabelText('Vegan') as HTMLInputElement;
+
+    expect(vegetarianCb.checked).toBe(true);
+    expect(veganCb.checked).toBe(false);
+  });
+
+  it('toggles dietary tag checkbox on click', () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    const veganCb = screen.getByLabelText('Vegan') as HTMLInputElement;
+    expect(veganCb.checked).toBe(false);
+
+    fireEvent.click(veganCb);
+    expect(veganCb.checked).toBe(true);
+
+    fireEvent.click(veganCb);
+    expect(veganCb.checked).toBe(false);
+  });
+
+  it('includes dietaryTags in create payload', async () => {
+    render(<DishForm onClose={vi.fn()} />, { wrapper });
+
+    fireEvent.change(screen.getByPlaceholderText('Dish name'), { target: { value: 'Test Dish' } });
+    fireEvent.click(screen.getByLabelText('Vegan'));
+    fireEvent.click(screen.getByLabelText('Gluten-Free'));
+
+    fireEvent.submit(screen.getByRole('button', { name: /create dish/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(dishesApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dietaryTags: ['vegan', 'gluten_free'],
+        })
+      );
+    });
+  });
+
+  it('includes existing dietaryTags in update payload', async () => {
+    render(<DishForm dish={mockDish} onClose={vi.fn()} />, { wrapper });
+
+    fireEvent.submit(screen.getByRole('button', { name: /save changes/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(dishesApi.update).toHaveBeenCalledWith(
+        'dish-1',
+        expect.objectContaining({
+          dietaryTags: ['vegetarian'],
+        })
+      );
+    });
+  });
+});
+
+describe('DishDetail - dietary tag badges', () => {
+  it('shows dietary tag badges when dish has dietary tags', () => {
+    render(<DishDetail dish={mockDish} onBack={vi.fn()} />, { wrapper });
+
+    expect(screen.getByText('Vegetarian')).toBeDefined();
+  });
+
+  it('shows multiple dietary tag badges', () => {
+    render(<DishDetail dish={mockDishWithDietaryTags} onBack={vi.fn()} />, { wrapper });
+
+    expect(screen.getByText('Vegetarian')).toBeDefined();
+    expect(screen.getByText('Gluten-Free')).toBeDefined();
+  });
+
+  it('shows no dietary tag badges when dish has no dietary tags', () => {
+    const dishNoDietaryTags = { ...mockDish, dietaryTags: [] };
+    render(<DishDetail dish={dishNoDietaryTags} onBack={vi.fn()} />, { wrapper });
+
+    expect(screen.queryByText('Vegetarian')).toBeNull();
+    expect(screen.queryByText('Vegan')).toBeNull();
   });
 });
 
