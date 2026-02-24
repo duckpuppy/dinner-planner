@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, gte, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
@@ -66,7 +66,7 @@ export interface DinnerEntryResponse {
   id: string;
   date: string;
   dayOfWeek: number;
-  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
@@ -83,6 +83,8 @@ export interface DinnerEntryResponse {
     type: 'main' | 'side';
   }[];
   preparations: PreparationResponse[];
+  sourceEntryId: string | null;
+  sourceEntryDishName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +165,20 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     })
   );
 
+  // Get source entry dish name (for leftovers type)
+  let sourceEntryDishName: string | null = null;
+  if (entry.sourceEntryId) {
+    const sourceEntry = await db.query.dinnerEntries.findFirst({
+      where: eq(schema.dinnerEntries.id, entry.sourceEntryId),
+    });
+    if (sourceEntry?.mainDishId) {
+      const sourceDish = await db.query.dishes.findFirst({
+        where: eq(schema.dishes.id, sourceEntry.mainDishId),
+      });
+      sourceEntryDishName = sourceDish?.name ?? null;
+    }
+  }
+
   const entryDate = parseDate(entry.date);
 
   return {
@@ -178,6 +194,8 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     mainDish,
     sideDishes: sideDishes.filter((d): d is NonNullable<typeof d> => d !== null),
     preparations,
+    sourceEntryId: entry.sourceEntryId,
+    sourceEntryDishName,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   };
@@ -290,6 +308,10 @@ export async function updateDinnerEntry(
 
   const now = new Date().toISOString();
 
+  // When type changes away from leftovers, clear sourceEntryId
+  const sourceEntryId =
+    input.type === 'leftovers' ? (input.sourceEntryId ?? null) : null;
+
   // Update entry
   await db
     .update(schema.dinnerEntries)
@@ -299,6 +321,7 @@ export async function updateDinnerEntry(
       restaurantName: input.restaurantName,
       restaurantNotes: input.restaurantNotes,
       mainDishId: input.mainDishId,
+      sourceEntryId,
       updatedAt: now,
     })
     .where(eq(schema.dinnerEntries.id, entryId));
@@ -480,4 +503,41 @@ export async function deletePreparation(
   }
 
   return { success: true };
+}
+
+/**
+ * Get recently completed entries (last 14 days) that have a main dish.
+ * Used by the leftovers picker.
+ */
+export async function getRecentCompleted(): Promise<
+  { id: string; date: string; mainDishName: string }[]
+> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = formatDate(cutoff);
+
+  const entries = await db
+    .select()
+    .from(schema.dinnerEntries)
+    .where(
+      eq(schema.dinnerEntries.completed, true)
+    )
+    .orderBy(desc(schema.dinnerEntries.date));
+
+  const results: { id: string; date: string; mainDishName: string }[] = [];
+
+  for (const entry of entries) {
+    if (entry.date < cutoffStr) continue;
+    if (!entry.mainDishId) continue;
+
+    const dish = await db.query.dishes.findFirst({
+      where: eq(schema.dishes.id, entry.mainDishId),
+    });
+
+    if (dish) {
+      results.push({ id: entry.id, date: entry.date, mainDishName: dish.name });
+    }
+  }
+
+  return results;
 }

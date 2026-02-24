@@ -54,7 +54,7 @@ export type DishSummary = Pick<
 >;
 
 // Menu types
-export type DinnerType = 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+export type DinnerType = 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
 
 export interface DinnerEntry {
   id: string;

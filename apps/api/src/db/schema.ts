@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const DIETARY_TAGS = [
@@ -118,13 +119,16 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
     .notNull()
     .references(() => weeklyMenus.id, { onDelete: 'cascade' }),
   date: text('date').notNull(),
-  type: text('type', { enum: ['assembled', 'fend_for_self', 'dining_out', 'custom'] })
+  type: text('type', {
+    enum: ['assembled', 'fend_for_self', 'dining_out', 'custom', 'leftovers'],
+  })
     .notNull()
     .default('assembled'),
   customText: text('custom_text'),
   restaurantName: text('restaurant_name'),
   restaurantNotes: text('restaurant_notes'),
   mainDishId: text('main_dish_id').references(() => dishes.id),
+  sourceEntryId: text('source_entry_id').references((): AnySQLiteColumn => dinnerEntries.id),
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   ...timestamps,

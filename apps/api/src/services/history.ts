@@ -34,7 +34,7 @@ async function fetchPreparersMap(
 export interface HistoryEntry {
   id: string;
   date: string;
-  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
+  type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
   completed: boolean;
   mainDish: {
@@ -55,6 +55,8 @@ export interface HistoryEntry {
       userName: string;
     }[];
   }[];
+  sourceEntryId: string | null;
+  sourceEntryDishName: string | null;
 }
 
 export interface HistoryQueryParams {
@@ -195,6 +197,20 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
       });
     }
 
+    // Get source entry dish name (for leftovers type)
+    let sourceEntryDishName: string | null = null;
+    if (entry.sourceEntryId) {
+      const sourceEntry = await db.query.dinnerEntries.findFirst({
+        where: eq(schema.dinnerEntries.id, entry.sourceEntryId),
+      });
+      if (sourceEntry?.mainDishId) {
+        const sourceDish = await db.query.dishes.findFirst({
+          where: eq(schema.dishes.id, sourceEntry.mainDishId),
+        });
+        sourceEntryDishName = sourceDish?.name ?? null;
+      }
+    }
+
     enrichedEntries.push({
       id: entry.id,
       date: entry.date,
@@ -204,6 +220,8 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
       mainDish,
       sideDishes,
       preparations,
+      sourceEntryId: entry.sourceEntryId,
+      sourceEntryDishName,
     });
   }
 
