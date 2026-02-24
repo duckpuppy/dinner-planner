@@ -1,6 +1,16 @@
 import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+export const DIETARY_TAGS = [
+  'vegetarian',
+  'vegan',
+  'gluten_free',
+  'dairy_free',
+  'nut_free',
+  'low_carb',
+] as const;
+export type DietaryTag = (typeof DIETARY_TAGS)[number];
+
 // Helper for timestamps
 const timestamps = {
   createdAt: text('created_at')
@@ -26,6 +36,7 @@ export const users = sqliteTable('users', {
   homeView: text('home_view', { enum: ['today', 'week'] })
     .notNull()
     .default('today'),
+  dietaryPreferences: text('dietary_preferences').notNull().default('[]'),
   ...timestamps,
 });
 
@@ -80,6 +91,18 @@ export const dishTags = sqliteTable('dish_tags', {
     .notNull()
     .references(() => tags.id, { onDelete: 'cascade' }),
 });
+
+// Dish dietary tags table (M18: dietary restrictions)
+export const dishDietaryTags = sqliteTable(
+  'dish_dietary_tags',
+  {
+    dishId: text('dish_id')
+      .notNull()
+      .references(() => dishes.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.dishId, table.tag] })]
+);
 
 // Weekly menus table
 export const weeklyMenus = sqliteTable('weekly_menus', {

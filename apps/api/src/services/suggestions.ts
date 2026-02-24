@@ -98,7 +98,7 @@ export async function getSuggestions(query: SuggestionsQueryInput): Promise<Sugg
 
   const dishIds = allDishes.map((d) => d.id);
 
-  // Get tags for each dish
+  // Get free-form tags for each dish
   const dishTagRows = await db
     .select({
       dishId: schema.dishTags.dishId,
@@ -115,10 +115,34 @@ export async function getSuggestions(query: SuggestionsQueryInput): Promise<Sugg
     tagsByDishId.set(row.dishId, existing);
   }
 
-  // Filter by tag if requested (after fetching to reuse tag data)
-  const filteredDishes = query.tag
+  // Get dietary tags for each dish
+  const dietaryTagRows = await db
+    .select({
+      dishId: schema.dishDietaryTags.dishId,
+      tag: schema.dishDietaryTags.tag,
+    })
+    .from(schema.dishDietaryTags)
+    .where(inArray(schema.dishDietaryTags.dishId, dishIds));
+
+  const dietaryTagsByDishId = new Map<string, string[]>();
+  for (const row of dietaryTagRows) {
+    const existing = dietaryTagsByDishId.get(row.dishId) ?? [];
+    existing.push(row.tag);
+    dietaryTagsByDishId.set(row.dishId, existing);
+  }
+
+  // Filter by free-form tag if requested
+  let filteredDishes = query.tag
     ? allDishes.filter((d) => (tagsByDishId.get(d.id) ?? []).includes(query.tag!))
     : allDishes;
+
+  // Filter by dietary tags if requested (dish must have ALL requested tags)
+  if (query.dietaryTags && query.dietaryTags.length > 0) {
+    filteredDishes = filteredDishes.filter((d) => {
+      const dishDietaryTags = dietaryTagsByDishId.get(d.id) ?? [];
+      return query.dietaryTags!.every((dt) => dishDietaryTags.includes(dt));
+    });
+  }
 
   if (filteredDishes.length === 0) return [];
 
