@@ -853,10 +853,18 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   const [servings, setServings] = useState<string>(
     dish?.servings?.toString() ?? prefill?.servings?.toString() ?? ''
   );
-  const [calories, setCalories] = useState<string>(dish?.calories?.toString() ?? '');
-  const [proteinG, setProteinG] = useState<string>(dish?.proteinG?.toString() ?? '');
-  const [carbsG, setCarbsG] = useState<string>(dish?.carbsG?.toString() ?? '');
-  const [fatG, setFatG] = useState<string>(dish?.fatG?.toString() ?? '');
+  const [calories, setCalories] = useState<string>(
+    dish?.calories?.toString() ?? prefill?.calories?.toString() ?? ''
+  );
+  const [proteinG, setProteinG] = useState<string>(
+    dish?.proteinG?.toString() ?? prefill?.proteinG?.toString() ?? ''
+  );
+  const [carbsG, setCarbsG] = useState<string>(
+    dish?.carbsG?.toString() ?? prefill?.carbsG?.toString() ?? ''
+  );
+  const [fatG, setFatG] = useState<string>(
+    dish?.fatG?.toString() ?? prefill?.fatG?.toString() ?? ''
+  );
   const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl ?? prefill?.sourceUrl ?? '');
   const [videoUrl, setVideoUrl] = useState(dish?.videoUrl ?? prefill?.videoUrl ?? '');
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>(
@@ -1117,6 +1125,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
                   value={calories}
                   onChange={(e) => setCalories(e.target.value)}
                   min="0"
+                  step="any"
                   autoComplete="off"
                   className="w-full px-3 py-2 border rounded-md bg-background"
                   placeholder="0"
@@ -1136,6 +1145,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
                   value={proteinG}
                   onChange={(e) => setProteinG(e.target.value)}
                   min="0"
+                  step="any"
                   autoComplete="off"
                   className="w-full px-3 py-2 border rounded-md bg-background"
                   placeholder="0"
@@ -1155,6 +1165,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
                   value={carbsG}
                   onChange={(e) => setCarbsG(e.target.value)}
                   min="0"
+                  step="any"
                   autoComplete="off"
                   className="w-full px-3 py-2 border rounded-md bg-background"
                   placeholder="0"
@@ -1174,6 +1185,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
                   value={fatG}
                   onChange={(e) => setFatG(e.target.value)}
                   min="0"
+                  step="any"
                   autoComplete="off"
                   className="w-full px-3 py-2 border rounded-md bg-background"
                   placeholder="0"
