@@ -115,9 +115,9 @@ function makeDish(overrides: Record<string, unknown> = {}) {
  */
 function setupGetDishWithRelations(dish: unknown, tags: string[] = []) {
   mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
-  mockDb.select.mockReturnValueOnce(selWhereOrderBy([]));           // ingredients
+  mockDb.select.mockReturnValueOnce(selWhereOrderBy([])); // ingredients
   mockDb.select.mockReturnValueOnce(selInnerJoinWhere(tags.map((t) => ({ name: t })))); // dishTags
-  mockDb.select.mockReturnValueOnce(selWhere([]));                   // dishDietaryTags
+  mockDb.select.mockReturnValueOnce(selWhere([])); // dishDietaryTags
 }
 
 beforeEach(() => {

@@ -18,7 +18,14 @@ vi.mock('@/lib/api', () => ({
   ratings: {
     getDishStats: vi.fn(),
   },
-  DIETARY_TAGS: ['vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'nut_free', 'low_carb'] as const,
+  DIETARY_TAGS: [
+    'vegetarian',
+    'vegan',
+    'gluten_free',
+    'dairy_free',
+    'nut_free',
+    'low_carb',
+  ] as const,
 }));
 
 // Mock auth store

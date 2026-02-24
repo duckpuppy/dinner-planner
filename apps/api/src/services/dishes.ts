@@ -260,9 +260,9 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
 
   // Handle dietary tags
   if (input.dietaryTags && input.dietaryTags.length > 0) {
-    await db.insert(schema.dishDietaryTags).values(
-      input.dietaryTags.map((tag) => ({ dishId: id, tag }))
-    );
+    await db
+      .insert(schema.dishDietaryTags)
+      .values(input.dietaryTags.map((tag) => ({ dishId: id, tag })));
   }
 
   return (await getDishWithRelations(id))!;
@@ -351,9 +351,9 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
     await db.delete(schema.dishDietaryTags).where(eq(schema.dishDietaryTags.dishId, id));
 
     if (input.dietaryTags.length > 0) {
-      await db.insert(schema.dishDietaryTags).values(
-        input.dietaryTags.map((tag) => ({ dishId: id, tag }))
-      );
+      await db
+        .insert(schema.dishDietaryTags)
+        .values(input.dietaryTags.map((tag) => ({ dishId: id, tag })));
     }
   }
 
@@ -467,9 +467,6 @@ export async function getAllTags(): Promise<{ name: string; count: number }[]> {
  */
 export async function getDishesByIds(ids: string[]): Promise<DishResponse[]> {
   if (ids.length === 0) return [];
-  const dishes = await db
-    .select()
-    .from(schema.dishes)
-    .where(inArray(schema.dishes.id, ids));
+  const dishes = await db.select().from(schema.dishes).where(inArray(schema.dishes.id, ids));
   return Promise.all(dishes.map((d) => getDishWithRelations(d.id).then((r) => r!)));
 }
