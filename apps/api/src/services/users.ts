@@ -8,6 +8,7 @@ import type {
   UserPreferencesInput,
   DietaryTag,
 } from '@dinner-planner/shared';
+import { DIETARY_TAGS } from '@dinner-planner/shared';
 
 export interface UserResponse {
   id: string;
@@ -24,7 +25,9 @@ export interface UserResponse {
 function parseDietaryPreferences(raw: string): DietaryTag[] {
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as DietaryTag[]) : [];
+    return Array.isArray(parsed)
+      ? (parsed.filter((v): v is DietaryTag => (DIETARY_TAGS as readonly string[]).includes(v)))
+      : [];
   } catch {
     return [];
   }
