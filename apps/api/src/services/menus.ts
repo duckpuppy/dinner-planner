@@ -537,10 +537,7 @@ export async function getRecentCompleted(): Promise<
   if (entries.length === 0) return [];
 
   const dishIds = [...new Set(entries.map((e) => e.mainDishId!))];
-  const dishRows = await db
-    .select()
-    .from(schema.dishes)
-    .where(inArray(schema.dishes.id, dishIds));
+  const dishRows = await db.select().from(schema.dishes).where(inArray(schema.dishes.id, dishIds));
   const dishMap = new Map(dishRows.map((d) => [d.id, d.name]));
 
   return entries

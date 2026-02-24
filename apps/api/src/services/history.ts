@@ -129,7 +129,11 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
   const total = entries.length;
 
   // Pre-fetch source entry dish names in batch (for leftovers entries)
-  const sourceEntryIds = [...new Set(entries.map((e) => e.sourceEntryId).filter((id): id is string => typeof id === 'string'))];
+  const sourceEntryIds = [
+    ...new Set(
+      entries.map((e) => e.sourceEntryId).filter((id): id is string => typeof id === 'string')
+    ),
+  ];
   const sourceDishNameMap = new Map<string, string | null>();
   if (sourceEntryIds.length > 0) {
     const sourceRows = await db

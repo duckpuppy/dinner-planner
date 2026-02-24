@@ -162,9 +162,7 @@ function setupGetEntryWithRelations(
   // 3. Source entry join happens after side dishes/preparations
   if (entry.sourceEntryId) {
     const dishName = opts.sourceEntryMainDishName ?? null;
-    mockDb.select.mockReturnValueOnce(
-      selFromLeftJoinWhereLimit(dishName ? [{ dishName }] : [])
-    );
+    mockDb.select.mockReturnValueOnce(selFromLeftJoinWhereLimit(dishName ? [{ dishName }] : []));
   }
 }
 
