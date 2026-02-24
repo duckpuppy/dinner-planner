@@ -24,9 +24,22 @@ export const updateUserSchema = z.object({
   role: z.enum(['admin', 'member']).optional(),
 });
 
+// Dietary tags (M18)
+export const DIETARY_TAGS = [
+  'vegetarian',
+  'vegan',
+  'gluten_free',
+  'dairy_free',
+  'nut_free',
+  'low_carb',
+] as const;
+export const dietaryTagSchema = z.enum(DIETARY_TAGS);
+export type DietaryTag = z.infer<typeof dietaryTagSchema>;
+
 export const userPreferencesSchema = z.object({
   theme: z.enum(['light', 'dark']).optional(),
   homeView: z.enum(['today', 'week']).optional(),
+  dietaryPreferences: z.array(dietaryTagSchema).optional(),
 });
 
 // Ingredient schema
@@ -54,6 +67,7 @@ export const createDishSchema = z.object({
   sourceUrl: z.string().url().nullable().default(null),
   videoUrl: z.string().url().nullable().default(null),
   tags: z.array(z.string().max(50)).default([]),
+  dietaryTags: z.array(dietaryTagSchema).default([]),
 });
 
 export const updateDishSchema = createDishSchema.partial();
@@ -118,6 +132,9 @@ export const suggestionsQuerySchema = z.object({
   tag: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(20).default(5),
   exclude: z.preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(z.string())).default([]),
+  dietaryTags: z
+    .preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(dietaryTagSchema))
+    .default([]),
 });
 
 export const suggestedDishSchema = z.object({
@@ -152,6 +169,9 @@ export const dishQuerySchema = paginationSchema.extend({
   search: z.string().optional(),
   sort: z.enum(['name', 'rating', 'recent', 'created']).default('name'),
   order: z.enum(['asc', 'desc']).default('asc'),
+  dietaryTags: z
+    .preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(dietaryTagSchema))
+    .default([]),
 });
 
 export const dateRangeSchema = z.object({

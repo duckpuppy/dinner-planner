@@ -6,6 +6,7 @@ import type {
   CreateUserInput,
   UpdateUserInput,
   UserPreferencesInput,
+  DietaryTag,
 } from '@dinner-planner/shared';
 
 export interface UserResponse {
@@ -15,8 +16,18 @@ export interface UserResponse {
   role: 'admin' | 'member';
   theme: 'light' | 'dark';
   homeView: 'today' | 'week';
+  dietaryPreferences: DietaryTag[];
   createdAt: string;
   updatedAt: string;
+}
+
+function parseDietaryPreferences(raw: string): DietaryTag[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as DietaryTag[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function toUserResponse(user: typeof schema.users.$inferSelect): UserResponse {
@@ -27,6 +38,7 @@ function toUserResponse(user: typeof schema.users.$inferSelect): UserResponse {
     role: user.role,
     theme: user.theme,
     homeView: user.homeView,
+    dietaryPreferences: parseDietaryPreferences(user.dietaryPreferences),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -76,6 +88,7 @@ export async function createUser(input: CreateUserInput): Promise<UserResponse> 
     role: input.role,
     theme: 'light',
     homeView: 'today',
+    dietaryPreferences: '[]',
     createdAt: now,
     updatedAt: now,
   });
@@ -133,13 +146,14 @@ export async function updateUserPreferences(
 
   const now = new Date().toISOString();
 
-  await db
-    .update(schema.users)
-    .set({
-      ...input,
-      updatedAt: now,
-    })
-    .where(eq(schema.users.id, id));
+  const updateData: Record<string, unknown> = { updatedAt: now };
+  if (input.theme !== undefined) updateData.theme = input.theme;
+  if (input.homeView !== undefined) updateData.homeView = input.homeView;
+  if (input.dietaryPreferences !== undefined) {
+    updateData.dietaryPreferences = JSON.stringify(input.dietaryPreferences);
+  }
+
+  await db.update(schema.users).set(updateData).where(eq(schema.users.id, id));
 
   const updated = await db.query.users.findFirst({
     where: eq(schema.users.id, id),

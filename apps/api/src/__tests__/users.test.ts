@@ -63,6 +63,7 @@ const mockUser = {
   theme: 'light' as const,
   homeView: 'today' as const,
   passwordHash: 'hashed-pw',
+  dietaryPreferences: '[]',
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
 };

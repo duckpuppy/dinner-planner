@@ -20,6 +20,7 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn().mockReturnValue(null),
   sql: vi.fn().mockReturnValue(null),
   or: vi.fn().mockReturnValue(null),
+  inArray: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock('../db/index.js', () => ({
@@ -35,6 +36,7 @@ vi.mock('../db/index.js', () => ({
     },
     ingredients: { dishId: null, sortOrder: null },
     dishTags: { dishId: null, tagId: null },
+    dishDietaryTags: { dishId: null, tag: null },
     tags: { id: null, name: null },
     dinnerEntries: { mainDishId: null, id: null },
     entrySideDishes: { dishId: null },
@@ -105,15 +107,17 @@ function makeDish(overrides: Record<string, unknown> = {}) {
 }
 
 /**
- * Set up the 3 DB calls inside getDishWithRelations():
+ * Set up the 4 DB calls inside getDishWithRelations():
  * 1. db.query.dishes.findFirst() → dish
  * 2. db.select().from(ingredients).where().orderBy() → []
  * 3. db.select({}).from(dishTags).innerJoin(tags).where() → []
+ * 4. db.select({}).from(dishDietaryTags).where() → []
  */
 function setupGetDishWithRelations(dish: unknown, tags: string[] = []) {
   mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
-  mockDb.select.mockReturnValueOnce(selWhereOrderBy([]));
-  mockDb.select.mockReturnValueOnce(selInnerJoinWhere(tags.map((t) => ({ name: t }))));
+  mockDb.select.mockReturnValueOnce(selWhereOrderBy([]));           // ingredients
+  mockDb.select.mockReturnValueOnce(selInnerJoinWhere(tags.map((t) => ({ name: t })))); // dishTags
+  mockDb.select.mockReturnValueOnce(selWhere([]));                   // dishDietaryTags
 }
 
 beforeEach(() => {

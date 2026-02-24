@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, and, like, desc, asc, sql, or } from 'drizzle-orm';
+import { eq, and, like, desc, asc, sql, or, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreateDishInput, UpdateDishInput, DishQueryInput } from '@dinner-planner/shared';
 
@@ -24,6 +24,7 @@ export interface DishResponse {
   updatedAt: string;
   ingredients: IngredientResponse[];
   tags: string[];
+  dietaryTags: string[];
 }
 
 export interface IngredientResponse {
@@ -67,6 +68,11 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     .innerJoin(schema.tags, eq(schema.dishTags.tagId, schema.tags.id))
     .where(eq(schema.dishTags.dishId, id));
 
+  const dietaryTagRows = await db
+    .select({ tag: schema.dishDietaryTags.tag })
+    .from(schema.dishDietaryTags)
+    .where(eq(schema.dishDietaryTags.dishId, id));
+
   return {
     id: dish.id,
     name: dish.name,
@@ -88,6 +94,7 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     updatedAt: dish.updatedAt,
     ingredients: ingredients.map(toIngredientResponse),
     tags: dishTags.map((t) => t.name),
+    dietaryTags: dietaryTagRows.map((r) => r.tag),
   };
 }
 
@@ -157,11 +164,18 @@ export async function getDishes(
     })
   );
 
-  // Filter by tag if specified (post-query since tags are in a junction table)
+  // Filter by free-form tag if specified (post-query since tags are in a junction table)
   let filteredDishes = dishesWithRelations;
   if (query.tag) {
-    filteredDishes = dishesWithRelations.filter((dish) =>
+    filteredDishes = filteredDishes.filter((dish) =>
       dish.tags.some((t) => t.toLowerCase() === query.tag!.toLowerCase())
+    );
+  }
+
+  // Filter by dietary tags if specified (dish must have ALL requested tags)
+  if (query.dietaryTags && query.dietaryTags.length > 0) {
+    filteredDishes = filteredDishes.filter((dish) =>
+      query.dietaryTags!.every((dt) => dish.dietaryTags.includes(dt))
     );
   }
 
@@ -219,7 +233,7 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
     );
   }
 
-  // Handle tags
+  // Handle free-form tags
   if (input.tags && input.tags.length > 0) {
     for (const tagName of input.tags) {
       // Find or create tag
@@ -242,6 +256,13 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
         tagId: tag.id,
       });
     }
+  }
+
+  // Handle dietary tags
+  if (input.dietaryTags && input.dietaryTags.length > 0) {
+    await db.insert(schema.dishDietaryTags).values(
+      input.dietaryTags.map((tag) => ({ dishId: id, tag }))
+    );
   }
 
   return (await getDishWithRelations(id))!;
@@ -298,7 +319,7 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
     }
   }
 
-  // Update tags if provided
+  // Update free-form tags if provided
   if (input.tags !== undefined) {
     // Delete existing tag links
     await db.delete(schema.dishTags).where(eq(schema.dishTags.dishId, id));
@@ -322,6 +343,17 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
         dishId: id,
         tagId: tag.id,
       });
+    }
+  }
+
+  // Update dietary tags if provided (replace all)
+  if (input.dietaryTags !== undefined) {
+    await db.delete(schema.dishDietaryTags).where(eq(schema.dishDietaryTags.dishId, id));
+
+    if (input.dietaryTags.length > 0) {
+      await db.insert(schema.dishDietaryTags).values(
+        input.dietaryTags.map((tag) => ({ dishId: id, tag }))
+      );
     }
   }
 
@@ -407,7 +439,7 @@ export async function deleteDish(id: string): Promise<{ success: boolean; error?
   // 5. Delete preparations for this dish
   await db.delete(schema.preparations).where(eq(schema.preparations.dishId, id));
 
-  // 6. Delete the dish (ingredients and dish_tags cascade automatically)
+  // 6. Delete the dish (ingredients, dish_tags, and dish_dietary_tags cascade automatically)
   await db.delete(schema.dishes).where(eq(schema.dishes.id, id));
 
   return { success: true };
@@ -428,4 +460,16 @@ export async function getAllTags(): Promise<{ name: string; count: number }[]> {
     .orderBy(asc(schema.tags.name));
 
   return result;
+}
+
+/**
+ * Get dishes by IDs (batch fetch)
+ */
+export async function getDishesByIds(ids: string[]): Promise<DishResponse[]> {
+  if (ids.length === 0) return [];
+  const dishes = await db
+    .select()
+    .from(schema.dishes)
+    .where(inArray(schema.dishes.id, ids));
+  return Promise.all(dishes.map((d) => getDishWithRelations(d.id).then((r) => r!)));
 }
