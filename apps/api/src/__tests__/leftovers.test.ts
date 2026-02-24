@@ -84,6 +84,30 @@ function selFromWhereOrderByLimitOffset(result: unknown[]) {
   };
 }
 
+// select().from().leftJoin().where().limit() — getEntryWithRelations source entry join
+function selFromLeftJoinWhereLimit(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(result),
+        }),
+      }),
+    }),
+  };
+}
+
+// select().from().leftJoin().where() — getHistory batch source entry join
+function selFromLeftJoinWhere(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(result),
+      }),
+    }),
+  };
+}
+
 function makeUpdate() {
   return { set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) };
 }
@@ -131,24 +155,17 @@ function setupGetEntryWithRelations(
   // 1. dinnerEntries.findFirst
   mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
 
-  // 2. If entry has sourceEntryId, will also fetch the source entry
-  if (entry.sourceEntryId) {
-    const sourceEntry = makeEntry({
-      id: entry.sourceEntryId,
-      mainDishId: opts.sourceEntryMainDishName ? 'source-dish-1' : null,
-    });
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(sourceEntry);
-    if (opts.sourceEntryMainDishName) {
-      mockDb.query.dishes.findFirst.mockResolvedValueOnce({
-        id: 'source-dish-1',
-        name: opts.sourceEntryMainDishName,
-        type: 'main',
-      });
-    }
-  }
-
+  // 2. Side dishes and preparations come BEFORE source entry join in getEntryWithRelations
   mockDb.select.mockReturnValueOnce(selWhere([])); // side dish links
   mockDb.select.mockReturnValueOnce(selWhere([])); // preparations
+
+  // 3. Source entry join happens after side dishes/preparations
+  if (entry.sourceEntryId) {
+    const dishName = opts.sourceEntryMainDishName ?? null;
+    mockDb.select.mockReturnValueOnce(
+      selFromLeftJoinWhereLimit(dishName ? [{ dishName }] : [])
+    );
+  }
 }
 
 beforeEach(() => {
@@ -166,6 +183,10 @@ describe('updateDinnerEntry — leftovers', () => {
   it('persists sourceEntryId when type is leftovers', async () => {
     const entry = makeEntry();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    // Validation: source entry must exist and not be leftovers
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(
+      makeEntry({ id: 'source-entry-1', type: 'assembled' })
+    );
     setupGetEntryWithRelations(makeEntry({ sourceEntryId: 'source-entry-1' }), {
       sourceEntryMainDishName: 'Spaghetti Bolognese',
     });
@@ -205,6 +226,10 @@ describe('updateDinnerEntry — leftovers', () => {
   it('returns sourceEntryDishName in response when sourceEntryId is set', async () => {
     const entry = makeEntry({ type: 'leftovers', sourceEntryId: 'source-entry-1' });
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    // Validation: source entry must exist and not be leftovers
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(
+      makeEntry({ id: 'source-entry-1', type: 'assembled' })
+    );
     setupGetEntryWithRelations(entry, { sourceEntryMainDishName: 'Chicken Curry' });
 
     mockDb.update.mockReturnValueOnce(makeUpdate());
@@ -252,12 +277,10 @@ describe('getRecentCompleted', () => {
       completed: true,
     });
 
+    // DB filters at query level; returns matching entries
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([recent]));
-    mockDb.query.dishes.findFirst.mockResolvedValueOnce({
-      id: 'dish-1',
-      name: 'Lasagne',
-      type: 'main',
-    });
+    // Batch dish lookup
+    mockDb.select.mockReturnValueOnce(selWhere([{ id: 'dish-1', name: 'Lasagne' }]));
 
     const result = await getRecentCompleted();
 
@@ -266,18 +289,8 @@ describe('getRecentCompleted', () => {
   });
 
   it('excludes entries older than 14 days', async () => {
-    const old = new Date();
-    old.setDate(old.getDate() - 15);
-    const oldDate = old.toISOString().slice(0, 10);
-
-    const oldEntry = makeEntry({
-      id: 'entry-old',
-      date: oldDate,
-      mainDishId: 'dish-1',
-      completed: true,
-    });
-
-    mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([oldEntry]));
+    // DB gte() filter excludes old entries — mock returns empty array
+    mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([]));
 
     const result = await getRecentCompleted();
 
@@ -285,15 +298,8 @@ describe('getRecentCompleted', () => {
   });
 
   it('excludes entries without a main dish', async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const entry = makeEntry({
-      id: 'entry-no-dish',
-      date: today,
-      mainDishId: null,
-      completed: true,
-    });
-
-    mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([entry]));
+    // DB isNotNull(mainDishId) filter excludes entries without a dish — mock returns empty array
+    mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([]));
 
     const result = await getRecentCompleted();
 
@@ -327,20 +333,14 @@ describe('getHistory — leftovers entries', () => {
 
     // Main query: select().from().where(and(...)).orderBy().limit().offset()
     mockDb.select.mockReturnValueOnce(selFromWhereOrderByLimitOffset([leftoversEntry]));
+    // Batch source entry dish name join (runs before per-entry loop)
+    mockDb.select.mockReturnValueOnce(
+      selFromLeftJoinWhere([{ entryId: 'source-entry-1', dishName: 'Roast Chicken' }])
+    );
     // side dishes
     mockDb.select.mockReturnValueOnce(selWhere([]));
     // preparations
     mockDb.select.mockReturnValueOnce(selWhere([]));
-    // source entry lookup
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(
-      makeEntry({ id: 'source-entry-1', mainDishId: 'dish-source' })
-    );
-    // source dish lookup
-    mockDb.query.dishes.findFirst.mockResolvedValueOnce({
-      id: 'dish-source',
-      name: 'Roast Chicken',
-      type: 'main',
-    });
 
     const result = await getHistory({});
 

@@ -128,6 +128,20 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
   // Get total count (simplified - just use entries length for now)
   const total = entries.length;
 
+  // Pre-fetch source entry dish names in batch (for leftovers entries)
+  const sourceEntryIds = [...new Set(entries.map((e) => e.sourceEntryId).filter((id): id is string => typeof id === 'string'))];
+  const sourceDishNameMap = new Map<string, string | null>();
+  if (sourceEntryIds.length > 0) {
+    const sourceRows = await db
+      .select({ entryId: schema.dinnerEntries.id, dishName: schema.dishes.name })
+      .from(schema.dinnerEntries)
+      .leftJoin(schema.dishes, eq(schema.dishes.id, schema.dinnerEntries.mainDishId))
+      .where(inArray(schema.dinnerEntries.id, sourceEntryIds));
+    for (const row of sourceRows) {
+      sourceDishNameMap.set(row.entryId, row.dishName ?? null);
+    }
+  }
+
   // Enrich entries with related data
   const enrichedEntries: HistoryEntry[] = [];
 
@@ -197,19 +211,10 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
       });
     }
 
-    // Get source entry dish name (for leftovers type)
-    let sourceEntryDishName: string | null = null;
-    if (entry.sourceEntryId) {
-      const sourceEntry = await db.query.dinnerEntries.findFirst({
-        where: eq(schema.dinnerEntries.id, entry.sourceEntryId),
-      });
-      if (sourceEntry?.mainDishId) {
-        const sourceDish = await db.query.dishes.findFirst({
-          where: eq(schema.dishes.id, sourceEntry.mainDishId),
-        });
-        sourceEntryDishName = sourceDish?.name ?? null;
-      }
-    }
+    // Get source entry dish name from pre-fetched batch
+    const sourceEntryDishName = entry.sourceEntryId
+      ? (sourceDishNameMap.get(entry.sourceEntryId) ?? null)
+      : null;
 
     enrichedEntries.push({
       id: entry.id,

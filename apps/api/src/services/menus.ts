@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { eq, inArray, desc, and, gte, isNotNull } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
@@ -165,18 +165,16 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     })
   );
 
-  // Get source entry dish name (for leftovers type)
+  // Get source entry dish name (for leftovers type) — single join query
   let sourceEntryDishName: string | null = null;
   if (entry.sourceEntryId) {
-    const sourceEntry = await db.query.dinnerEntries.findFirst({
-      where: eq(schema.dinnerEntries.id, entry.sourceEntryId),
-    });
-    if (sourceEntry?.mainDishId) {
-      const sourceDish = await db.query.dishes.findFirst({
-        where: eq(schema.dishes.id, sourceEntry.mainDishId),
-      });
-      sourceEntryDishName = sourceDish?.name ?? null;
-    }
+    const rows = await db
+      .select({ dishName: schema.dishes.name })
+      .from(schema.dinnerEntries)
+      .leftJoin(schema.dishes, eq(schema.dishes.id, schema.dinnerEntries.mainDishId))
+      .where(eq(schema.dinnerEntries.id, entry.sourceEntryId))
+      .limit(1);
+    sourceEntryDishName = rows[0]?.dishName ?? null;
   }
 
   const entryDate = parseDate(entry.date);
@@ -305,6 +303,15 @@ export async function updateDinnerEntry(
   });
 
   if (!entry) return null;
+
+  // Validate sourceEntryId: no self-reference, no circular chains, source must not be leftovers
+  if (input.type === 'leftovers' && input.sourceEntryId) {
+    if (input.sourceEntryId === entryId) return null;
+    const sourceEntry = await db.query.dinnerEntries.findFirst({
+      where: eq(schema.dinnerEntries.id, input.sourceEntryId),
+    });
+    if (!sourceEntry || sourceEntry.type === 'leftovers') return null;
+  }
 
   const now = new Date().toISOString();
 
@@ -518,23 +525,25 @@ export async function getRecentCompleted(): Promise<
   const entries = await db
     .select()
     .from(schema.dinnerEntries)
-    .where(eq(schema.dinnerEntries.completed, true))
+    .where(
+      and(
+        eq(schema.dinnerEntries.completed, true),
+        gte(schema.dinnerEntries.date, cutoffStr),
+        isNotNull(schema.dinnerEntries.mainDishId)
+      )
+    )
     .orderBy(desc(schema.dinnerEntries.date));
 
-  const results: { id: string; date: string; mainDishName: string }[] = [];
+  if (entries.length === 0) return [];
 
-  for (const entry of entries) {
-    if (entry.date < cutoffStr) continue;
-    if (!entry.mainDishId) continue;
+  const dishIds = [...new Set(entries.map((e) => e.mainDishId!))];
+  const dishRows = await db
+    .select()
+    .from(schema.dishes)
+    .where(inArray(schema.dishes.id, dishIds));
+  const dishMap = new Map(dishRows.map((d) => [d.id, d.name]));
 
-    const dish = await db.query.dishes.findFirst({
-      where: eq(schema.dishes.id, entry.mainDishId),
-    });
-
-    if (dish) {
-      results.push({ id: entry.id, date: entry.date, mainDishName: dish.name });
-    }
-  }
-
-  return results;
+  return entries
+    .filter((e) => dishMap.has(e.mainDishId!))
+    .map((e) => ({ id: e.id, date: e.date, mainDishName: dishMap.get(e.mainDishId!)! }));
 }
