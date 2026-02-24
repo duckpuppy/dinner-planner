@@ -21,7 +21,7 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
+  CalendarOff,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -419,7 +419,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
       </div>
 
       {/* Type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {[
           { value: 'assembled', label: 'Home Cooked' },
           { value: 'fend_for_self', label: 'Fend' },
@@ -559,8 +559,8 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
               <option value="">Select a source meal...</option>
               {recentCompletedData.map((recent) => {
                 const d = new Date(recent.date + 'T00:00:00');
-                const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayName = d.toLocaleDateString(undefined, { weekday: 'long' });
+                const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 return (
                   <option key={recent.id} value={recent.id}>
                     {dayName}, {dateStr} — {recent.mainDishName}
@@ -570,7 +570,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
             </select>
           ) : recentCompletedData ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 border rounded-md bg-background">
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              <CalendarOff className="h-4 w-4" aria-hidden="true" />
               No recent meals found
             </div>
           ) : (
