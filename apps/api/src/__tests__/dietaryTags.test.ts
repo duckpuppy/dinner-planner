@@ -108,9 +108,7 @@ describe('userPreferencesSchema - dietaryPreferences', () => {
   });
 
   it('rejects invalid dietary preference value', () => {
-    expect(() =>
-      userPreferencesSchema.parse({ dietaryPreferences: ['not_a_tag'] })
-    ).toThrow();
+    expect(() => userPreferencesSchema.parse({ dietaryPreferences: ['not_a_tag'] })).toThrow();
   });
 
   it('accepts all dietary tags as preferences', () => {
@@ -199,7 +197,14 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('../db/index.js', () => ({
   db: mockDbDishes,
   schema: {
-    dishes: { id: null, archived: null, name: null, type: null, description: null, updatedAt: null },
+    dishes: {
+      id: null,
+      archived: null,
+      name: null,
+      type: null,
+      description: null,
+      updatedAt: null,
+    },
     ingredients: { dishId: null, sortOrder: null },
     dishTags: { dishId: null, tagId: null },
     dishDietaryTags: { dishId: null, tag: null },
@@ -296,11 +301,7 @@ const mockUserBase = {
  * 3. dishTags: select().from().innerJoin().where() → []
  * 4. dishDietaryTags: select().from().where() → dietaryTagRows
  */
-function setupGetDishWithRelations(
-  dish: unknown,
-  tags: string[] = [],
-  dietaryTags: string[] = []
-) {
+function setupGetDishWithRelations(dish: unknown, tags: string[] = [], dietaryTags: string[] = []) {
   mockDbDishes.query.dishes.findFirst.mockResolvedValueOnce(dish);
   mockDbDishes.select.mockReturnValueOnce(selWhereOrderBy([]));
   mockDbDishes.select.mockReturnValueOnce(selInnerJoinWhere(tags.map((t) => ({ name: t }))));
