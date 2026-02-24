@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, inArray, gte, desc } from 'drizzle-orm';
+import { eq, inArray, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
