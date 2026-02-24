@@ -71,6 +71,7 @@ export interface DinnerEntryResponse {
   restaurantName: string | null;
   restaurantNotes: string | null;
   completed: boolean;
+  skipped: boolean;
   mainDish: {
     id: string;
     name: string;
@@ -173,6 +174,7 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     restaurantName: entry.restaurantName,
     restaurantNotes: entry.restaurantNotes,
     completed: entry.completed,
+    skipped: entry.skipped,
     mainDish,
     sideDishes: sideDishes.filter((d): d is NonNullable<typeof d> => d !== null),
     preparations,
@@ -334,6 +336,29 @@ export async function markEntryCompleted(
   await db
     .update(schema.dinnerEntries)
     .set({ completed, updatedAt: now })
+    .where(eq(schema.dinnerEntries.id, entryId));
+
+  return getEntryWithRelations(entryId);
+}
+
+/**
+ * Mark entry as skipped or not skipped
+ */
+export async function setSkipped(
+  entryId: string,
+  skipped: boolean
+): Promise<DinnerEntryResponse | null> {
+  const entry = await db.query.dinnerEntries.findFirst({
+    where: eq(schema.dinnerEntries.id, entryId),
+  });
+
+  if (!entry) return null;
+
+  const now = new Date().toISOString();
+
+  await db
+    .update(schema.dinnerEntries)
+    .set({ skipped, updatedAt: now })
     .where(eq(schema.dinnerEntries.id, entryId));
 
   return getEntryWithRelations(entryId);

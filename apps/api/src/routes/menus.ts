@@ -12,6 +12,10 @@ const completedSchema = z.object({
   completed: z.boolean(),
 });
 
+const skippedSchema = z.object({
+  skipped: z.boolean(),
+});
+
 export async function menusRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/menus/week/:date
@@ -122,6 +126,34 @@ export async function menusRoutes(fastify: FastifyInstance) {
       }
 
       const entry = await menusService.markEntryCompleted(id, parseResult.data.completed);
+
+      if (!entry) {
+        return reply.status(404).send({ error: 'Entry not found' });
+      }
+
+      return reply.send({ entry });
+    }
+  );
+
+  /**
+   * PATCH /api/entries/:id/skip
+   * Mark entry as skipped or not
+   */
+  fastify.patch(
+    '/api/entries/:id/skip',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const parseResult = skippedSchema.safeParse(request.body);
+
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const entry = await menusService.setSkipped(id, parseResult.data.skipped);
 
       if (!entry) {
         return reply.status(404).send({ error: 'Entry not found' });
