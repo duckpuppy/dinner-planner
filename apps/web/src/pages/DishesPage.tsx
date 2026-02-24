@@ -417,7 +417,7 @@ function scaleQuantity(quantity: number, scale: number): string {
   return parseFloat(scaled.toFixed(3)).toString();
 }
 
-function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
+export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
@@ -579,6 +579,47 @@ function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Nutrition Facts */}
+        {(currentDish.calories != null ||
+          currentDish.proteinG != null ||
+          currentDish.carbsG != null ||
+          currentDish.fatG != null) && (
+          <div>
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Nutrition{defaultServings ? ' (per serving)' : ''}
+              {isScaled && defaultServings ? ` · scaled to ${scaledServings}` : ''}
+            </h2>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
+              {currentDish.calories != null && (
+                <span>
+                  <span className="text-muted-foreground">Cal </span>
+                  <span className="font-medium">
+                    {Math.round(currentDish.calories * scale)} kcal
+                  </span>
+                </span>
+              )}
+              {currentDish.proteinG != null && (
+                <span>
+                  <span className="text-muted-foreground">Protein </span>
+                  <span className="font-medium">{Math.round(currentDish.proteinG * scale)} g</span>
+                </span>
+              )}
+              {currentDish.carbsG != null && (
+                <span>
+                  <span className="text-muted-foreground">Carbs </span>
+                  <span className="font-medium">{Math.round(currentDish.carbsG * scale)} g</span>
+                </span>
+              )}
+              {currentDish.fatG != null && (
+                <span>
+                  <span className="text-muted-foreground">Fat </span>
+                  <span className="font-medium">{Math.round(currentDish.fatG * scale)} g</span>
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -812,6 +853,10 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   const [servings, setServings] = useState<string>(
     dish?.servings?.toString() ?? prefill?.servings?.toString() ?? ''
   );
+  const [calories, setCalories] = useState<string>(dish?.calories?.toString() ?? '');
+  const [proteinG, setProteinG] = useState<string>(dish?.proteinG?.toString() ?? '');
+  const [carbsG, setCarbsG] = useState<string>(dish?.carbsG?.toString() ?? '');
+  const [fatG, setFatG] = useState<string>(dish?.fatG?.toString() ?? '');
   const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl ?? prefill?.sourceUrl ?? '');
   const [videoUrl, setVideoUrl] = useState(dish?.videoUrl ?? prefill?.videoUrl ?? '');
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>(
@@ -925,6 +970,10 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
       prepTime: prepTime ? parseInt(prepTime, 10) : null,
       cookTime: cookTime ? parseInt(cookTime, 10) : null,
       servings: servings ? parseInt(servings, 10) : null,
+      calories: calories ? parseFloat(calories) : null,
+      proteinG: proteinG ? parseFloat(proteinG) : null,
+      carbsG: carbsG ? parseFloat(carbsG) : null,
+      fatG: fatG ? parseFloat(fatG) : null,
       sourceUrl: sourceUrl || null,
       videoUrl: videoUrl || null,
       ingredients,
@@ -1046,6 +1095,92 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
               className="w-full px-3 py-2 border rounded-md bg-background"
               placeholder="4"
             />
+          </div>
+        </div>
+
+        {/* Nutrition (optional) */}
+        <div>
+          <p className="text-sm font-medium mb-2">
+            Nutrition{' '}
+            <span className="text-muted-foreground font-normal">(optional, per serving)</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" htmlFor="form-calories">
+                Calories
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  id="form-calories"
+                  type="number"
+                  name="calories"
+                  value={calories}
+                  onChange={(e) => setCalories(e.target.value)}
+                  min="0"
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">kcal</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" htmlFor="form-protein">
+                Protein
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  id="form-protein"
+                  type="number"
+                  name="proteinG"
+                  value={proteinG}
+                  onChange={(e) => setProteinG(e.target.value)}
+                  min="0"
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">g</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" htmlFor="form-carbs">
+                Carbs
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  id="form-carbs"
+                  type="number"
+                  name="carbsG"
+                  value={carbsG}
+                  onChange={(e) => setCarbsG(e.target.value)}
+                  min="0"
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">g</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" htmlFor="form-fat">
+                Fat
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  id="form-fat"
+                  type="number"
+                  name="fatG"
+                  value={fatG}
+                  onChange={(e) => setFatG(e.target.value)}
+                  min="0"
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">g</span>
+              </div>
+            </div>
           </div>
         </div>
 
