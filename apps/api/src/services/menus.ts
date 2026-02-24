@@ -309,8 +309,7 @@ export async function updateDinnerEntry(
   const now = new Date().toISOString();
 
   // When type changes away from leftovers, clear sourceEntryId
-  const sourceEntryId =
-    input.type === 'leftovers' ? (input.sourceEntryId ?? null) : null;
+  const sourceEntryId = input.type === 'leftovers' ? (input.sourceEntryId ?? null) : null;
 
   // Update entry
   await db
@@ -519,9 +518,7 @@ export async function getRecentCompleted(): Promise<
   const entries = await db
     .select()
     .from(schema.dinnerEntries)
-    .where(
-      eq(schema.dinnerEntries.completed, true)
-    )
+    .where(eq(schema.dinnerEntries.completed, true))
     .orderBy(desc(schema.dinnerEntries.date));
 
   const results: { id: string; date: string; mainDishName: string }[] = [];
