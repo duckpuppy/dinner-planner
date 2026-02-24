@@ -32,7 +32,7 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import { updateDinnerEntry, deletePreparation } from '../services/menus.js';
+import { updateDinnerEntry, deletePreparation, setSkipped } from '../services/menus.js';
 
 // --- Chain helpers ---
 
@@ -61,6 +61,7 @@ function makeEntry(overrides: Record<string, unknown> = {}) {
     restaurantName: null,
     restaurantNotes: null,
     completed: false,
+    skipped: false,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -202,5 +203,48 @@ describe('deletePreparation', () => {
     mockDb.select.mockReturnValueOnce(selWhere([]));
     await deletePreparation('prep-1');
     expect(mockDb.delete).toHaveBeenCalledOnce();
+  });
+});
+
+// ===========================================================================
+// setSkipped
+// ===========================================================================
+
+describe('setSkipped', () => {
+  it('returns null when entry not found', async () => {
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined);
+    const result = await setSkipped('nonexistent', true);
+    expect(result).toBeNull();
+  });
+
+  it('calls db.update to set skipped=true', async () => {
+    const entry = makeEntry();
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await setSkipped('entry-1', true);
+    expect(mockDb.update).toHaveBeenCalledOnce();
+  });
+
+  it('calls db.update to set skipped=false', async () => {
+    const entry = makeEntry({ skipped: true });
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await setSkipped('entry-1', false);
+    expect(mockDb.update).toHaveBeenCalledOnce();
+  });
+
+  it('does not modify completed field', async () => {
+    const entry = makeEntry({ completed: true });
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await setSkipped('entry-1', true);
+
+    const updateCall = mockDb.update.mock.results[0].value;
+    const setArgs = updateCall.set.mock.calls[0][0];
+    expect(setArgs).not.toHaveProperty('completed');
+    expect(setArgs).toHaveProperty('skipped', true);
   });
 });

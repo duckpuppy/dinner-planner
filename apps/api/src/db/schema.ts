@@ -126,6 +126,7 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
   restaurantNotes: text('restaurant_notes'),
   mainDishId: text('main_dish_id').references(() => dishes.id),
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   ...timestamps,
 });
 

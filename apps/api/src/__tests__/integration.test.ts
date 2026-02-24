@@ -33,6 +33,7 @@ vi.mock('../services/menus.js', () => ({
   getTodayEntry: vi.fn(),
   updateDinnerEntry: vi.fn(),
   markEntryCompleted: vi.fn(),
+  setSkipped: vi.fn(),
   logPreparation: vi.fn(),
   getDishPreparations: vi.fn(),
   deletePreparation: vi.fn(),
@@ -209,6 +210,7 @@ const mockEntry = {
   mainDish: null,
   sideDishes: [],
   completed: false,
+  skipped: false,
   preparations: [],
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
@@ -940,6 +942,39 @@ describe('Menus routes', () => {
       body: JSON.stringify({ completed: true }),
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('PATCH /api/entries/:id/skip → 200 on success', async () => {
+    vi.mocked(menusService.setSkipped).mockResolvedValueOnce({ ...mockEntry, skipped: true });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/entries/entry-1/skip',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ skipped: true }),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).entry.skipped).toBe(true);
+  });
+
+  it('PATCH /api/entries/:id/skip → 404 when entry not found', async () => {
+    vi.mocked(menusService.setSkipped).mockResolvedValueOnce(null);
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/entries/nonexistent/skip',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ skipped: true }),
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('PATCH /api/entries/:id/skip → 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/entries/entry-1/skip',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ skipped: true }),
+    });
+    expect(res.statusCode).toBe(401);
   });
 
   it('POST /api/preparations → 201 on success', async () => {

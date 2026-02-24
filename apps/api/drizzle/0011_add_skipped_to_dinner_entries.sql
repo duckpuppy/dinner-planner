@@ -1,0 +1,1 @@
+ALTER TABLE `dinner_entries` ADD `skipped` integer DEFAULT false NOT NULL;
