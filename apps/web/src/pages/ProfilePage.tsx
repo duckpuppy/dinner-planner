@@ -3,8 +3,17 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
-import { users, ApiError } from '@/lib/api';
+import { users, ApiError, DIETARY_TAGS } from '@/lib/api';
 import { LogOut, Key, User, Sun, Moon, Calendar, CalendarDays } from 'lucide-react';
+
+const DIETARY_TAG_LABELS: Record<string, string> = {
+  vegetarian: 'Vegetarian',
+  vegan: 'Vegan',
+  gluten_free: 'Gluten-Free',
+  dairy_free: 'Dairy-Free',
+  nut_free: 'Nut-Free',
+  low_carb: 'Low-Carb',
+};
 
 export function ProfilePage() {
   const { user, logout, updateUser } = useAuthStore();
@@ -12,8 +21,11 @@ export function ProfilePage() {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
 
   const updatePreferencesMutation = useMutation({
-    mutationFn: (data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week' }) =>
-      users.updatePreferences(user!.id, data),
+    mutationFn: (data: {
+      theme?: 'light' | 'dark';
+      homeView?: 'today' | 'week';
+      dietaryPreferences?: string[];
+    }) => users.updatePreferences(user!.id, data),
     onSuccess: (result) => {
       updateUser(result.user);
       toast.success('Preferences updated');
@@ -32,6 +44,13 @@ export function ProfilePage() {
   const handleHomeViewToggle = (view: 'today' | 'week') => {
     updateUser({ homeView: view });
     updatePreferencesMutation.mutate({ homeView: view });
+  };
+
+  const handleDietaryPreferenceToggle = (tag: string) => {
+    const current = user!.dietaryPreferences ?? [];
+    const next = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
+    updateUser({ dietaryPreferences: next });
+    updatePreferencesMutation.mutate({ dietaryPreferences: next });
   };
 
   if (!user) return null;
@@ -112,6 +131,31 @@ export function ProfilePage() {
               Week
             </button>
           </div>
+        </div>
+
+        {/* Dietary preferences */}
+        <div>
+          <p className="text-sm font-medium mb-2">Dietary Preferences</p>
+          <fieldset>
+            <legend className="sr-only">Dietary preferences</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {DIETARY_TAGS.map((tag) => (
+                <label
+                  key={tag}
+                  className="flex items-center gap-2 text-sm cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={(user.dietaryPreferences ?? []).includes(tag)}
+                    onChange={() => handleDietaryPreferenceToggle(tag)}
+                    className="rounded border-input"
+                    disabled={updatePreferencesMutation.isPending}
+                  />
+                  {DIETARY_TAG_LABELS[tag]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       </div>
 

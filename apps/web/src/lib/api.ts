@@ -1,4 +1,6 @@
 import type { DishNote } from '@dinner-planner/shared';
+export { DIETARY_TAGS } from '@dinner-planner/shared';
+export type { DietaryTag } from '@dinner-planner/shared';
 
 const API_BASE = '/api';
 
@@ -160,7 +162,7 @@ export const users = {
 
   updatePreferences: (
     id: string,
-    data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week' }
+    data: { theme?: 'light' | 'dark'; homeView?: 'today' | 'week'; dietaryPreferences?: string[] }
   ) =>
     request<{ user: User }>(`/users/${id}/preferences`, {
       method: 'PATCH',
@@ -335,12 +337,15 @@ export const settings = {
 };
 
 export const suggestions = {
-  list: (params?: { tag?: string; limit?: number; exclude?: string[] }) => {
+  list: (params?: { tag?: string; limit?: number; exclude?: string[]; dietaryTags?: string[] }) => {
     const query = new URLSearchParams();
     if (params?.tag) query.set('tag', params.tag);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.exclude?.length) {
       params.exclude.forEach((id) => query.append('exclude', id));
+    }
+    if (params?.dietaryTags?.length) {
+      params.dietaryTags.forEach((tag) => query.append('dietaryTags[]', tag));
     }
     const qs = query.toString();
     return request<{ suggestions: SuggestedDish[] }>(`/dishes/suggestions${qs ? `?${qs}` : ''}`);
@@ -398,6 +403,7 @@ export interface User {
   role: 'admin' | 'member';
   theme: 'light' | 'dark';
   homeView: 'today' | 'week';
+  dietaryPreferences: string[];
 }
 
 export interface Dish {
@@ -419,6 +425,7 @@ export interface Dish {
   createdById: string;
   ingredients: Ingredient[];
   tags: string[];
+  dietaryTags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -453,6 +460,7 @@ export interface CreateDishData {
     notes: string | null;
   }>;
   tags?: string[];
+  dietaryTags?: string[];
 }
 
 export interface WeeklyMenu {
