@@ -199,4 +199,198 @@ describe('PatternsPage', () => {
       expect(screen.getByText('Dining Out: Pizza Place')).toBeDefined();
     });
   });
+
+  it('shows custom pattern text', async () => {
+    const customPattern = {
+      ...mockPattern,
+      type: 'custom' as const,
+      customText: 'Date Night',
+    };
+    vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [customPattern] });
+    render(<PatternsPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('Date Night')).toBeDefined();
+    });
+  });
+
+  it('shows "Custom" for custom patterns without text', async () => {
+    const customPattern = {
+      ...mockPattern,
+      type: 'custom' as const,
+      customText: null,
+    };
+    vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [customPattern] });
+    render(<PatternsPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('Custom')).toBeDefined();
+    });
+  });
+
+  it('shows side dishes in assembled pattern description', async () => {
+    const withSides = {
+      ...mockPattern,
+      mainDish: { id: 'd-1', name: 'Pasta', type: 'main' as const },
+      sideDishes: [{ id: 's-1', name: 'Salad', type: 'side' as const }],
+    };
+    vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [withSides] });
+    render(<PatternsPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Salad/)).toBeDefined();
+    });
+  });
+
+  describe('PatternForm', () => {
+    it('closes form when Cancel clicked', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      fireEvent.click(screen.getByText('Cancel'));
+      await waitFor(() => {
+        expect(screen.queryByText('New Pattern', { selector: 'h2' })).toBeNull();
+      });
+    });
+
+    it('shows error toast when label is empty on submit', async () => {
+      const { toast } = await import('sonner');
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      fireEvent.submit(screen.getByRole('button', { name: 'Create Pattern' }).closest('form')!);
+      expect(toast.error).toHaveBeenCalledWith('Label is required');
+    });
+
+    it('calls patterns.create when form submitted with valid label', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      vi.mocked(patternsApi.create).mockResolvedValue({ pattern: mockPattern } as never);
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      const labelInput = screen.getByPlaceholderText('e.g. Taco Tuesday');
+      fireEvent.change(labelInput, { target: { value: 'Meatless Monday' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Create Pattern' }));
+
+      await waitFor(() => {
+        expect(patternsApi.create).toHaveBeenCalledWith(
+          expect.objectContaining({ label: 'Meatless Monday' })
+        );
+      });
+    });
+
+    it('calls patterns.update when editing existing pattern', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [mockPattern] });
+      vi.mocked(patternsApi.update).mockResolvedValue({ pattern: mockPattern } as never);
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('Taco Tuesday'));
+      fireEvent.click(screen.getByLabelText('Edit pattern'));
+      await screen.findByText('Edit Pattern');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      await waitFor(() => {
+        expect(patternsApi.update).toHaveBeenCalledWith(
+          'pat-1',
+          expect.objectContaining({ label: 'Taco Tuesday' })
+        );
+      });
+    });
+
+    it('shows dish selector when type is assembled', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      // assembled is default, should show main dish selector
+      expect(screen.getByText('Main Dish (optional)')).toBeDefined();
+    });
+
+    it('shows custom text field when type is dining_out', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      // Click Dining Out type button
+      fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
+      expect(screen.getByText('Restaurant / Notes (optional)')).toBeDefined();
+    });
+
+    it('shows description field when type is custom', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+      expect(screen.getByText('Description (optional)')).toBeDefined();
+    });
+
+    it('shows side dish toggles when there are side dishes available', async () => {
+      vi.mocked(dishesApi.list).mockResolvedValue({
+        dishes: [
+          { id: 's-1', name: 'Garlic Bread', type: 'side', archived: false, tags: [], dietaryTags: [], description: null, recipeUrl: null, averageRating: null, ratingCount: 0, ingredients: [], createdById: 'u-1', createdAt: '', lastPreparedAt: null },
+        ],
+        total: 1,
+      });
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Side Dishes (optional)')).toBeDefined();
+        expect(screen.getByText('Garlic Bread')).toBeDefined();
+      });
+    });
+  });
+
+  describe('delete', () => {
+    it('calls patterns.delete when delete confirmed', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [mockPattern] });
+      vi.mocked(patternsApi.delete).mockResolvedValue(undefined as never);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      render(<PatternsPage />, { wrapper });
+      await waitFor(() => screen.getByText('Taco Tuesday'));
+
+      fireEvent.click(screen.getByLabelText('Delete pattern'));
+
+      await waitFor(() => {
+        expect(patternsApi.delete).toHaveBeenCalledWith('pat-1');
+      });
+    });
+
+    it('does not call patterns.delete when delete cancelled', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [mockPattern] });
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+      render(<PatternsPage />, { wrapper });
+      await waitFor(() => screen.getByText('Taco Tuesday'));
+
+      fireEvent.click(screen.getByLabelText('Delete pattern'));
+      expect(patternsApi.delete).not.toHaveBeenCalled();
+    });
+  });
 });

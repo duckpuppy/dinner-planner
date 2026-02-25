@@ -78,10 +78,18 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/main.tsx'],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.test.tsx',
+        'src/main.tsx',
+        // Pure HTTP client adapters — tested via integration/API tests
+        'src/lib/api.ts',
+      ],
       thresholds: {
-        lines: 18,
-        functions: 18,
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
       },
     },
   },

@@ -133,4 +133,80 @@ describe('authStore', () => {
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
     });
   });
+
+  describe('login', () => {
+    it('sets user and isAuthenticated on successful login', async () => {
+      const fakeUser = {
+        id: 'u1',
+        username: 'alice',
+        displayName: 'Alice',
+        role: 'user' as const,
+        theme: 'light' as const,
+        homeView: 'today' as const,
+        dietaryPreferences: [],
+      };
+      mockAuthLogin.mockResolvedValue({ user: fakeUser, accessToken: 'tok' });
+      await act(async () => {
+        await getState().login('alice', 'pass');
+      });
+      expect(getState().user).toEqual(fakeUser);
+      expect(getState().isAuthenticated).toBe(true);
+      expect(mockSetAccessToken).toHaveBeenCalledWith('tok');
+    });
+
+    it('propagates error when login fails', async () => {
+      mockAuthLogin.mockRejectedValue(new Error('Invalid credentials'));
+      await expect(
+        act(async () => {
+          await getState().login('bad', 'creds');
+        })
+      ).rejects.toThrow('Invalid credentials');
+    });
+  });
+
+  describe('logout', () => {
+    it('clears user and isAuthenticated', async () => {
+      useAuthStore.setState({
+        user: { id: 'u1', username: 'alice', displayName: 'Alice', role: 'user', theme: 'light', homeView: 'today', dietaryPreferences: [] },
+        isAuthenticated: true,
+      });
+      mockAuthLogout.mockResolvedValue(undefined);
+      await act(async () => {
+        await getState().logout();
+      });
+      expect(getState().user).toBeNull();
+      expect(getState().isAuthenticated).toBe(false);
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    });
+
+    it('still clears user even when logout API throws', async () => {
+      useAuthStore.setState({ isAuthenticated: true });
+      mockAuthLogout.mockRejectedValue(new Error('server error'));
+      await act(async () => {
+        await getState().logout();
+      });
+      expect(getState().isAuthenticated).toBe(false);
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('updateUser', () => {
+    it('merges updates into existing user', () => {
+      useAuthStore.setState({
+        user: { id: 'u1', username: 'alice', displayName: 'Alice', role: 'user', theme: 'light', homeView: 'today', dietaryPreferences: [] },
+      });
+      act(() => {
+        getState().updateUser({ displayName: 'Alice Smith' });
+      });
+      expect(getState().user?.displayName).toBe('Alice Smith');
+    });
+
+    it('keeps null user if user is null', () => {
+      useAuthStore.setState({ user: null });
+      act(() => {
+        getState().updateUser({ displayName: 'Alice' });
+      });
+      expect(getState().user).toBeNull();
+    });
+  });
 });

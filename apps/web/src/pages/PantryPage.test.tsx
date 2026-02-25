@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PantryPage } from './PantryPage';
 
@@ -86,5 +87,67 @@ describe('PantryPage', () => {
     vi.mocked(pantryApi.list).mockResolvedValue({ items: [] });
     render(<PantryPage />, { wrapper });
     expect(screen.getByText('Add Item')).toBeTruthy();
+  });
+
+  it('shows error state when loading fails', async () => {
+    vi.mocked(pantryApi.list).mockRejectedValue(new Error('Network error'));
+    render(<PantryPage />, { wrapper });
+    expect(await screen.findByText(/Failed to load/i)).toBeTruthy();
+  });
+
+  it('shows expiry badge for items expiring soon', async () => {
+    const soonDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    vi.mocked(pantryApi.list).mockResolvedValue({
+      items: [{ ...mockItem, expiresAt: soonDate }],
+    });
+    render(<PantryPage />, { wrapper });
+    // The component renders "Expires " + date
+    expect(await screen.findByText(/Expires/i)).toBeTruthy();
+  });
+
+  it('shows expired badge for past items', async () => {
+    const pastDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    vi.mocked(pantryApi.list).mockResolvedValue({
+      items: [{ ...mockItem, expiresAt: pastDate }],
+    });
+    render(<PantryPage />, { wrapper });
+    // The component renders "Expired " + date
+    expect(await screen.findByText(/Expired/i)).toBeTruthy();
+  });
+});
+
+describe('PantryPage AddItemForm', () => {
+  beforeEach(() => {
+    vi.mocked(pantryApi.list).mockResolvedValue({ items: [] });
+  });
+
+  it('opens add item form when Add Item clicked', async () => {
+    render(<PantryPage />, { wrapper });
+    fireEvent.click(screen.getByText('Add Item'));
+    expect(await screen.findByLabelText(/add pantry item/i)).toBeTruthy();
+  });
+
+  it('closes form when close button clicked', async () => {
+    render(<PantryPage />, { wrapper });
+    fireEvent.click(screen.getByText('Add Item'));
+    await screen.findByLabelText(/add pantry item/i);
+    fireEvent.click(screen.getByRole('button', { name: /close add item form/i }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/add pantry item/i)).toBeNull();
+    });
+  });
+
+  it('calls pantryApi.create when form submitted', async () => {
+    vi.mocked(pantryApi.create).mockResolvedValue({ item: mockItem } as never);
+    render(<PantryPage />, { wrapper });
+    fireEvent.click(screen.getByText('Add Item'));
+    await screen.findByLabelText(/add pantry item/i);
+    await userEvent.type(screen.getByPlaceholderText(/olive oil/i), 'Butter');
+    fireEvent.submit(screen.getByLabelText(/add pantry item/i));
+    await waitFor(() => {
+      expect(pantryApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({ ingredientName: 'Butter' })
+      );
+    });
   });
 });
