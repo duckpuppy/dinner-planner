@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { useAuthStore } from './stores/auth';
 import { useThemeStore } from './stores/theme';
 import { LoginPage } from './pages/LoginPage';
+import { SetupPage } from './pages/SetupPage';
 import { TodayPage } from './pages/TodayPage';
 import { WeekPage } from './pages/WeekPage';
 import { DishesPage } from './pages/DishesPage';
@@ -46,7 +47,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading, checkAuth, user } = useAuthStore();
+  const { isAuthenticated, isLoading, setupRequired, checkAuth, user } = useAuthStore();
   const initTheme = useThemeStore((s) => s.initTheme);
   useOfflineSync();
 
@@ -62,6 +63,18 @@ export default function App() {
 
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  if (setupRequired) {
+    return (
+      <>
+        <Toaster richColors position="top-right" />
+        <Routes>
+          <Route path="/setup" element={<SetupPage />} />
+          <Route path="*" element={<Navigate to="/setup" replace />} />
+        </Routes>
+      </>
+    );
   }
 
   if (!isAuthenticated) {

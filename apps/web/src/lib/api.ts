@@ -690,6 +690,26 @@ export const pantry = {
   delete: (id: string) => request<Record<string, never>>(`/pantry/${id}`, { method: 'DELETE' }),
 };
 
+// Health / Setup API
+export async function getHealth(): Promise<{ status: string; setupRequired: boolean }> {
+  const response = await fetch('/health');
+  if (!response.ok) throw new Error('Health check failed');
+  return response.json();
+}
+
+export async function postSetup(username: string, password: string): Promise<void> {
+  const response = await fetch('/api/setup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (response.status === 404) throw new Error('already_complete');
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw Object.assign(new Error('setup_failed'), { details: data });
+  }
+}
+
 // Prep Tasks API
 export const prepTasks = {
   list: (entryId: string) => request<{ prepTasks: PrepTask[] }>(`/entries/${entryId}/prep-tasks`),
