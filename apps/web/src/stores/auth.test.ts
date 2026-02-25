@@ -84,7 +84,15 @@ describe('authStore', () => {
 
     it('proceeds to auth refresh when health returns setupRequired false', async () => {
       mockGetHealth.mockResolvedValue({ status: 'ok', setupRequired: false });
-      const fakeUser = { id: '1', username: 'admin', displayName: 'Admin', role: 'admin' as const, theme: 'light' as const, homeView: 'today' as const, dietaryPreferences: [] };
+      const fakeUser = {
+        id: '1',
+        username: 'admin',
+        displayName: 'Admin',
+        role: 'admin' as const,
+        theme: 'light' as const,
+        homeView: 'today' as const,
+        dietaryPreferences: [],
+      };
       mockAuthRefresh.mockResolvedValue({ user: fakeUser, accessToken: 'token123' });
       await act(async () => {
         await getState().checkAuth();
@@ -97,7 +105,15 @@ describe('authStore', () => {
 
     it('falls through to auth check when health check fails', async () => {
       mockGetHealth.mockRejectedValue(new Error('Network error'));
-      const fakeUser = { id: '1', username: 'admin', displayName: 'Admin', role: 'admin' as const, theme: 'light' as const, homeView: 'today' as const, dietaryPreferences: [] };
+      const fakeUser = {
+        id: '1',
+        username: 'admin',
+        displayName: 'Admin',
+        role: 'admin' as const,
+        theme: 'light' as const,
+        homeView: 'today' as const,
+        dietaryPreferences: [],
+      };
       mockAuthRefresh.mockResolvedValue({ user: fakeUser, accessToken: 'token123' });
       await act(async () => {
         await getState().checkAuth();

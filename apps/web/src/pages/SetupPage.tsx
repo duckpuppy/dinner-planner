@@ -57,7 +57,9 @@ export function SetupPage() {
         if (err.message === 'already_complete') {
           setAlreadyComplete(true);
         } else if (err.message === 'setup_failed') {
-          const details = (err as Error & { details?: { error?: string; details?: Record<string, string[]> } }).details;
+          const details = (
+            err as Error & { details?: { error?: string; details?: Record<string, string[]> } }
+          ).details;
           if (details?.details) {
             const apiErrors: FieldErrors = {};
             if (details.details.username) apiErrors.username = details.details.username[0];
@@ -106,10 +108,16 @@ export function SetupPage() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-balance">Dinner Planner</h1>
-          <p className="text-muted-foreground mt-2 text-pretty">Create your admin account to get started</p>
+          <p className="text-muted-foreground mt-2 text-pretty">
+            Create your admin account to get started
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-card p-6 rounded-lg border space-y-4" noValidate>
+        <form
+          onSubmit={handleSubmit}
+          className="bg-card p-6 rounded-lg border space-y-4"
+          noValidate
+        >
           {generalError && (
             <div role="alert" className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
               {generalError}

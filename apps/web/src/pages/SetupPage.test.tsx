@@ -61,7 +61,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'ab');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(await screen.findByText('Username must be at least 3 characters')).toBeInTheDocument();
       expect(mockPostSetup).not.toHaveBeenCalled();
     });
@@ -71,7 +73,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'short');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'short');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(await screen.findByText('Password must be at least 8 characters')).toBeInTheDocument();
       expect(mockPostSetup).not.toHaveBeenCalled();
     });
@@ -81,7 +85,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'differentpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
       expect(mockPostSetup).not.toHaveBeenCalled();
     });
@@ -94,7 +100,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       await waitFor(() => expect(mockPostSetup).toHaveBeenCalledWith('adminuser', 'validpassword'));
     });
 
@@ -104,7 +112,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       await waitFor(() => {
         expect(mockSetupComplete).toHaveBeenCalled();
         expect(mockNavigate).toHaveBeenCalledWith('/login');
@@ -113,12 +123,18 @@ describe('SetupPage', () => {
 
     it('disables submit button while submitting', async () => {
       let resolve: () => void;
-      mockPostSetup.mockReturnValue(new Promise<void>((r) => { resolve = r; }));
+      mockPostSetup.mockReturnValue(
+        new Promise<void>((r) => {
+          resolve = r;
+        })
+      );
       renderSetupPage();
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       await waitFor(() =>
         expect(screen.getByRole('button', { name: 'Creating account...' })).toBeDisabled()
       );
@@ -133,7 +149,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(
         await screen.findByText('Setup already completed. Please log in.')
       ).toBeInTheDocument();
@@ -145,7 +163,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       const link = await screen.findByRole('link', { name: 'Go to Login' });
       expect(link).toBeInTheDocument();
     });
@@ -161,7 +181,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(await screen.findByText('Username already taken')).toBeInTheDocument();
     });
 
@@ -174,7 +196,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(await screen.findByText('Internal server error')).toBeInTheDocument();
     });
   });
@@ -186,7 +210,9 @@ describe('SetupPage', () => {
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
-      fireEvent.submit(screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!);
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
       expect(
         await screen.findByText('An unexpected error occurred. Please try again.')
       ).toBeInTheDocument();
