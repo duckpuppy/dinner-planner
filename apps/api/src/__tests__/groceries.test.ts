@@ -1,12 +1,35 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockDb = vi.hoisted(() => ({
+  select: vi.fn(),
+}));
+
+vi.mock('drizzle-orm', () => ({
+  inArray: vi.fn().mockReturnValue(null),
+  asc: vi.fn().mockReturnValue(null),
+  sql: vi.fn().mockReturnValue(null),
+}));
 
 // Mock db to avoid loading native better-sqlite3 bindings in unit tests
 vi.mock('../db/index.js', () => ({
-  db: { select: vi.fn(), query: { pantryItems: { findFirst: vi.fn() } } },
-  schema: {},
+  db: mockDb,
+  schema: {
+    ingredients: { dishId: null, sortOrder: null },
+  },
 }));
 
-import { aggregateIngredients } from '../services/groceries.js';
+const mockGetOrCreateWeekMenu = vi.hoisted(() => vi.fn());
+const mockListPantryItems = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+
+vi.mock('../services/menus.js', () => ({
+  getOrCreateWeekMenu: mockGetOrCreateWeekMenu,
+}));
+
+vi.mock('../services/pantry.js', () => ({
+  listPantryItems: mockListPantryItems,
+}));
+
+import { aggregateIngredients, getWeekGroceries } from '../services/groceries.js';
 
 describe('aggregateIngredients', () => {
   it('returns empty array for no inputs', () => {
@@ -111,5 +134,155 @@ describe('aggregateIngredients', () => {
       { dishName: 'A', quantity: 1, unit: null, name: 'Salt', notes: null },
     ]);
     expect(result[0].inPantry).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWeekGroceries
+// ---------------------------------------------------------------------------
+
+function makeMenu(entries: unknown[] = []) {
+  return {
+    id: 'menu-1',
+    weekStartDate: '2024-01-01',
+    entries,
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+  };
+}
+
+function makeEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'entry-1',
+    date: '2024-01-01',
+    type: 'assembled',
+    mainDish: null,
+    sideDishes: [],
+    ...overrides,
+  };
+}
+
+function selFromWhereOrderBy(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue(result) }),
+    }),
+  };
+}
+
+describe('getWeekGroceries', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListPantryItems.mockResolvedValue([]);
+  });
+
+  it('returns empty groceries when menu has no assembled entries with dishes', async () => {
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(
+      makeMenu([makeEntry({ type: 'fend_for_self' })])
+    );
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toEqual([]);
+    expect(result.weekStartDate).toBe('2024-01-01');
+  });
+
+  it('returns empty groceries when assembled entries have no dishes', async () => {
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(
+      makeMenu([makeEntry({ type: 'assembled', mainDish: null, sideDishes: [] })])
+    );
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toEqual([]);
+  });
+
+  it('fetches ingredients for main dish and aggregates', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Pasta' },
+      sideDishes: [],
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        { id: 'ing-1', dishId: 'dish-1', name: 'Flour', quantity: 200, unit: 'g', notes: null, sortOrder: 0 },
+      ])
+    );
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toHaveLength(1);
+    expect(result.groceries[0].name).toBe('Flour');
+    expect(result.groceries[0].inPantry).toBe(false);
+  });
+
+  it('fetches ingredients for side dishes', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: null,
+      sideDishes: [{ id: 'dish-2', name: 'Salad' }],
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        { id: 'ing-2', dishId: 'dish-2', name: 'Lettuce', quantity: 1, unit: 'head', notes: null, sortOrder: 0 },
+      ])
+    );
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toHaveLength(1);
+    expect(result.groceries[0].name).toBe('Lettuce');
+  });
+
+  it('marks items as inPantry when pantry contains matching ingredient', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Pasta' },
+      sideDishes: [],
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        { id: 'ing-1', dishId: 'dish-1', name: 'Olive Oil', quantity: 1, unit: 'tbsp', notes: null, sortOrder: 0 },
+      ])
+    );
+    mockListPantryItems.mockResolvedValueOnce([
+      { id: 'p-1', ingredientName: 'Olive Oil', quantity: 1, unit: null, expiresAt: null, createdAt: '' },
+    ]);
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries[0].inPantry).toBe(true);
+  });
+
+  it('deduplicates dishes across entries', async () => {
+    const entries = [
+      makeEntry({
+        id: 'entry-1',
+        type: 'assembled',
+        mainDish: { id: 'dish-1', name: 'Pasta' },
+        sideDishes: [],
+      }),
+      makeEntry({
+        id: 'entry-2',
+        type: 'assembled',
+        mainDish: { id: 'dish-1', name: 'Pasta' },
+        sideDishes: [],
+      }),
+    ];
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu(entries));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        { id: 'ing-1', dishId: 'dish-1', name: 'Garlic', quantity: 2, unit: 'cloves', notes: null, sortOrder: 0 },
+      ])
+    );
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    // dish-1 appears twice but ingredients are fetched once (Map deduplication)
+    expect(result.groceries).toHaveLength(1);
+    expect(result.groceries[0].name).toBe('Garlic');
   });
 });

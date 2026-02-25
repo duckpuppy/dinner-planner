@@ -45,7 +45,16 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import { deleteDish, archiveDish, unarchiveDish } from '../services/dishes.js';
+import {
+  deleteDish,
+  archiveDish,
+  unarchiveDish,
+  getDishes,
+  createDish,
+  updateDish,
+  getAllTags,
+  getDishesByIds,
+} from '../services/dishes.js';
 
 // --- Chain helpers ---
 
@@ -121,7 +130,7 @@ function setupGetDishWithRelations(dish: unknown, tags: string[] = []) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mockDb.update.mockReturnValue(makeUpdate());
   mockDb.delete.mockReturnValue(makeDelete());
   mockDb.insert.mockReturnValue(makeInsert());
@@ -211,5 +220,368 @@ describe('unarchiveDish', () => {
     const result = await unarchiveDish('dish-1');
     expect(mockDb.update).toHaveBeenCalledOnce();
     expect(result?.archived).toBe(false);
+  });
+});
+
+// Additional chain helpers
+function selWhereCountOrderBy(count: number) {
+  return {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([{ count }]),
+    }),
+  };
+}
+
+function selWhereOrderByLimitOffset(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            offset: vi.fn().mockResolvedValue(result),
+          }),
+        }),
+      }),
+    }),
+  };
+}
+
+function selLeftJoinGroupByOrderBy(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        groupBy: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue(result),
+        }),
+      }),
+    }),
+  };
+}
+
+// ===========================================================================
+// getDishes
+// ===========================================================================
+
+describe('getDishes', () => {
+  it('returns dishes with total count', async () => {
+    const dish = makeDish();
+    // 1. count query
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(1));
+    // 2. dishes query
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([dish]));
+    // 3-5. getDishWithRelations for dish-1
+    setupGetDishWithRelations(dish);
+
+    const result = await getDishes({
+      archived: false,
+      sort: 'name',
+      order: 'asc',
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(result.dishes).toHaveLength(1);
+    expect(result.total).toBe(1);
+  });
+
+  it('returns zero total when no dishes', async () => {
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(0));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([]));
+
+    const result = await getDishes({
+      archived: false,
+      sort: 'name',
+      order: 'asc',
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(result.dishes).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+
+  it('filters by type when specified', async () => {
+    const dish = makeDish();
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(1));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([dish]));
+    setupGetDishWithRelations(dish);
+
+    const result = await getDishes({
+      archived: false,
+      type: 'main',
+      sort: 'name',
+      order: 'asc',
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(result.dishes).toHaveLength(1);
+  });
+
+  it('uses created sort order', async () => {
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(0));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([]));
+
+    await getDishes({ archived: false, sort: 'created', order: 'desc', limit: 10, offset: 0 });
+
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses recent sort order', async () => {
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(0));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([]));
+
+    await getDishes({ archived: false, sort: 'recent', order: 'asc', limit: 10, offset: 0 });
+
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('filters by tag post-query', async () => {
+    // Only return one dish from DB, and it has the 'italian' tag
+    const dish = makeDish();
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(1));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([dish]));
+    // getDishWithRelations for dish-1: has italian tag
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.select.mockReturnValueOnce(selWhereOrderBy([])); // ingredients
+    mockDb.select.mockReturnValueOnce(selInnerJoinWhere([{ name: 'italian' }])); // tags
+    mockDb.select.mockReturnValueOnce(selWhere([])); // dietary
+
+    const result = await getDishes({
+      archived: false,
+      tag: 'italian',
+      sort: 'name',
+      order: 'asc',
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(result.dishes).toHaveLength(1);
+    expect(result.dishes[0].tags).toContain('italian');
+  });
+
+  it('filters by dietaryTags post-query', async () => {
+    const dish = makeDish();
+    mockDb.select.mockReturnValueOnce(selWhereCountOrderBy(1));
+    mockDb.select.mockReturnValueOnce(selWhereOrderByLimitOffset([dish]));
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.select.mockReturnValueOnce(selWhereOrderBy([]));
+    mockDb.select.mockReturnValueOnce(selInnerJoinWhere([]));
+    mockDb.select.mockReturnValueOnce(selWhere([{ tag: 'vegan' }]));
+
+    const result = await getDishes({
+      archived: false,
+      dietaryTags: ['vegan'],
+      sort: 'name',
+      order: 'asc',
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(result.dishes).toHaveLength(1);
+  });
+});
+
+// ===========================================================================
+// createDish
+// ===========================================================================
+
+describe('createDish', () => {
+  it('creates dish without ingredients or tags', async () => {
+    setupGetDishWithRelations(makeDish());
+
+    const result = await createDish(
+      { name: 'Pasta', type: 'main', description: '', instructions: '' },
+      'user-1'
+    );
+
+    expect(result.name).toBe('Pasta');
+    expect(mockDb.insert).toHaveBeenCalledOnce(); // just the dish insert
+  });
+
+  it('creates dish with ingredients', async () => {
+    setupGetDishWithRelations(makeDish());
+
+    await createDish(
+      {
+        name: 'Pasta',
+        type: 'main',
+        description: '',
+        instructions: '',
+        ingredients: [{ name: 'Flour', quantity: 200, unit: 'g', notes: null }],
+      },
+      'user-1'
+    );
+
+    expect(mockDb.insert).toHaveBeenCalledTimes(2); // dish + ingredients
+  });
+
+  it('creates dish with new tags (find-or-create)', async () => {
+    mockDb.query.tags.findFirst.mockResolvedValueOnce(undefined); // tag not found
+    setupGetDishWithRelations(makeDish());
+
+    await createDish(
+      { name: 'Pasta', type: 'main', description: '', instructions: '', tags: ['italian'] },
+      'user-1'
+    );
+
+    // inserts: dish, new tag, dishTag link
+    expect(mockDb.insert).toHaveBeenCalledTimes(3);
+  });
+
+  it('creates dish with existing tag', async () => {
+    mockDb.query.tags.findFirst.mockResolvedValueOnce({ id: 'tag-1', name: 'italian' });
+    setupGetDishWithRelations(makeDish());
+
+    await createDish(
+      { name: 'Pasta', type: 'main', description: '', instructions: '', tags: ['italian'] },
+      'user-1'
+    );
+
+    // inserts: dish, dishTag link (no new tag insert)
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('creates dish with dietary tags', async () => {
+    setupGetDishWithRelations(makeDish());
+
+    await createDish(
+      {
+        name: 'Salad',
+        type: 'side',
+        description: '',
+        instructions: '',
+        dietaryTags: ['vegan'],
+      },
+      'user-1'
+    );
+
+    expect(mockDb.insert).toHaveBeenCalledTimes(2); // dish + dietary tags
+  });
+});
+
+// ===========================================================================
+// updateDish
+// ===========================================================================
+
+describe('updateDish', () => {
+  it('returns null when dish not found', async () => {
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined);
+    const result = await updateDish('nonexistent', { name: 'New Name' });
+    expect(result).toBeNull();
+  });
+
+  it('updates dish fields and returns updated dish', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    setupGetDishWithRelations({ ...dish, name: 'New Pasta' });
+
+    const result = await updateDish('dish-1', { name: 'New Pasta' });
+
+    expect(mockDb.update).toHaveBeenCalledOnce();
+    expect(result?.name).toBe('New Pasta');
+  });
+
+  it('replaces ingredients when provided', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    setupGetDishWithRelations(dish);
+
+    await updateDish('dish-1', {
+      ingredients: [{ name: 'Salt', quantity: 1, unit: 'tsp', notes: null }],
+    });
+
+    expect(mockDb.delete).toHaveBeenCalledOnce(); // delete old ingredients
+    expect(mockDb.insert).toHaveBeenCalledOnce(); // insert new ingredients
+  });
+
+  it('deletes ingredients when empty array provided', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    setupGetDishWithRelations(dish);
+
+    await updateDish('dish-1', { ingredients: [] });
+
+    expect(mockDb.delete).toHaveBeenCalledOnce(); // delete old, nothing new
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('replaces tags when provided', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.query.tags.findFirst.mockResolvedValueOnce(undefined); // new tag
+    setupGetDishWithRelations(dish);
+
+    await updateDish('dish-1', { tags: ['mexican'] });
+
+    // deletes old tags link, inserts new tag + dishTag link
+    expect(mockDb.delete).toHaveBeenCalledOnce();
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('replaces dietary tags when provided', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    setupGetDishWithRelations(dish);
+
+    await updateDish('dish-1', { dietaryTags: ['vegan'] });
+
+    expect(mockDb.delete).toHaveBeenCalledOnce(); // delete old dietary tags
+    expect(mockDb.insert).toHaveBeenCalledOnce(); // insert new dietary tags
+  });
+
+  it('clears dietary tags when empty array provided', async () => {
+    const dish = makeDish();
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    setupGetDishWithRelations(dish);
+
+    await updateDish('dish-1', { dietaryTags: [] });
+
+    expect(mockDb.delete).toHaveBeenCalledOnce();
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// getAllTags
+// ===========================================================================
+
+describe('getAllTags', () => {
+  it('returns empty array when no tags', async () => {
+    mockDb.select.mockReturnValueOnce(selLeftJoinGroupByOrderBy([]));
+
+    const result = await getAllTags();
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns tags with count', async () => {
+    mockDb.select.mockReturnValueOnce(selLeftJoinGroupByOrderBy([{ name: 'italian', count: 3 }]));
+
+    const result = await getAllTags();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('italian');
+    expect(result[0].count).toBe(3);
+  });
+});
+
+// ===========================================================================
+// getDishesByIds
+// ===========================================================================
+
+describe('getDishesByIds', () => {
+  it('returns empty array for empty ids', async () => {
+    const result = await getDishesByIds([]);
+    expect(result).toEqual([]);
+  });
+
+  it('fetches each dish by id', async () => {
+    setupGetDishWithRelations(makeDish());
+
+    const result = await getDishesByIds(['dish-1']);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('dish-1');
   });
 });
