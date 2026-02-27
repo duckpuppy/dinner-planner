@@ -1,6 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
+import { toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
+
+const toggleCheckSchema = z.object({
+  weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
+  itemKey: z.string().min(1, 'itemKey must not be empty'),
+  itemName: z.string().min(1, 'itemName must not be empty'),
+});
+
+const clearChecksQuerySchema = z.object({
+  weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
+});
 
 const createCustomItemSchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
@@ -74,6 +85,49 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const deleted = await deleteCustomItem(id);
       if (!deleted) return reply.status(404).send({ error: 'Custom grocery item not found' });
+      return reply.status(204).send();
+    }
+  );
+
+  /**
+   * POST /api/grocery/checks/toggle
+   * Toggle a grocery check on or off for the authenticated user.
+   */
+  fastify.post(
+    '/api/grocery/checks/toggle',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const parsed = toggleCheckSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
+      }
+
+      const { weekDate, itemKey, itemName } = parsed.data;
+      const userId = request.user.userId;
+      const checked = await toggleCheck(weekDate, itemKey, itemName, userId);
+      return reply.send({ itemKey, checked });
+    }
+  );
+
+  /**
+   * DELETE /api/grocery/checks
+   * Clear all grocery checks for a week.
+   * Query param: weekDate (YYYY-MM-DD)
+   */
+  fastify.delete(
+    '/api/grocery/checks',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const parsed = clearChecksQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
+      }
+
+      await clearAllChecks(parsed.data.weekDate);
       return reply.status(204).send();
     }
   );

@@ -288,6 +288,23 @@ export const customGroceryItems = sqliteTable('custom_grocery_items', {
   createdAt: text('created_at').notNull(),
 });
 
+// Grocery checks table (M24: shared server-side check state)
+export const groceryChecks = sqliteTable(
+  'grocery_checks',
+  {
+    weekDate: text('week_date').notNull(),
+    itemKey: text('item_key').notNull(),
+    itemName: text('item_name').notNull(),
+    checkedByUserId: text('checked_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    checkedAt: text('checked_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [primaryKey({ columns: [table.weekDate, table.itemKey] })]
+);
+
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {
   id: text('id').primaryKey(),

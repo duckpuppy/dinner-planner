@@ -16,7 +16,13 @@ vi.mock('../services/customGroceries.js', () => ({
   deleteCustomItem: vi.fn(),
 }));
 
+vi.mock('../services/groceryChecks.js', () => ({
+  toggleCheck: vi.fn(),
+  clearAllChecks: vi.fn(),
+}));
+
 import * as customGroceriesService from '../services/customGroceries.js';
+import * as groceryChecksService from '../services/groceryChecks.js';
 
 const TEST_JWT_SECRET = 'integration-test-secret-must-be-32-chars!';
 
@@ -265,6 +271,175 @@ describe('DELETE /api/grocery/custom/:id', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/grocery/custom/item-1',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// POST /api/grocery/checks/toggle
+// ===========================================================================
+
+describe('POST /api/grocery/checks/toggle', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns 200 with checked:true when toggling on', async () => {
+    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce(true);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        weekDate: '2026-02-24',
+        itemKey: 'flour::cup',
+        itemName: 'Flour',
+      }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.itemKey).toBe('flour::cup');
+    expect(body.checked).toBe(true);
+  });
+
+  it('returns 200 with checked:false when toggling off', async () => {
+    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce(false);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        weekDate: '2026-02-24',
+        itemKey: 'flour::cup',
+        itemName: 'Flour',
+      }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.itemKey).toBe('flour::cup');
+    expect(body.checked).toBe(false);
+  });
+
+  it('returns 400 when weekDate is missing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ itemKey: 'flour::cup', itemName: 'Flour' }),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 400 when weekDate is invalid format', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ weekDate: 'not-a-date', itemKey: 'flour::cup', itemName: 'Flour' }),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 400 when itemKey is empty string', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ weekDate: '2026-02-24', itemKey: '', itemName: 'Flour' }),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 400 when itemName is empty string', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ weekDate: '2026-02-24', itemKey: 'flour::cup', itemName: '' }),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/toggle',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ weekDate: '2026-02-24', itemKey: 'flour::cup', itemName: 'Flour' }),
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// DELETE /api/grocery/checks
+// ===========================================================================
+
+describe('DELETE /api/grocery/checks', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns 204 when clearing checks for a week', async () => {
+    vi.mocked(groceryChecksService.clearAllChecks).mockResolvedValueOnce(undefined);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/grocery/checks?weekDate=2026-02-24',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(groceryChecksService.clearAllChecks).toHaveBeenCalledWith('2026-02-24');
+  });
+
+  it('returns 400 when weekDate query param is missing', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/grocery/checks',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 400 when weekDate is invalid format', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/grocery/checks?weekDate=baddate',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Validation error' });
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/grocery/checks?weekDate=2026-02-24',
     });
     expect(res.statusCode).toBe(401);
   });

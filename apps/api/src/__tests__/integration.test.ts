@@ -114,6 +114,12 @@ vi.mock('../services/customGroceries.js', () => ({
   deleteCustomItem: vi.fn(),
 }));
 
+vi.mock('../services/groceryChecks.js', () => ({
+  getCheckedKeys: vi.fn().mockResolvedValue([]),
+  toggleCheck: vi.fn(),
+  clearAllChecks: vi.fn(),
+}));
+
 vi.mock('../services/setup.js', () => ({
   isSetupRequired: vi.fn().mockResolvedValue(false),
   createFirstAdmin: vi.fn(),
