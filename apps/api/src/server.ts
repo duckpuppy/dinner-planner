@@ -25,6 +25,7 @@ import { photosRoutes } from './routes/photos.js';
 import { prepTasksRoutes } from './routes/prepTasks.js';
 import { dishNotesRoutes } from './routes/dishNotes.js';
 import { pantryRoutes } from './routes/pantry.js';
+import { groceryRoutes } from './routes/grocery.js';
 import { setupRoutes } from './routes/setup.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
@@ -126,6 +127,7 @@ await fastify.register(photosRoutes);
 await fastify.register(prepTasksRoutes);
 await fastify.register(dishNotesRoutes);
 await fastify.register(pantryRoutes);
+await fastify.register(groceryRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {

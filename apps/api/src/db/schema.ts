@@ -277,6 +277,17 @@ export const pantryItems = sqliteTable('pantry_items', {
     .default(sql`(datetime('now'))`),
 });
 
+// Custom grocery items table (M23: user-added free-form grocery items)
+export const customGroceryItems = sqliteTable('custom_grocery_items', {
+  id: text('id').primaryKey(),
+  weekDate: text('week_date').notNull(),
+  name: text('name').notNull(),
+  quantity: real('quantity'),
+  unit: text('unit'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+});
+
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {
   id: text('id').primaryKey(),

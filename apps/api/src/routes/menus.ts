@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { updateDinnerEntrySchema, createPreparationSchema } from '@dinner-planner/shared';
 import * as menusService from '../services/menus.js';
 import * as groceriesService from '../services/groceries.js';
+import { getCustomItemsForWeek } from '../services/customGroceries.js';
 import { z } from 'zod';
 
 const dateParamSchema = z.object({
@@ -57,7 +58,8 @@ export async function menusRoutes(fastify: FastifyInstance) {
       }
 
       const result = await groceriesService.getWeekGroceries(parseResult.data.date);
-      return reply.send(result);
+      const customItems = await getCustomItemsForWeek(result.weekStartDate);
+      return reply.send({ ...result, customItems });
     }
   );
 
