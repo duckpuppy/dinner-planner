@@ -287,7 +287,7 @@ describe('HistoryPage', () => {
   describe('delete flow', () => {
     it('opens confirm dialog when delete swipe action triggered', async () => {
       vi.mocked(history.list).mockResolvedValue({ entries: [makeEntry()], total: 1 });
-      const { useSwipeActions } = await import('@/hooks/useSwipeActions');
+      await import('@/hooks/useSwipeActions');
       render(<HistoryPage />, { wrapper });
       await screen.findByText('Pasta');
       // Confirm dialog should be hidden initially

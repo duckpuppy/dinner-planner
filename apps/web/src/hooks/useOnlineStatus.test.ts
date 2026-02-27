@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import { useOnlineStatus } from './useOnlineStatus';
 
@@ -45,7 +45,7 @@ describe('useOnlineStatus', () => {
   });
 
   it('removes event listeners on unmount', () => {
-    const addSpy = vi.spyOn(window, 'addEventListener');
+    vi.spyOn(window, 'addEventListener');
     const removeSpy = vi.spyOn(window, 'removeEventListener');
 
     const { unmount } = renderHook(() => useOnlineStatus());
