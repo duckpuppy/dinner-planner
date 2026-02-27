@@ -173,6 +173,7 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 - Check state currently in **localStorage** (`useGroceryChecklist`) — moves server-side in M24
 - M24 sync strategy: **5s polling** (not SSE/WS) — right choice for family scale, resilient on mobile
 - M24 check model: shared (any family member checks → all see it); `groceryChecks(weekDate, itemName, checkedByUserId)`
+- M25 store model: managed `stores(id, name)` table + `ingredientStores(ingredientId, storeId)` junction — chosen over JSON array for consistent naming and reliable filter dropdown
 
 ### Future enhancements (not yet scheduled)
 
