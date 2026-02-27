@@ -226,7 +226,30 @@ export const menus = {
   getWeek: (date: string) => request<{ menu: WeeklyMenu }>(`/menus/week/${date}`),
 
   getGroceries: (date: string) =>
-    request<{ groceries: GroceryItem[]; weekStartDate: string }>(`/menus/week/${date}/groceries`),
+    request<{ groceries: GroceryItem[]; customItems: CustomGroceryItem[]; weekStartDate: string }>(
+      `/menus/week/${date}/groceries`
+    ),
+
+  addCustomItem: (
+    weekDate: string,
+    data: { name: string; quantity?: number; unit?: string }
+  ) =>
+    request<CustomGroceryItem>('/grocery/custom', {
+      method: 'POST',
+      body: JSON.stringify({ weekDate, ...data }),
+    }),
+
+  deleteCustomItem: (id: string) =>
+    request<void>(`/grocery/custom/${id}`, { method: 'DELETE' }),
+
+  updateCustomItem: (
+    id: string,
+    data: { name?: string; quantity?: number | null; unit?: string | null }
+  ) =>
+    request<CustomGroceryItem>(`/grocery/custom/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 
   getToday: () => request<{ entry: DinnerEntry }>('/menus/today'),
 
@@ -596,6 +619,15 @@ export interface GroceryItem {
   dishes: string[];
   notes: string[];
   inPantry: boolean;
+}
+
+export interface CustomGroceryItem {
+  id: string;
+  weekDate: string;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  sortOrder: number;
 }
 
 export interface PantryItem {

@@ -7,6 +7,9 @@ import { GroceryPage } from './GroceryPage';
 vi.mock('@/lib/api', () => ({
   menus: {
     getGroceries: vi.fn(),
+    addCustomItem: vi.fn(),
+    deleteCustomItem: vi.fn(),
+    updateCustomItem: vi.fn(),
   },
 }));
 
@@ -15,6 +18,12 @@ vi.mock('sonner', () => ({
 }));
 
 import { menus } from '@/lib/api';
+
+const baseGroceriesResponse = {
+  groceries: [],
+  customItems: [],
+  weekStartDate: '2024-06-10',
+};
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({
@@ -38,19 +47,13 @@ describe('GroceryPage', () => {
   });
 
   it('renders page heading', async () => {
-    vi.mocked(menus.getGroceries).mockResolvedValue({
-      groceries: [],
-      weekStartDate: '2024-06-10',
-    });
+    vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
     render(<GroceryPage />, { wrapper });
     expect(screen.getByText('Grocery List')).toBeTruthy();
   });
 
   it('shows empty state when no groceries', async () => {
-    vi.mocked(menus.getGroceries).mockResolvedValue({
-      groceries: [],
-      weekStartDate: '2024-06-10',
-    });
+    vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
     const { findByText } = render(<GroceryPage />, { wrapper });
     expect(await findByText('No ingredients this week')).toBeTruthy();
   });
@@ -68,6 +71,7 @@ describe('GroceryPage', () => {
           inPantry: false,
         },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     const { findByText } = render(<GroceryPage />, { wrapper });
@@ -93,6 +97,7 @@ describe('GroceryPage', () => {
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
         { name: 'Salt', quantity: null, unit: null, dishes: [], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     const { findByText } = render(<GroceryPage />, { wrapper });
@@ -104,6 +109,7 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -115,6 +121,7 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -130,6 +137,7 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -143,6 +151,7 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -167,6 +176,7 @@ describe('GroceryPage', () => {
           inPantry: true,
         },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -181,6 +191,7 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Pepper', quantity: null, unit: 'tsp', dishes: [], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -199,6 +210,7 @@ describe('GroceryPage', () => {
           inPantry: false,
         },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
@@ -217,12 +229,173 @@ describe('GroceryPage', () => {
       groceries: [
         { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
       ],
+      customItems: [],
       weekStartDate: '2024-06-10',
     });
     render(<GroceryPage />, { wrapper });
     fireEvent.click(await screen.findByText('Copy'));
     await waitFor(() => {
       expect(mockWriteText).toHaveBeenCalledWith(expect.stringContaining('Flour'));
+    });
+  });
+
+  // Custom items tests
+  describe('custom items', () => {
+    it('renders custom items in the list', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        groceries: [],
+        customItems: [
+          {
+            id: 'ci-1',
+            weekDate: '2024-06-10',
+            name: 'Paper towels',
+            quantity: null,
+            unit: null,
+            sortOrder: 0,
+          },
+        ],
+        weekStartDate: '2024-06-10',
+      });
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('Paper towels')).toBeTruthy();
+    });
+
+    it('renders custom item with quantity and unit', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        groceries: [],
+        customItems: [
+          {
+            id: 'ci-2',
+            weekDate: '2024-06-10',
+            name: 'Milk',
+            quantity: 2,
+            unit: 'L',
+            sortOrder: 0,
+          },
+        ],
+        weekStartDate: '2024-06-10',
+      });
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('Milk')).toBeTruthy();
+      expect(await screen.findByText(/2.*L/)).toBeTruthy();
+    });
+
+    it('shows Custom Items section header', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('Custom Items')).toBeTruthy();
+    });
+
+    it('shows the add item form', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByPlaceholderText('Item name')).toBeTruthy();
+      expect(await screen.findByRole('button', { name: /Add item/i })).toBeTruthy();
+    });
+
+    it('add item form submits and calls addCustomItem', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      vi.mocked(menus.addCustomItem).mockResolvedValue({
+        id: 'ci-new',
+        weekDate: '2024-06-10',
+        name: 'Bananas',
+        quantity: null,
+        unit: null,
+        sortOrder: 0,
+      });
+
+      render(<GroceryPage />, { wrapper });
+      const nameInput = await screen.findByPlaceholderText('Item name');
+      fireEvent.change(nameInput, { target: { value: 'Bananas' } });
+      fireEvent.click(screen.getByRole('button', { name: /Add item/i }));
+
+      await waitFor(() => {
+        expect(vi.mocked(menus.addCustomItem)).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({ name: 'Bananas' })
+        );
+      });
+    });
+
+    it('add item form clears after successful submit', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      vi.mocked(menus.addCustomItem).mockResolvedValue({
+        id: 'ci-new',
+        weekDate: '2024-06-10',
+        name: 'Bananas',
+        quantity: null,
+        unit: null,
+        sortOrder: 0,
+      });
+
+      render(<GroceryPage />, { wrapper });
+      const nameInput = await screen.findByPlaceholderText('Item name');
+      fireEvent.change(nameInput, { target: { value: 'Bananas' } });
+      fireEvent.click(screen.getByRole('button', { name: /Add item/i }));
+
+      await waitFor(() => {
+        expect((screen.getByPlaceholderText('Item name') as HTMLInputElement).value).toBe('');
+      });
+    });
+
+    it('does not submit when item name is empty', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      await screen.findByPlaceholderText('Item name');
+      // Add button should be disabled when name is empty
+      const addBtn = screen.getByRole('button', { name: /Add item/i });
+      expect((addBtn as HTMLButtonElement).disabled).toBe(true);
+      expect(vi.mocked(menus.addCustomItem)).not.toHaveBeenCalled();
+    });
+
+    it('delete button calls deleteCustomItem', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        groceries: [],
+        customItems: [
+          {
+            id: 'ci-1',
+            weekDate: '2024-06-10',
+            name: 'Paper towels',
+            quantity: null,
+            unit: null,
+            sortOrder: 0,
+          },
+        ],
+        weekStartDate: '2024-06-10',
+      });
+      vi.mocked(menus.deleteCustomItem).mockResolvedValue(undefined);
+
+      render(<GroceryPage />, { wrapper });
+      const deleteBtn = await screen.findByRole('button', { name: /Delete Paper towels/i });
+      fireEvent.click(deleteBtn);
+
+      await waitFor(() => {
+        expect(vi.mocked(menus.deleteCustomItem)).toHaveBeenCalledWith('ci-1');
+      });
+    });
+
+    it('submits on Enter key in name input', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      vi.mocked(menus.addCustomItem).mockResolvedValue({
+        id: 'ci-new',
+        weekDate: '2024-06-10',
+        name: 'Eggs',
+        quantity: null,
+        unit: null,
+        sortOrder: 0,
+      });
+
+      render(<GroceryPage />, { wrapper });
+      const nameInput = await screen.findByPlaceholderText('Item name');
+      fireEvent.change(nameInput, { target: { value: 'Eggs' } });
+      fireEvent.keyDown(nameInput, { key: 'Enter' });
+
+      await waitFor(() => {
+        expect(vi.mocked(menus.addCustomItem)).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({ name: 'Eggs' })
+        );
+      });
     });
   });
 });
