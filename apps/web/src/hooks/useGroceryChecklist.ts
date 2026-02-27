@@ -1,28 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-
-const STORAGE_PREFIX = 'grocery-checked-';
-
-function storageKey(weekStartDate: string): string {
-  return `${STORAGE_PREFIX}${weekStartDate}`;
-}
-
-function loadChecked(weekStartDate: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(storageKey(weekStartDate));
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveChecked(weekStartDate: string, checked: Set<string>): void {
-  try {
-    localStorage.setItem(storageKey(weekStartDate), JSON.stringify(Array.from(checked)));
-  } catch {
-    // Storage quota exceeded or unavailable — ignore
-  }
-}
+import { useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { menus } from '@/lib/api';
 
 export function groceryItemKey(name: string, unit: string | null): string {
   return `${name.toLowerCase()}::${unit?.toLowerCase() ?? ''}`;
@@ -30,43 +8,87 @@ export function groceryItemKey(name: string, unit: string | null): string {
 
 export interface GroceryChecklist {
   checked: Set<string>;
-  toggle: (key: string) => void;
+  toggle: (key: string, itemName: string) => void;
   clearAll: () => void;
 }
 
-export function useGroceryChecklist(weekStartDate: string): GroceryChecklist {
-  const [checked, setChecked] = useState<Set<string>>(() =>
-    weekStartDate ? loadChecked(weekStartDate) : new Set()
-  );
+interface UseGroceryChecklistOptions {
+  checkedKeys: string[];
+  weekStartDate: string;
+  requestedDate: string;
+}
 
-  // Reload state when weekStartDate resolves (e.g., after API response)
-  useEffect(() => {
-    if (weekStartDate) {
-      setChecked(loadChecked(weekStartDate));
-    }
-  }, [weekStartDate]);
+type GroceriesQueryData = {
+  groceries: unknown[];
+  customItems: unknown[];
+  weekStartDate: string;
+  checkedKeys: string[];
+};
+
+export function useGroceryChecklist({
+  checkedKeys,
+  weekStartDate,
+  requestedDate,
+}: UseGroceryChecklistOptions): GroceryChecklist {
+  const queryClient = useQueryClient();
+  const queryKey = ['groceries', requestedDate];
+
+  const checked = new Set(checkedKeys);
 
   const toggle = useCallback(
-    (key: string) => {
-      setChecked((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) {
-          next.delete(key);
-        } else {
-          next.add(key);
-        }
-        if (weekStartDate) saveChecked(weekStartDate, next);
-        return next;
+    (key: string, itemName: string) => {
+      const isChecked = checked.has(key);
+      const nextChecked = isChecked
+        ? checkedKeys.filter((k) => k !== key)
+        : [...checkedKeys, key];
+
+      // Optimistic update
+      queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
+        if (!prev) return prev;
+        return { ...prev, checkedKeys: nextChecked };
       });
+
+      // Server sync — revert on error
+      menus
+        .toggleGroceryCheck(weekStartDate, key, itemName)
+        .then(({ checked: serverChecked }) => {
+          queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
+            if (!prev) return prev;
+            const keys = prev.checkedKeys.filter((k) => k !== key);
+            return {
+              ...prev,
+              checkedKeys: serverChecked ? [...keys, key] : keys,
+            };
+          });
+        })
+        .catch(() => {
+          // Revert optimistic update
+          queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
+            if (!prev) return prev;
+            return { ...prev, checkedKeys };
+          });
+        });
     },
-    [weekStartDate]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checkedKeys, weekStartDate, requestedDate, queryClient]
   );
 
   const clearAll = useCallback(() => {
-    const empty = new Set<string>();
-    if (weekStartDate) saveChecked(weekStartDate, empty);
-    setChecked(empty);
-  }, [weekStartDate]);
+    // Optimistic update
+    queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
+      if (!prev) return prev;
+      return { ...prev, checkedKeys: [] };
+    });
+
+    // Server sync — revert on error
+    menus.clearGroceryChecks(weekStartDate).catch(() => {
+      queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
+        if (!prev) return prev;
+        return { ...prev, checkedKeys };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkedKeys, weekStartDate, requestedDate, queryClient]);
 
   return { checked, toggle, clearAll };
 }

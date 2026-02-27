@@ -226,9 +226,23 @@ export const menus = {
   getWeek: (date: string) => request<{ menu: WeeklyMenu }>(`/menus/week/${date}`),
 
   getGroceries: (date: string) =>
-    request<{ groceries: GroceryItem[]; customItems: CustomGroceryItem[]; weekStartDate: string }>(
-      `/menus/week/${date}/groceries`
-    ),
+    request<{
+      groceries: GroceryItem[];
+      customItems: CustomGroceryItem[];
+      weekStartDate: string;
+      checkedKeys: string[];
+    }>(`/menus/week/${date}/groceries`),
+
+  toggleGroceryCheck: (weekDate: string, itemKey: string, itemName: string) =>
+    request<{ itemKey: string; checked: boolean }>('/grocery/checks/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ weekDate, itemKey, itemName }),
+    }),
+
+  clearGroceryChecks: (weekDate: string) =>
+    request<void>(`/grocery/checks?weekDate=${encodeURIComponent(weekDate)}`, {
+      method: 'DELETE',
+    }),
 
   addCustomItem: (weekDate: string, data: { name: string; quantity?: number; unit?: string }) =>
     request<CustomGroceryItem>('/grocery/custom', {

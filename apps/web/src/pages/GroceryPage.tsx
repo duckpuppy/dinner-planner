@@ -107,27 +107,39 @@ function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
 
 interface CustomGroceryRowProps {
   item: CustomGroceryItem;
+  checked: boolean;
+  onToggle: () => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }
 
-function CustomGroceryRow({ item, onDelete, isDeleting }: CustomGroceryRowProps) {
+function CustomGroceryRow({
+  item,
+  checked,
+  onToggle,
+  onDelete,
+  isDeleting,
+}: CustomGroceryRowProps) {
   return (
     <div
       className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
       role="listitem"
     >
-      {/* Custom item indicator */}
-      <span
-        className="flex-shrink-0 size-5 rounded border-2 flex items-center justify-center border-muted-foreground/40"
-        aria-hidden="true"
+      {/* Checkbox toggle */}
+      <button
+        onClick={onToggle}
+        className={cn(
+          'flex-shrink-0 size-5 rounded border-2 flex items-center justify-center transition-colors',
+          checked ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
+        )}
+        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}`}
       >
-        <Plus className="h-3 w-3 text-muted-foreground" />
-      </span>
+        {checked && <Check className="h-3 w-3 text-primary-foreground" />}
+      </button>
 
       {/* Item details */}
-      <span className="flex-1 min-w-0">
-        <span className="text-sm font-medium">
+      <span className={cn('flex-1 min-w-0', checked && 'opacity-50')}>
+        <span className={cn('text-sm font-medium', checked && 'line-through')}>
           {item.quantity !== null && (
             <span className="text-muted-foreground mr-1 tabular-nums">
               {item.quantity}
@@ -161,10 +173,17 @@ export function GroceryPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['groceries', requestedDate],
     queryFn: () => menus.getGroceries(requestedDate),
+    refetchInterval: 5000,
   });
 
   const weekStartDate = data?.weekStartDate ?? '';
-  const { checked, toggle, clearAll } = useGroceryChecklist(weekStartDate);
+  const checkedKeys = data?.checkedKeys ?? [];
+
+  const { checked, toggle, clearAll } = useGroceryChecklist({
+    checkedKeys,
+    weekStartDate,
+    requestedDate,
+  });
 
   const allItems = data?.groceries ?? [];
   const customItems = data?.customItems ?? [];
@@ -174,6 +193,11 @@ export function GroceryPage() {
   const shoppingItems = allItems.filter((i) => !i.inPantry);
   const unchecked = shoppingItems.filter((i) => !checked.has(groceryItemKey(i.name, i.unit)));
   const checkedItems = shoppingItems.filter((i) => checked.has(groceryItemKey(i.name, i.unit)));
+
+  // Count checked custom items for accurate progress
+  const checkedCustomCount = customItems.filter((i) =>
+    checked.has(`custom::${i.id}`)
+  ).length;
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => menus.deleteCustomItem(id),
@@ -204,6 +228,9 @@ export function GroceryPage() {
   // fall back to requestedDate so the form is available even before data loads
   const effectiveWeekDate = weekStartDate || requestedDate;
 
+  const totalChecked = checked.size;
+  const totalShoppable = shoppingItems.length + customItems.length;
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       {/* Header */}
@@ -223,7 +250,7 @@ export function GroceryPage() {
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                 Copy
               </button>
-              {checked.size > 0 && (
+              {totalChecked > 0 && (
                 <button
                   onClick={clearAll}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-muted transition-colors text-muted-foreground"
@@ -276,7 +303,7 @@ export function GroceryPage() {
               key={groceryItemKey(item.name, item.unit)}
               item={item}
               checked={false}
-              onToggle={() => toggle(groceryItemKey(item.name, item.unit))}
+              onToggle={() => toggle(groceryItemKey(item.name, item.unit), item.name)}
             />
           ))}
 
@@ -289,7 +316,7 @@ export function GroceryPage() {
               key={groceryItemKey(item.name, item.unit)}
               item={item}
               checked={true}
-              onToggle={() => toggle(groceryItemKey(item.name, item.unit))}
+              onToggle={() => toggle(groceryItemKey(item.name, item.unit), item.name)}
             />
           ))}
 
@@ -326,6 +353,8 @@ export function GroceryPage() {
                 <CustomGroceryRow
                   key={item.id}
                   item={item}
+                  checked={checked.has(`custom::${item.id}`)}
+                  onToggle={() => toggle(`custom::${item.id}`, item.name)}
                   onDelete={(id) => deleteMutation.mutate(id)}
                   isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
                 />
@@ -336,10 +365,10 @@ export function GroceryPage() {
             </div>
           </>
 
-          {/* Progress summary — only counts shopping items */}
-          {shoppingItems.length > 0 && (
+          {/* Progress summary */}
+          {totalShoppable > 0 && (
             <p className="text-xs text-muted-foreground text-center pt-4 tabular-nums">
-              {checked.size} of {shoppingItems.length} items checked
+              {totalChecked - checkedCustomCount} of {shoppingItems.length} items checked
             </p>
           )}
         </div>
@@ -361,6 +390,7 @@ interface PantryGroceryRowProps {
 function PantryGroceryRow({ item }: PantryGroceryRowProps) {
   return (
     <div
+      role="listitem"
       className="flex items-center gap-3 px-3 py-3 rounded-lg opacity-60"
       aria-label={`${item.name} — already in pantry`}
     >
