@@ -1,10 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import {
-  addCustomItem,
-  updateCustomItem,
-  deleteCustomItem,
-} from '../services/customGroceries.js';
+import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
 
 const createCustomItemSchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),

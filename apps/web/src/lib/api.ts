@@ -230,17 +230,13 @@ export const menus = {
       `/menus/week/${date}/groceries`
     ),
 
-  addCustomItem: (
-    weekDate: string,
-    data: { name: string; quantity?: number; unit?: string }
-  ) =>
+  addCustomItem: (weekDate: string, data: { name: string; quantity?: number; unit?: string }) =>
     request<CustomGroceryItem>('/grocery/custom', {
       method: 'POST',
       body: JSON.stringify({ weekDate, ...data }),
     }),
 
-  deleteCustomItem: (id: string) =>
-    request<void>(`/grocery/custom/${id}`, { method: 'DELETE' }),
+  deleteCustomItem: (id: string) => request<void>(`/grocery/custom/${id}`, { method: 'DELETE' }),
 
   updateCustomItem: (
     id: string,

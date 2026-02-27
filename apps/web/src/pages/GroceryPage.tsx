@@ -114,10 +114,7 @@ interface CustomGroceryRowProps {
 function CustomGroceryRow({ item, onDelete, isDeleting }: CustomGroceryRowProps) {
   return (
     <div
-      className={cn(
-        'flex items-center gap-3 px-3 py-3 rounded-lg',
-        isDeleting && 'opacity-50'
-      )}
+      className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
       role="listitem"
     >
       {/* Custom item indicator */}
@@ -317,9 +314,7 @@ export function GroceryPage() {
 
           {/* Custom items section — always visible after data loads */}
           <>
-            {(allItems.length > 0 || customItems.length > 0) && (
-              <div className="border-t my-3" />
-            )}
+            {(allItems.length > 0 || customItems.length > 0) && <div className="border-t my-3" />}
             <div className="flex items-center gap-1.5 px-3 py-1">
               <Plus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -327,14 +322,14 @@ export function GroceryPage() {
               </span>
             </div>
             <div role="list">
-            {customItems.map((item) => (
-              <CustomGroceryRow
-                key={item.id}
-                item={item}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
-              />
-            ))}
+              {customItems.map((item) => (
+                <CustomGroceryRow
+                  key={item.id}
+                  item={item}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
+                />
+              ))}
             </div>
             <div className="px-1">
               <AddCustomItemForm weekDate={effectiveWeekDate} onSuccess={handleAddSuccess} />
