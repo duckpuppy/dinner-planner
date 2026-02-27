@@ -165,7 +165,7 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 | --- | --- | --- |
 | 23 | Custom grocery items | open |
 | 24 | Shared check state + live sync | open (blocked by M23) |
-| 25 | Grocery category grouping | open |
+| 25 | Grocery organization (categories + store filtering) | open |
 
 ### Grocery system architecture notes
 
