@@ -255,5 +255,17 @@ describe('AdminUsersPage', () => {
         expect(users.delete).toHaveBeenCalledWith('user-2');
       });
     });
+
+    it('closes delete dialog when cancel clicked', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('Bob Smith');
+      fireEvent.click(screen.getByRole('button', { name: /Delete user/i }));
+      expect(screen.getByText('Delete User')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => {
+        expect(screen.queryByText('Delete User')).toBeNull();
+      });
+    });
   });
 });

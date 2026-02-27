@@ -104,5 +104,27 @@ describe('AdminSettingsPage', () => {
       });
       resolveUpdate!();
     });
+
+    it('changes week start day when select changes', async () => {
+      vi.mocked(settings.get).mockResolvedValue({
+        settings: { weekStartDay: 0, recencyWindowDays: 30 },
+      });
+      render(<AdminSettingsPage />, { wrapper });
+      await waitFor(() => expect(document.querySelector('select')).toBeTruthy());
+      const select = document.querySelector('select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: '1' } });
+      expect(select.value).toBe('1');
+    });
+
+    it('changes recency window days when input changes', async () => {
+      vi.mocked(settings.get).mockResolvedValue({
+        settings: { weekStartDay: 0, recencyWindowDays: 30 },
+      });
+      render(<AdminSettingsPage />, { wrapper });
+      await waitFor(() => expect(document.querySelector('input[type="number"]')).toBeTruthy());
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '60' } });
+      expect(input.value).toBe('60');
+    });
   });
 });

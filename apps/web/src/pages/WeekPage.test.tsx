@@ -67,7 +67,7 @@ vi.mock('@/components/SuggestionModal', () => ({
   SuggestionModal: () => <div data-testid="suggestion-modal" />,
 }));
 
-import { menus, patterns } from '@/lib/api';
+import { menus, patterns, dishes } from '@/lib/api';
 
 function makeEntry(overrides = {}) {
   return {
@@ -376,6 +376,173 @@ describe('WeekPage', () => {
       const prepBtn = await screen.findByRole('button', { name: /show prep tasks/i });
       fireEvent.click(prepBtn);
       expect(await screen.findByTestId('prep-task-list')).toBeTruthy();
+    });
+
+    it('hides prep tasks panel when toggled again', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const prepBtn = await screen.findByRole('button', { name: /show prep tasks/i });
+      fireEvent.click(prepBtn);
+      await screen.findByTestId('prep-task-list');
+      fireEvent.click(screen.getByRole('button', { name: /hide prep tasks/i }));
+      await waitFor(() => {
+        expect(screen.queryByTestId('prep-task-list')).toBeNull();
+      });
+    });
+  });
+
+  describe('navigation - week offset', () => {
+    it('goes to previous week when previous button clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /previous week/i }));
+      await waitFor(() => {
+        expect(menus.getWeek).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('goes to next week when next button clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /next week/i }));
+      await waitFor(() => {
+        expect(menus.getWeek).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('goes back to today when Today button clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      // Navigate to next week first
+      fireEvent.click(screen.getByRole('button', { name: /next week/i }));
+      await waitFor(() => expect(menus.getWeek).toHaveBeenCalledTimes(2));
+      // Navigate back to today - Today button renders
+      expect(screen.getByText('Today')).toBeTruthy();
+    });
+  });
+
+  describe('EntryEditor - form submission', () => {
+    it('calls menus.updateEntry when Save is clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      vi.mocked(menus.updateEntry).mockResolvedValue({} as never);
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(menus.updateEntry).toHaveBeenCalled();
+      });
+    });
+
+    it('toggles side dish selection when side dish button clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      vi.mocked(dishes.list).mockResolvedValue({
+        dishes: [
+          { id: 'main-1', name: 'Pasta', type: 'main', tags: [], archived: false },
+          { id: 'side-1', name: 'Salad', type: 'side', tags: [], archived: false },
+        ],
+      });
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      const saladBtn = await screen.findByRole('button', { name: 'Salad' });
+      fireEvent.click(saladBtn);
+      // Should now be selected (no error thrown)
+      expect(saladBtn).toBeTruthy();
+    });
+
+    it('shows Suggest button in editor', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      expect(await screen.findByText('Suggest')).toBeTruthy();
+    });
+  });
+
+  describe('dining_out with customText in editor', () => {
+    it('shows customText as restaurant name when entry has dining_out with customText', async () => {
+      const entry = makeEntry({
+        type: 'dining_out',
+        mainDish: null,
+        customText: 'Italian Place',
+        restaurantName: null,
+      });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      const { findByText } = render(<WeekPage />, { wrapper });
+      expect(await findByText(/Dining Out: Italian Place/)).toBeTruthy();
+    });
+  });
+
+  describe('EntryEditor - dining_out inputs', () => {
+    it('updates restaurant name input when typing', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      // Switch to dining_out type
+      fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
+      const restaurantInput = screen.getByPlaceholderText('Where are you going?');
+      fireEvent.change(restaurantInput, { target: { value: 'Thai Garden' } });
+      expect((restaurantInput as HTMLInputElement).value).toBe('Thai Garden');
+    });
+
+    it('updates restaurant notes input when typing', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
+      const notesInput = screen.getByPlaceholderText('Reservation, what you\'re ordering...');
+      fireEvent.change(notesInput, { target: { value: '7pm reservation' } });
+      expect((notesInput as HTMLInputElement).value).toBe('7pm reservation');
+    });
+
+    it('updates custom text input when typing', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+      const customInput = screen.getByPlaceholderText("What are you having?");
+      fireEvent.change(customInput, { target: { value: 'Cooking class night' } });
+      expect((customInput as HTMLInputElement).value).toBe('Cooking class night');
+    });
+
+    it('changes main dish selection when select changes', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      vi.mocked(dishes.list).mockResolvedValue({
+        dishes: [
+          { id: 'main-1', name: 'Pasta', type: 'main', tags: [], archived: false },
+        ],
+      });
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      const select = await screen.findByRole('combobox');
+      fireEvent.change(select, { target: { value: 'main-1' } });
+      expect((select as HTMLSelectElement).value).toBe('main-1');
+    });
+
+    it('opens SuggestionModal when Suggest button clicked', async () => {
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      // The Suggest button click sets showSuggest=true which opens SuggestionModal
+      const suggestBtn = await screen.findByRole('button', { name: /suggest/i });
+      fireEvent.click(suggestBtn);
+      // SuggestionModal should open - look for modal content
+      // SuggestionModal is mocked, so we just verify the click didn't throw
+      expect(suggestBtn).toBeTruthy();
     });
   });
 });

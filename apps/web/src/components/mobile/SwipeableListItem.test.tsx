@@ -25,9 +25,20 @@ vi.mock('@/utils/mobile', () => ({
 }));
 
 vi.mock('./SwipeActions', () => ({
-  SwipeActions: ({ actions, visible }: { actions: unknown[]; visible: boolean }) => (
+  SwipeActions: ({
+    actions,
+    visible,
+  }: {
+    actions: Array<{ label: string; onAction: () => void }>;
+    visible: boolean;
+  }) => (
     <div data-testid="swipe-actions" data-visible={visible}>
-      {visible && actions.length > 0 && <span>Actions: {actions.length}</span>}
+      {visible &&
+        actions.map((a) => (
+          <button key={a.label} onClick={a.onAction} data-testid={`action-${a.label.toLowerCase()}`}>
+            {a.label}
+          </button>
+        ))}
     </div>
   ),
 }));
@@ -295,6 +306,28 @@ describe('SwipeableListItem', () => {
       });
 
       expect(screen.getByTestId('swipe-actions')).toHaveAttribute('data-visible', 'true');
+    });
+
+    it('calls haptic.success and resets offset when action button clicked', async () => {
+      const onSwipeEnd = vi.fn();
+      render(<SwipeableListItem {...defaultProps} onSwipeEnd={onSwipeEnd} />);
+
+      // Reveal actions via swipe
+      act(() => {
+        swipeHandlers.onSwiping?.({ dir: 'Left', deltaX: -80 });
+      });
+      act(() => {
+        swipeHandlers.onSwiped?.({ dir: 'Left' });
+      });
+
+      // Now click the actual action button rendered by the SwipeActions mock
+      const actionBtn = screen.getByTestId('action-edit');
+      await act(async () => {
+        actionBtn.click();
+      });
+
+      expect(mockHaptic.success).toHaveBeenCalled();
+      expect(mockActions[0].onAction).toHaveBeenCalled();
     });
   });
 

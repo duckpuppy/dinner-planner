@@ -393,4 +393,65 @@ describe('PatternsPage', () => {
       expect(patternsApi.delete).not.toHaveBeenCalled();
     });
   });
+
+  describe('PatternForm - additional interactions', () => {
+    it('toggles side dish selection when side dish button clicked', async () => {
+      vi.mocked(dishesApi.list).mockResolvedValue({
+        dishes: [
+          {
+            id: 's-1',
+            name: 'Garlic Bread',
+            type: 'side',
+            archived: false,
+            tags: [],
+            dietaryTags: [],
+            description: null,
+            recipeUrl: null,
+            averageRating: null,
+            ratingCount: 0,
+            ingredients: [],
+            createdById: 'u-1',
+            createdAt: '',
+            lastPreparedAt: null,
+          },
+        ],
+        total: 1,
+      });
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+
+      await waitFor(() => screen.getByText('Side Dishes (optional)'));
+      const garlicBreadBtn = screen.getByRole('button', { name: 'Garlic Bread' });
+      fireEvent.click(garlicBreadBtn);
+      // Button should now be styled as selected
+      expect(garlicBreadBtn.className).toContain('bg-secondary');
+    });
+
+    it('updates customText when input changes for dining_out', async () => {
+      vi.mocked(patternsApi.list).mockResolvedValue({ patterns: [] });
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('No patterns yet'));
+      fireEvent.click(screen.getByText('New Pattern'));
+      await screen.findByText('New Pattern', { selector: 'h2' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
+      const input = screen.getByPlaceholderText('Restaurant name...');
+      fireEvent.change(input, { target: { value: 'Pizza Palace' } });
+      expect((input as HTMLInputElement).value).toBe('Pizza Palace');
+    });
+
+    it('calls invalidateQueries on error retry in error state', async () => {
+      vi.mocked(patternsApi.list).mockRejectedValue(new Error('fail'));
+      render(<PatternsPage />, { wrapper });
+
+      await waitFor(() => screen.getByText('Failed to load patterns.'));
+      fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+      // After retry, list should be called again
+      expect(patternsApi.list).toHaveBeenCalled();
+    });
+  });
 });

@@ -139,4 +139,30 @@ describe('PreparationPhotos', () => {
     render(<PreparationPhotos preparationId="prep-1" />, { wrapper });
     expect(await screen.findByRole('button', { name: 'Delete photo' })).toBeTruthy();
   });
+
+  it('calls photos.upload when file is selected via file input', async () => {
+    vi.mocked(photosApi.list).mockResolvedValue({ photos: [] });
+    vi.mocked(photosApi.upload).mockResolvedValue({ photo: { id: 'p-1', url: '/x.jpg', uploadedById: 'user-1', preparationId: 'prep-1', createdAt: '' } } as never);
+    render(<PreparationPhotos preparationId="prep-1" />, { wrapper });
+    await screen.findByText('Add photo');
+
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(photosApi.upload).toHaveBeenCalledWith('prep-1', file);
+    });
+  });
+
+  it('does not upload when no file is selected', async () => {
+    vi.mocked(photosApi.list).mockResolvedValue({ photos: [] });
+    render(<PreparationPhotos preparationId="prep-1" />, { wrapper });
+    await screen.findByText('Add photo');
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [] } });
+
+    expect(photosApi.upload).not.toHaveBeenCalled();
+  });
 });

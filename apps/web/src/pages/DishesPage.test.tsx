@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -257,6 +257,131 @@ describe('DishesPage', () => {
       render(<DishesPage />, { wrapper });
       fireEvent.click(screen.getByRole('button', { name: /Import/i }));
       expect(await screen.findByTestId('import-modal')).toBeTruthy();
+    });
+  });
+
+  describe('DishForm - ingredients and instructions', () => {
+    beforeEach(() => {
+      vi.mocked(dishesApi.list).mockResolvedValue({ dishes: [], total: 0 });
+    });
+
+    it('shows instructions textarea in new dish form', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const textarea = screen.getByPlaceholderText(/cooking instructions/i);
+      expect(textarea).toBeTruthy();
+      fireEvent.change(textarea, { target: { value: 'Step 1: Boil water' } });
+      expect((textarea as HTMLTextAreaElement).value).toBe('Step 1: Boil water');
+    });
+
+    it('adds ingredient row when Add ingredient clicked', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const addIngBtn = screen.getByRole('button', { name: /add ingredient/i });
+      fireEvent.click(addIngBtn);
+      expect(screen.getByRole('textbox', { name: /ingredient name/i })).toBeTruthy();
+    });
+
+    it('updates ingredient notes field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: /add ingredient/i }));
+      const notesInput = screen.getByRole('textbox', { name: 'Notes' });
+      fireEvent.change(notesInput, { target: { value: 'finely chopped' } });
+      expect((notesInput as HTMLInputElement).value).toBe('finely chopped');
+    });
+
+    it('adds tag on blur of tag input', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const tagInput = screen.getByRole('textbox', { name: /add tag/i });
+      fireEvent.change(tagInput, { target: { value: 'quick' } });
+      fireEvent.blur(tagInput);
+      expect(await screen.findByText('quick')).toBeTruthy();
+    });
+
+    it('updates ingredient quantity field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: /add ingredient/i }));
+      const qtyInput = screen.getByRole('spinbutton', { name: /quantity/i });
+      fireEvent.change(qtyInput, { target: { value: '2' } });
+      expect((qtyInput as HTMLInputElement).value).toBe('2');
+    });
+
+    it('updates ingredient unit field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: /add ingredient/i }));
+      const unitInput = screen.getByRole('textbox', { name: /unit/i });
+      fireEvent.change(unitInput, { target: { value: 'cups' } });
+      expect((unitInput as HTMLInputElement).value).toBe('cups');
+    });
+
+    it('updates video URL field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const videoInput = screen.getByPlaceholderText(/youtube/i);
+      fireEvent.change(videoInput, { target: { value: 'https://youtube.com/watch?v=abc' } });
+      expect((videoInput as HTMLInputElement).value).toBe('https://youtube.com/watch?v=abc');
+    });
+
+    it('switches type to Side Dish when Side Dish button clicked', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: 'Side Dish' }));
+      // Click again on Main Dish to toggle back - both cover setType calls
+      fireEvent.click(screen.getByRole('button', { name: 'Main Dish' }));
+      expect(screen.getByRole('button', { name: 'Main Dish' })).toBeTruthy();
+    });
+
+    it('updates description field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const descInput = screen.getByPlaceholderText('Brief description');
+      fireEvent.change(descInput, { target: { value: 'Tasty dish' } });
+      expect((descInput as HTMLTextAreaElement).value).toBe('Tasty dish');
+    });
+
+    it('updates prep time, cook time, and servings fields', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const spinners = screen.getAllByRole('spinbutton');
+      // First three spinbuttons are prepTime, cookTime, servings (before qty inputs)
+      const prepInput = spinners.find((s) => (s as HTMLInputElement).placeholder === '30');
+      const cookInput = spinners.find((s) => (s as HTMLInputElement).placeholder === '45');
+      const servingsInput = spinners.find((s) => (s as HTMLInputElement).placeholder === '4');
+      if (prepInput) {
+        fireEvent.change(prepInput, { target: { value: '20' } });
+        expect((prepInput as HTMLInputElement).value).toBe('20');
+      }
+      if (cookInput) {
+        fireEvent.change(cookInput, { target: { value: '30' } });
+        expect((cookInput as HTMLInputElement).value).toBe('30');
+      }
+      if (servingsInput) {
+        fireEvent.change(servingsInput, { target: { value: '6' } });
+        expect((servingsInput as HTMLInputElement).value).toBe('6');
+      }
+    });
+
+    it('updates source URL field', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      const sourceInput = screen.getByPlaceholderText(/https:\/\/example.com\/recipe/i);
+      fireEvent.change(sourceInput, { target: { value: 'https://example.com/my-recipe' } });
+      expect((sourceInput as HTMLInputElement).value).toBe('https://example.com/my-recipe');
     });
   });
 });

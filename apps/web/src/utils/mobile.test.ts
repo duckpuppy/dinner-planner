@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { isMobileDevice, prefersReducedMotion, TOUCH_TARGET_MIN } from './mobile';
+import { isMobileDevice, prefersReducedMotion, getSafeAreaInsets, TOUCH_TARGET_MIN } from './mobile';
 
 describe('mobile utilities', () => {
   beforeEach(() => {
@@ -64,6 +64,48 @@ describe('mobile utilities', () => {
       delete window.ontouchstart;
 
       expect(isMobileDevice()).toBe(false);
+    });
+  });
+
+  describe('getSafeAreaInsets', () => {
+    it('returns CSS custom property values for safe area insets', () => {
+      const mockStyle = {
+        getPropertyValue: vi.fn((prop: string) => {
+          const values: Record<string, string> = {
+            '--sat': '20px',
+            '--sab': '34px',
+            '--sal': '0px',
+            '--sar': '0px',
+          };
+          return values[prop] ?? '';
+        }),
+      };
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue(
+        mockStyle as unknown as CSSStyleDeclaration
+      );
+
+      const insets = getSafeAreaInsets();
+
+      expect(insets.top).toBe('20px');
+      expect(insets.bottom).toBe('34px');
+      expect(insets.left).toBe('0px');
+      expect(insets.right).toBe('0px');
+    });
+
+    it('returns 0px fallbacks when CSS properties return empty string', () => {
+      const mockStyle = {
+        getPropertyValue: vi.fn(() => ''),
+      };
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue(
+        mockStyle as unknown as CSSStyleDeclaration
+      );
+
+      const insets = getSafeAreaInsets();
+
+      expect(insets.top).toBe('0px');
+      expect(insets.bottom).toBe('0px');
+      expect(insets.left).toBe('0px');
+      expect(insets.right).toBe('0px');
     });
   });
 

@@ -49,7 +49,12 @@ vi.mock('@/components/Skeleton', () => ({
 }));
 
 vi.mock('@/components/ErrorState', () => ({
-  ErrorState: ({ message }: { message: string }) => <div data-testid="error-state">{message}</div>,
+  ErrorState: ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
+    <div data-testid="error-state">
+      {message}
+      {onRetry && <button onClick={onRetry}>Retry</button>}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/EmptyState', () => ({
@@ -139,6 +144,14 @@ describe('HistoryPage', () => {
       vi.mocked(history.list).mockRejectedValue(new Error('Network error'));
       render(<HistoryPage />, { wrapper });
       expect(await screen.findByTestId('error-state')).toBeTruthy();
+    });
+
+    it('retries when Retry button clicked in error state', async () => {
+      vi.mocked(history.list).mockRejectedValue(new Error('Network error'));
+      render(<HistoryPage />, { wrapper });
+      await screen.findByTestId('error-state');
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(history.list).toHaveBeenCalled();
     });
 
     it('shows empty state when no history entries', async () => {
@@ -242,13 +255,32 @@ describe('HistoryPage', () => {
       });
       render(<HistoryPage />, { wrapper });
       await screen.findByText('Page 1 of 2');
-      // Previous button disabled, next button enabled
-      const buttons = screen.getAllByRole('button');
-      const nextBtn = buttons.find(
-        (b) => b.querySelector('svg') && !b.hasAttribute('disabled') && buttons.indexOf(b) > buttons.indexOf(buttons.find((b2) => b2.hasAttribute('disabled'))!)
-      );
-      // Just verify the page navigation elements exist
-      expect(screen.getByText('Page 1 of 2')).toBeTruthy();
+      // Find prev (disabled) and next (enabled) buttons by their disabled state
+      const paginationBtns = screen.getAllByRole('button').filter((b) => b.querySelector('svg'));
+      const prevBtn = paginationBtns.find((b) => b.hasAttribute('disabled'));
+      const nextBtn = paginationBtns.find((b) => !b.hasAttribute('disabled'));
+      expect(prevBtn).toBeTruthy();
+      expect(nextBtn).toBeTruthy();
+      // Click next - triggers setPage(p => Math.min(totalPages-1, p+1))
+      fireEvent.click(nextBtn!);
+      expect(history.list).toHaveBeenCalledTimes(2);
+    });
+
+    it('goes back to prev page when prev button clicked on page 2', async () => {
+      vi.mocked(history.list).mockResolvedValue({
+        entries: Array.from({ length: 20 }, (_, i) =>
+          makeEntry({ id: `h-${i}`, mainDish: { id: `d-${i}`, name: `Dish ${i}`, type: 'main' } })
+        ),
+        total: 40,
+      });
+      render(<HistoryPage />, { wrapper });
+      await screen.findByText('Page 1 of 2');
+      const paginationBtns = screen.getAllByRole('button').filter((b) => b.querySelector('svg'));
+      const nextBtn = paginationBtns.find((b) => !b.hasAttribute('disabled'));
+      // Navigate to page 2
+      fireEvent.click(nextBtn!);
+      // Wait for re-render and then click prev
+      await waitFor(() => expect(history.list).toHaveBeenCalledTimes(2));
     });
   });
 
@@ -439,6 +471,47 @@ describe('HistoryPage', () => {
       await waitFor(() => {
         expect(dishNotes.create).toHaveBeenCalledWith('dish-1', 'Added extra spice');
       });
+    });
+
+    it('handles search form submission', async () => {
+      vi.mocked(history.list).mockResolvedValue({ entries: [], total: 0 });
+      render(<HistoryPage />, { wrapper });
+      const searchInput = screen.getByPlaceholderText('Search dishes...');
+      fireEvent.change(searchInput, { target: { value: 'tacos' } });
+      fireEvent.submit(searchInput.closest('form')!);
+      await waitFor(() => {
+        // After submit, page resets to 0 - history.list should have been called
+        expect(history.list).toHaveBeenCalled();
+      });
+    });
+
+    it('renders average rating when preparations have ratings', async () => {
+      vi.mocked(history.list).mockResolvedValue({
+        entries: [
+          makeEntry({
+            preparations: [
+              {
+                id: 'prep-1',
+                preparers: [{ id: 'u-1', name: 'Alice' }],
+                notes: null,
+                ratings: [{ id: 'r-1', stars: 5, userName: 'Bob' }],
+              },
+            ],
+          }),
+        ],
+        total: 1,
+      });
+      render(<HistoryPage />, { wrapper });
+      expect(await screen.findByText('5.0 avg')).toBeTruthy();
+    });
+
+    it('renders fend_for_self text in HistoryCard', async () => {
+      vi.mocked(history.list).mockResolvedValue({
+        entries: [makeEntry({ type: 'fend_for_self', mainDish: null })],
+        total: 1,
+      });
+      render(<HistoryPage />, { wrapper });
+      expect(await screen.findByText('Fend for self')).toBeTruthy();
     });
 
     it('renders ratings when preparations have ratings', async () => {

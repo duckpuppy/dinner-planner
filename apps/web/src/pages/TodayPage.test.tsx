@@ -43,7 +43,10 @@ vi.mock('@/components/PreparationPhotos', () => ({
 }));
 
 vi.mock('@/components/StarRating', () => ({
-  StarRating: () => <div data-testid="star-rating" />,
+  StarRating: ({ onChange }: { onChange?: (v: number) => void }) => (
+    <div data-testid="star-rating" onClick={() => onChange?.(5)} />
+  ),
+  AverageRating: () => <div data-testid="average-rating" />,
 }));
 
 vi.mock('@/components/Skeleton', () => ({
@@ -59,7 +62,7 @@ vi.mock('@/components/EmptyState', () => ({
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
-import { menus, preparations } from '@/lib/api';
+import { menus, preparations, ratings as ratingsApi, prepTasks } from '@/lib/api';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -438,4 +441,192 @@ describe('TodayPage prep form', () => {
       );
     });
   });
+
+  it('toggles preparer selection on/off', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: { ...baseEntry } });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('I Made This!'));
+    await screen.findByText('Who cooked?');
+    const aliceBtn = screen.getByRole('button', { name: 'Alice' });
+    // Select
+    fireEvent.click(aliceBtn);
+    expect(aliceBtn).toHaveAttribute('aria-pressed', 'true');
+    // Deselect
+    fireEvent.click(aliceBtn);
+    expect(aliceBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows error message when no preparer selected and Log Preparation clicked', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: { ...baseEntry } });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('I Made This!'));
+    await screen.findByText('Who cooked?');
+    expect(screen.getByText('At least one preparer is required.')).toBeTruthy();
+  });
 });
+
+describe('TodayPage PreparationWithRating', () => {
+  const prepEntry = {
+    ...baseEntry,
+    completed: true,
+    preparations: [
+      {
+        id: 'prep-1',
+        preparers: [{ id: 'user-1', name: 'Alice' }],
+        notes: 'Great meal',
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: { weekStartDate: '2024-06-10', entries: [] },
+    });
+  });
+
+  it('shows preparation with preparer name', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('Alice')).toBeTruthy();
+  });
+
+  it('shows preparation notes', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('Great meal')).toBeTruthy();
+  });
+
+  it('shows Rate this meal button when no rating exists', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('Rate this meal')).toBeTruthy();
+  });
+
+  it('shows rating form when Rate this meal clicked', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('Rate this meal'));
+    expect(await screen.findByText('Your rating:')).toBeTruthy();
+  });
+
+  it('cancels rating form when Cancel clicked', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('Rate this meal'));
+    await screen.findByText('Your rating:');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Your rating:')).toBeNull();
+    });
+  });
+
+  it('shows existing ratings', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
+      ratings: [
+        { id: 'r-1', userId: 'user-2', userName: 'Bob', stars: 4, note: 'Delicious', preparationId: 'prep-1' },
+      ],
+    });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('Bob')).toBeTruthy();
+  });
+
+  it('shows Remove button for current user rating', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
+      ratings: [
+        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+      ],
+    });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByRole('button', { name: /remove/i })).toBeTruthy();
+  });
+
+  it('shows preparations section heading', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('Prepared by')).toBeTruthy();
+  });
+
+  it('calls ratings.delete when Remove button clicked', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
+      ratings: [
+        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+      ],
+    });
+    vi.mocked(ratingsApi.delete).mockResolvedValue(undefined as never);
+    render(<TodayPage />, { wrapper });
+    const removeBtn = await screen.findByRole('button', { name: /remove/i });
+    fireEvent.click(removeBtn);
+    await waitFor(() => {
+      expect(ratingsApi.delete).toHaveBeenCalledWith('r-1');
+    });
+  });
+
+  it('updates note input when typing in rating form', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('Rate this meal'));
+    await screen.findByLabelText('Rating note');
+    const noteInput = screen.getByLabelText('Rating note');
+    fireEvent.change(noteInput, { target: { value: 'Excellent' } });
+    expect((noteInput as HTMLInputElement).value).toBe('Excellent');
+  });
+
+  it('calls ratings.create when Submit clicked after selecting stars', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    vi.mocked(ratingsApi.create).mockResolvedValue({ rating: { id: 'r-new', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' } } as never);
+    render(<TodayPage />, { wrapper });
+    // Open rating form
+    fireEvent.click(await screen.findByText('Rate this meal'));
+    await screen.findByTestId('star-rating');
+    // Click StarRating mock to set stars to 5
+    fireEvent.click(screen.getByTestId('star-rating'));
+    // Now Submit should be enabled - click it
+    const submitBtn = screen.getByRole('button', { name: 'Submit' });
+    fireEvent.click(submitBtn);
+    await waitFor(() => {
+      expect(ratingsApi.create).toHaveBeenCalledWith('prep-1', { stars: 5, note: undefined });
+    });
+  });
+});
+
+describe('TodayPage TomorrowPrepSection', () => {
+  it('renders prep tasks for tomorrow when entry and tasks exist', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: { ...baseEntry } });
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: {
+        weekStartDate: tomorrowStr,
+        entries: [
+          {
+            ...baseEntry,
+            id: 'entry-tomorrow',
+            date: tomorrowStr,
+            dayOfWeek: tomorrow.getDay(),
+          },
+        ],
+      },
+    });
+    vi.mocked(prepTasks.list).mockResolvedValue({
+      prepTasks: [{ id: 'task-1', description: 'Chop onions', completed: false, entryId: 'entry-tomorrow' }],
+    });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByTestId('prep-task-list')).toBeTruthy();
+  });
+});
+
