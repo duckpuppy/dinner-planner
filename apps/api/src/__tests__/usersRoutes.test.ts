@@ -69,8 +69,12 @@ const mockUser = {
 
 describe('GET /api/users', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 with users list for admin', async () => {
     vi.mocked(usersService.getAllUsers).mockResolvedValueOnce([mockUser]);
@@ -106,8 +110,12 @@ describe('GET /api/users', () => {
 
 describe('GET /api/users/:id', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 when user views own profile', async () => {
     vi.mocked(usersService.getUserById).mockResolvedValueOnce(mockUser);
@@ -163,8 +171,12 @@ describe('GET /api/users/:id', () => {
 
 describe('POST /api/users', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 201 when admin creates user', async () => {
     vi.mocked(usersService.createUser).mockResolvedValueOnce(mockUser);
@@ -197,9 +209,7 @@ describe('POST /api/users', () => {
   });
 
   it('returns 409 when username already exists', async () => {
-    vi.mocked(usersService.createUser).mockRejectedValueOnce(
-      new Error('Username already exists')
-    );
+    vi.mocked(usersService.createUser).mockRejectedValueOnce(new Error('Username already exists'));
 
     const res = await app.inject({
       method: 'POST',
@@ -239,8 +249,12 @@ describe('POST /api/users', () => {
 
 describe('PATCH /api/users/:id', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 when admin updates user', async () => {
     vi.mocked(usersService.updateUser).mockResolvedValueOnce({ ...mockUser, displayName: 'Bob' });
@@ -287,8 +301,12 @@ describe('PATCH /api/users/:id', () => {
 
 describe('PATCH /api/users/:id/preferences', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 when user updates own preferences', async () => {
     vi.mocked(usersService.updateUserPreferences).mockResolvedValueOnce({
@@ -348,8 +366,12 @@ describe('PATCH /api/users/:id/preferences', () => {
 
 describe('POST /api/users/:id/change-password', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 on success', async () => {
     vi.mocked(usersService.changePassword).mockResolvedValueOnce({ success: true });
@@ -410,8 +432,12 @@ describe('POST /api/users/:id/change-password', () => {
 
 describe('POST /api/users/:id/reset-password', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 when admin resets password', async () => {
     vi.mocked(usersService.resetPassword).mockResolvedValueOnce({ success: true });
@@ -471,8 +497,12 @@ describe('POST /api/users/:id/reset-password', () => {
 
 describe('DELETE /api/users/:id', () => {
   let app: TestApp;
-  beforeAll(async () => { app = await buildApp(); });
-  afterAll(async () => { await app.close(); });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
 
   it('returns 200 when admin deletes user', async () => {
     vi.mocked(usersService.deleteUser).mockResolvedValueOnce({ success: true });

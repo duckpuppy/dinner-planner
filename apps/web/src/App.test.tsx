@@ -112,14 +112,19 @@ afterEach(() => {
 
 describe('App', () => {
   beforeEach(() => {
-    vi.mocked(useThemeStore).mockImplementation((selector: (s: { initTheme: () => void }) => unknown) =>
-      selector({ initTheme: vi.fn() })
+    vi.mocked(useThemeStore).mockImplementation(
+      (selector: (s: { initTheme: () => void }) => unknown) => selector({ initTheme: vi.fn() })
     );
   });
 
   it('shows loading screen while auth is loading', () => {
     vi.mocked(useAuthStore).mockImplementation(
-      makeAuthStore({ isAuthenticated: false, isLoading: true, setupRequired: false, user: null }) as never
+      makeAuthStore({
+        isAuthenticated: false,
+        isLoading: true,
+        setupRequired: false,
+        user: null,
+      }) as never
     );
     renderApp();
     expect(screen.getByText('Loading...')).toBeTruthy();
@@ -127,7 +132,12 @@ describe('App', () => {
 
   it('shows login page when not authenticated', () => {
     vi.mocked(useAuthStore).mockImplementation(
-      makeAuthStore({ isAuthenticated: false, isLoading: false, setupRequired: false, user: null }) as never
+      makeAuthStore({
+        isAuthenticated: false,
+        isLoading: false,
+        setupRequired: false,
+        user: null,
+      }) as never
     );
     renderApp();
     expect(screen.getByTestId('login-page')).toBeTruthy();
@@ -135,7 +145,12 @@ describe('App', () => {
 
   it('shows setup page when setupRequired', () => {
     vi.mocked(useAuthStore).mockImplementation(
-      makeAuthStore({ isAuthenticated: false, isLoading: false, setupRequired: true, user: null }) as never
+      makeAuthStore({
+        isAuthenticated: false,
+        isLoading: false,
+        setupRequired: true,
+        user: null,
+      }) as never
     );
     renderApp('/setup');
     expect(screen.getByTestId('setup-page')).toBeTruthy();
@@ -143,7 +158,12 @@ describe('App', () => {
 
   it('redirects to /setup from any route when setupRequired', () => {
     vi.mocked(useAuthStore).mockImplementation(
-      makeAuthStore({ isAuthenticated: false, isLoading: false, setupRequired: true, user: null }) as never
+      makeAuthStore({
+        isAuthenticated: false,
+        isLoading: false,
+        setupRequired: true,
+        user: null,
+      }) as never
     );
     renderApp('/today');
     expect(screen.getByTestId('setup-page')).toBeTruthy();
@@ -152,7 +172,9 @@ describe('App', () => {
   it('shows today page when authenticated', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'user', homeView: 'today' },
       }) as never
     );
@@ -163,7 +185,9 @@ describe('App', () => {
   it('redirects to /today from / when homeView is today', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'user', homeView: 'today' },
       }) as never
     );
@@ -174,7 +198,9 @@ describe('App', () => {
   it('redirects to /week from / when homeView is week', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'user', homeView: 'week' },
       }) as never
     );
@@ -185,7 +211,9 @@ describe('App', () => {
   it('shows dishes page when navigating to /dishes', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'user', homeView: 'today' },
       }) as never
     );
@@ -196,7 +224,9 @@ describe('App', () => {
   it('admin page redirects non-admin user', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'user', homeView: 'today' },
       }) as never
     );
@@ -208,7 +238,9 @@ describe('App', () => {
   it('shows admin users page for admin user', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'admin', homeView: 'today' },
       }) as never
     );
@@ -219,7 +251,9 @@ describe('App', () => {
   it('shows admin settings page for admin user', () => {
     vi.mocked(useAuthStore).mockImplementation(
       makeAuthStore({
-        isAuthenticated: true, isLoading: false, setupRequired: false,
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
         user: { id: 'u1', role: 'admin', homeView: 'today' },
       }) as never
     );

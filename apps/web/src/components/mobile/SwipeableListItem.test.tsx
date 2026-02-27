@@ -35,7 +35,11 @@ vi.mock('./SwipeActions', () => ({
     <div data-testid="swipe-actions" data-visible={visible}>
       {visible &&
         actions.map((a) => (
-          <button key={a.label} onClick={a.onAction} data-testid={`action-${a.label.toLowerCase()}`}>
+          <button
+            key={a.label}
+            onClick={a.onAction}
+            data-testid={`action-${a.label.toLowerCase()}`}
+          >
             {a.label}
           </button>
         ))}

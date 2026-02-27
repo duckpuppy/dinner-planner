@@ -54,7 +54,7 @@ const mockNotes = [
   {
     id: 'note-2',
     dishId: 'dish-1',
-    note: "Great recipe",
+    note: 'Great recipe',
     createdById: 'user-2',
     createdByUsername: 'bob',
     createdAt: new Date().toISOString(),

@@ -238,9 +238,7 @@ describe('DishesPage', () => {
       render(<DishesPage />, { wrapper });
       fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
       await waitFor(() => {
-        expect(dishesApi.list).toHaveBeenCalledWith(
-          expect.objectContaining({ archived: 'true' })
-        );
+        expect(dishesApi.list).toHaveBeenCalledWith(expect.objectContaining({ archived: 'true' }));
       });
     });
   });

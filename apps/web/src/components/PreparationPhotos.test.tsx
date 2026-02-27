@@ -120,7 +120,12 @@ describe('PreparationPhotos', () => {
 
   it('shows delete button for admin user for any photo', async () => {
     const { useAuthStore } = await import('@/stores/auth');
-    const adminUser = { id: 'admin-1', username: 'admin', displayName: 'Admin', role: 'admin' as const };
+    const adminUser = {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: 'admin' as const,
+    };
     vi.mocked(useAuthStore).mockImplementation(
       (selector: (s: { user: typeof adminUser }) => unknown) => selector({ user: adminUser })
     );
@@ -142,7 +147,15 @@ describe('PreparationPhotos', () => {
 
   it('calls photos.upload when file is selected via file input', async () => {
     vi.mocked(photosApi.list).mockResolvedValue({ photos: [] });
-    vi.mocked(photosApi.upload).mockResolvedValue({ photo: { id: 'p-1', url: '/x.jpg', uploadedById: 'user-1', preparationId: 'prep-1', createdAt: '' } } as never);
+    vi.mocked(photosApi.upload).mockResolvedValue({
+      photo: {
+        id: 'p-1',
+        url: '/x.jpg',
+        uploadedById: 'user-1',
+        preparationId: 'prep-1',
+        createdAt: '',
+      },
+    } as never);
     render(<PreparationPhotos preparationId="prep-1" />, { wrapper });
     await screen.findByText('Add photo');
 

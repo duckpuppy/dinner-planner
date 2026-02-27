@@ -158,7 +158,14 @@ describe('GroceryPage', () => {
   it('renders pantry items in In Pantry section', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Olive Oil', quantity: null, unit: null, dishes: ['Pasta'], notes: [], inPantry: true },
+        {
+          name: 'Olive Oil',
+          quantity: null,
+          unit: null,
+          dishes: ['Pasta'],
+          notes: [],
+          inPantry: true,
+        },
       ],
       weekStartDate: '2024-06-10',
     });
@@ -183,7 +190,14 @@ describe('GroceryPage', () => {
   it('renders item dish and note details', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Basil', quantity: null, unit: null, dishes: ['Pizza'], notes: ['fresh'], inPantry: false },
+        {
+          name: 'Basil',
+          quantity: null,
+          unit: null,
+          dishes: ['Pizza'],
+          notes: ['fresh'],
+          inPantry: false,
+        },
       ],
       weekStartDate: '2024-06-10',
     });

@@ -75,7 +75,9 @@ describe('AdminSettingsPage', () => {
       vi.mocked(settings.get).mockResolvedValue({
         settings: { weekStartDay: 0, recencyWindowDays: 30 },
       });
-      vi.mocked(settings.update).mockResolvedValue({ settings: { weekStartDay: 0, recencyWindowDays: 30 } });
+      vi.mocked(settings.update).mockResolvedValue({
+        settings: { weekStartDay: 0, recencyWindowDays: 30 },
+      });
       render(<AdminSettingsPage />, { wrapper });
       await waitFor(() => {
         expect(document.querySelector('select')).toBeTruthy();

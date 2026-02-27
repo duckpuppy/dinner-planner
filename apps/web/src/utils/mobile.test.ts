@@ -1,5 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { isMobileDevice, prefersReducedMotion, getSafeAreaInsets, TOUCH_TARGET_MIN } from './mobile';
+import {
+  isMobileDevice,
+  prefersReducedMotion,
+  getSafeAreaInsets,
+  TOUCH_TARGET_MIN,
+} from './mobile';
 
 describe('mobile utilities', () => {
   beforeEach(() => {

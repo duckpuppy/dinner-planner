@@ -342,7 +342,9 @@ describe('HistoryPage', () => {
   describe('HistoryCard entry types', () => {
     it('renders custom entry text', async () => {
       vi.mocked(history.list).mockResolvedValue({
-        entries: [makeEntry({ type: 'custom', mainDish: null, customText: 'Leftovers from fridge' })],
+        entries: [
+          makeEntry({ type: 'custom', mainDish: null, customText: 'Leftovers from fridge' }),
+        ],
         total: 1,
       });
       render(<HistoryPage />, { wrapper });
@@ -449,7 +451,15 @@ describe('HistoryPage', () => {
 
     it('calls dishNotes.create when save as note clicked', async () => {
       const { dishNotes } = await import('@/lib/api');
-      vi.mocked(dishNotes.create).mockResolvedValue({ note: { id: 'n-1', dishId: 'dish-1', note: 'Added extra spice', createdById: 'u-1', createdAt: '' } } as never);
+      vi.mocked(dishNotes.create).mockResolvedValue({
+        note: {
+          id: 'n-1',
+          dishId: 'dish-1',
+          note: 'Added extra spice',
+          createdById: 'u-1',
+          createdAt: '',
+        },
+      } as never);
       vi.mocked(history.list).mockResolvedValue({
         entries: [
           makeEntry({

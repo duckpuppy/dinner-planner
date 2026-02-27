@@ -227,7 +227,12 @@ describe('getSuggestions', () => {
       tagRows: [{ dishId: 'd1', tagName: 'italian' }],
     });
 
-    const result = await getSuggestions({ exclude: [], limit: 10, dietaryTags: [], tag: 'italian' });
+    const result = await getSuggestions({
+      exclude: [],
+      limit: 10,
+      dietaryTags: [],
+      tag: 'italian',
+    });
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('d1');
@@ -239,7 +244,12 @@ describe('getSuggestions', () => {
       tagRows: [{ dishId: 'd1', tagName: 'italian' }],
     });
 
-    const result = await getSuggestions({ exclude: [], limit: 10, dietaryTags: [], tag: 'mexican' });
+    const result = await getSuggestions({
+      exclude: [],
+      limit: 10,
+      dietaryTags: [],
+      tag: 'mexican',
+    });
 
     expect(result).toEqual([]);
   });

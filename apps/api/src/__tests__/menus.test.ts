@@ -317,9 +317,7 @@ describe('logPreparation', () => {
   it('inserts preparation, preparers, and auto-completes entry', async () => {
     mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', name: 'Pasta' });
     // db.select().from(users).where() for preparers
-    mockDb.select.mockReturnValueOnce(
-      selFromWhere([{ id: 'user-1', displayName: 'Alice' }])
-    );
+    mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'user-1', displayName: 'Alice' }]));
 
     const result = await logPreparation({
       dishId: 'dish-1',
@@ -399,9 +397,7 @@ describe('getRecentCompleted', () => {
   });
 
   it('returns entries with mainDishName', async () => {
-    const entries = [
-      { id: 'entry-1', date: '2024-01-10', mainDishId: 'dish-1', completed: true },
-    ];
+    const entries = [{ id: 'entry-1', date: '2024-01-10', mainDishId: 'dish-1', completed: true }];
     mockDb.select.mockReturnValueOnce(selFromWhereOrderByDescDate(entries));
     // db.select().from(dishes).where() → dish rows
     mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'dish-1', name: 'Pasta' }]));
@@ -520,26 +516,30 @@ function setupGetEntryWithRichRelations(entry: ReturnType<typeof makeEntry>) {
 
   // main dish lookup
   if (entry.mainDishId) {
-    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: entry.mainDishId, name: 'Pasta', type: 'main' });
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({
+      id: entry.mainDishId,
+      name: 'Pasta',
+      type: 'main',
+    });
   }
 
   // side dish links
   mockDb.select.mockReturnValueOnce(selWhere([{ entryId: entry.id, dishId: 'side-1' }]));
   // side dish lookup
-  mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'side-1', name: 'Salad', type: 'side' });
+  mockDb.query.dishes.findFirst.mockResolvedValueOnce({
+    id: 'side-1',
+    name: 'Salad',
+    type: 'side',
+  });
 
   // preparations
   const prep = makePrep({ id: 'prep-1', dishId: 'dish-1', dinnerEntryId: entry.id });
   mockDb.select.mockReturnValueOnce(selWhere([prep]));
 
   // fetchPreparersMap: preparationPreparers
-  mockDb.select.mockReturnValueOnce(
-    selWhere([{ preparationId: 'prep-1', userId: 'user-1' }])
-  );
+  mockDb.select.mockReturnValueOnce(selWhere([{ preparationId: 'prep-1', userId: 'user-1' }]));
   // fetchPreparersMap: users
-  mockDb.select.mockReturnValueOnce(
-    selWhere([{ id: 'user-1', displayName: 'Alice' }])
-  );
+  mockDb.select.mockReturnValueOnce(selWhere([{ id: 'user-1', displayName: 'Alice' }]));
 
   // preparation dish lookup
   mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', name: 'Pasta' });
@@ -598,7 +598,9 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
     const entry = makeEntry({ sourceEntryId: 'source-1' });
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry); // updateDinnerEntry findFirst
     // sourceEntry validation
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(makeEntry({ id: 'source-1', type: 'assembled' }));
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(
+      makeEntry({ id: 'source-1', type: 'assembled' })
+    );
 
     // getEntryWithRelations
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
@@ -673,7 +675,9 @@ describe('getOrCreateWeekMenu', () => {
     mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(newMenu);
 
     // Get entries for new menu (7 entries)
-    const entries = Array.from({ length: 7 }, (_, i) => makeEntry({ id: `entry-${i}`, menuId: 'new-menu', date: `2024-01-0${i+1}` }));
+    const entries = Array.from({ length: 7 }, (_, i) =>
+      makeEntry({ id: `entry-${i}`, menuId: 'new-menu', date: `2024-01-0${i + 1}` })
+    );
     mockDb.select.mockReturnValueOnce(selFromWhere(entries));
 
     // getEntryWithRelations for each of 7 entries — each needs:

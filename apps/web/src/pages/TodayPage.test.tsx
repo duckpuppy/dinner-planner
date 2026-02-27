@@ -204,7 +204,7 @@ describe('TodayPage entry type display', () => {
       menu: { weekStartDate: '2024-06-10', entries: [] },
     });
     const { findByText } = render(<TodayPage />, { wrapper });
-    expect(await findByText("Everyone on their own tonight!")).toBeTruthy();
+    expect(await findByText('Everyone on their own tonight!')).toBeTruthy();
   });
 
   it('shows dining out entry type', async () => {
@@ -531,7 +531,14 @@ describe('TodayPage PreparationWithRating', () => {
     vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
     vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
       ratings: [
-        { id: 'r-1', userId: 'user-2', userName: 'Bob', stars: 4, note: 'Delicious', preparationId: 'prep-1' },
+        {
+          id: 'r-1',
+          userId: 'user-2',
+          userName: 'Bob',
+          stars: 4,
+          note: 'Delicious',
+          preparationId: 'prep-1',
+        },
       ],
     });
     render(<TodayPage />, { wrapper });
@@ -542,7 +549,14 @@ describe('TodayPage PreparationWithRating', () => {
     vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
     vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
       ratings: [
-        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+        {
+          id: 'r-1',
+          userId: 'user-1',
+          userName: 'Alice',
+          stars: 5,
+          note: '',
+          preparationId: 'prep-1',
+        },
       ],
     });
     render(<TodayPage />, { wrapper });
@@ -560,7 +574,14 @@ describe('TodayPage PreparationWithRating', () => {
     vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
     vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
       ratings: [
-        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+        {
+          id: 'r-1',
+          userId: 'user-1',
+          userName: 'Alice',
+          stars: 5,
+          note: '',
+          preparationId: 'prep-1',
+        },
       ],
     });
     vi.mocked(ratingsApi.delete).mockResolvedValue(undefined as never);
@@ -586,7 +607,16 @@ describe('TodayPage PreparationWithRating', () => {
   it('calls ratings.create when Submit clicked after selecting stars', async () => {
     vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
     vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
-    vi.mocked(ratingsApi.create).mockResolvedValue({ rating: { id: 'r-new', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' } } as never);
+    vi.mocked(ratingsApi.create).mockResolvedValue({
+      rating: {
+        id: 'r-new',
+        userId: 'user-1',
+        userName: 'Alice',
+        stars: 5,
+        note: '',
+        preparationId: 'prep-1',
+      },
+    } as never);
     render(<TodayPage />, { wrapper });
     // Open rating form
     fireEvent.click(await screen.findByText('Rate this meal'));
@@ -623,10 +653,11 @@ describe('TodayPage TomorrowPrepSection', () => {
       },
     });
     vi.mocked(prepTasks.list).mockResolvedValue({
-      prepTasks: [{ id: 'task-1', description: 'Chop onions', completed: false, entryId: 'entry-tomorrow' }],
+      prepTasks: [
+        { id: 'task-1', description: 'Chop onions', completed: false, entryId: 'entry-tomorrow' },
+      ],
     });
     render(<TodayPage />, { wrapper });
     expect(await screen.findByTestId('prep-task-list')).toBeTruthy();
   });
 });
-

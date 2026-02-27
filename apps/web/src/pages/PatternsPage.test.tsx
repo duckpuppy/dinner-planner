@@ -349,7 +349,22 @@ describe('PatternsPage', () => {
     it('shows side dish toggles when there are side dishes available', async () => {
       vi.mocked(dishesApi.list).mockResolvedValue({
         dishes: [
-          { id: 's-1', name: 'Garlic Bread', type: 'side', archived: false, tags: [], dietaryTags: [], description: null, recipeUrl: null, averageRating: null, ratingCount: 0, ingredients: [], createdById: 'u-1', createdAt: '', lastPreparedAt: null },
+          {
+            id: 's-1',
+            name: 'Garlic Bread',
+            type: 'side',
+            archived: false,
+            tags: [],
+            dietaryTags: [],
+            description: null,
+            recipeUrl: null,
+            averageRating: null,
+            ratingCount: 0,
+            ingredients: [],
+            createdById: 'u-1',
+            createdAt: '',
+            lastPreparedAt: null,
+          },
         ],
         total: 1,
       });

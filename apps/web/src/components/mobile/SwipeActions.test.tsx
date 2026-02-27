@@ -17,17 +17,13 @@ describe('SwipeActions', () => {
 
   describe('visibility', () => {
     it('renders hidden (off-screen) when visible is false', () => {
-      const { container } = render(
-        <SwipeActions actions={[mockAction]} visible={false} />
-      );
+      const { container } = render(<SwipeActions actions={[mockAction]} visible={false} />);
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.className).toContain('translate-x-full');
     });
 
     it('renders visible (on-screen) when visible is true', () => {
-      const { container } = render(
-        <SwipeActions actions={[mockAction]} visible={true} />
-      );
+      const { container } = render(<SwipeActions actions={[mockAction]} visible={true} />);
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.className).not.toContain('translate-x-full');
     });

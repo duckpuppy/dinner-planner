@@ -186,35 +186,23 @@ describe('RatingForm', () => {
 
   describe('create mode (no existing rating)', () => {
     it('shows Rate button when no existing rating', () => {
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
       expect(screen.getByRole('button', { name: 'Rate' })).toBeTruthy();
     });
 
     it('shows note input in create mode', () => {
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
       expect(screen.getByPlaceholderText('Add a note (optional)')).toBeTruthy();
     });
 
     it('Rate button is disabled when stars = 0', () => {
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
       const rateBtn = screen.getByRole('button', { name: 'Rate' });
       expect((rateBtn as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('does NOT call create when stars = 0 and form submitted', async () => {
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
       const form = screen.getByRole('button', { name: 'Rate' }).closest('form')!;
       fireEvent.submit(form);
       expect(ratings.create).not.toHaveBeenCalled();
@@ -222,12 +210,11 @@ describe('RatingForm', () => {
 
     it('calls ratings.create when stars > 0 and form submitted', async () => {
       vi.mocked(ratings.create).mockResolvedValue({ rating: existingRating } as never);
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
       // Click the 3rd star button (value 3)
-      const starButtons = screen.getAllByRole('button').filter((b) => !b.textContent?.includes('Rate'));
+      const starButtons = screen
+        .getAllByRole('button')
+        .filter((b) => !b.textContent?.includes('Rate'));
       fireEvent.click(starButtons[2]);
       fireEvent.click(screen.getByRole('button', { name: 'Rate' }));
       await waitFor(() => {
@@ -246,7 +233,9 @@ describe('RatingForm', () => {
         />,
         { wrapper }
       );
-      const starButtons = screen.getAllByRole('button').filter((b) => !b.textContent?.includes('Rate'));
+      const starButtons = screen
+        .getAllByRole('button')
+        .filter((b) => !b.textContent?.includes('Rate'));
       fireEvent.click(starButtons[2]);
       fireEvent.click(screen.getByRole('button', { name: 'Rate' }));
       await waitFor(() => {
@@ -256,11 +245,10 @@ describe('RatingForm', () => {
 
     it('shows Saving... while loading', async () => {
       vi.mocked(ratings.create).mockReturnValue(new Promise(() => {}) as never);
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
-      const starButtons = screen.getAllByRole('button').filter((b) => !b.textContent?.includes('Rate'));
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
+      const starButtons = screen
+        .getAllByRole('button')
+        .filter((b) => !b.textContent?.includes('Rate'));
       fireEvent.click(starButtons[0]);
       fireEvent.click(screen.getByRole('button', { name: 'Rate' }));
       await waitFor(() => {
@@ -272,11 +260,10 @@ describe('RatingForm', () => {
   describe('note handling', () => {
     it('passes note as undefined when empty string', async () => {
       vi.mocked(ratings.create).mockResolvedValue({ rating: existingRating } as never);
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
-      const starButtons = screen.getAllByRole('button').filter((b) => !b.textContent?.includes('Rate'));
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
+      const starButtons = screen
+        .getAllByRole('button')
+        .filter((b) => !b.textContent?.includes('Rate'));
       fireEvent.click(starButtons[0]);
       // Leave note empty
       fireEvent.click(screen.getByRole('button', { name: 'Rate' }));
@@ -287,11 +274,10 @@ describe('RatingForm', () => {
 
     it('passes note string when note has value', async () => {
       vi.mocked(ratings.create).mockResolvedValue({ rating: existingRating } as never);
-      render(
-        <RatingForm preparationId="prep-1" currentUserId="user-1" />,
-        { wrapper }
-      );
-      const starButtons = screen.getAllByRole('button').filter((b) => !b.textContent?.includes('Rate'));
+      render(<RatingForm preparationId="prep-1" currentUserId="user-1" />, { wrapper });
+      const starButtons = screen
+        .getAllByRole('button')
+        .filter((b) => !b.textContent?.includes('Rate'));
       fireEvent.click(starButtons[0]);
       const noteInput = screen.getByPlaceholderText('Add a note (optional)');
       fireEvent.change(noteInput, { target: { value: 'Delicious!' } });

@@ -80,7 +80,9 @@ describe('PrepTaskList', () => {
 
     it('calls prepTasks.update when checkbox toggled', async () => {
       vi.mocked(prepTasks.list).mockResolvedValue({ prepTasks: mockTasks });
-      vi.mocked(prepTasks.update).mockResolvedValue({ prepTask: { ...mockTasks[0], completed: true } });
+      vi.mocked(prepTasks.update).mockResolvedValue({
+        prepTask: { ...mockTasks[0], completed: true },
+      });
       render(<PrepTaskList entryId="entry-1" />, { wrapper });
       await screen.findByText('Chop onions');
       const checkboxes = screen.getAllByRole('checkbox');

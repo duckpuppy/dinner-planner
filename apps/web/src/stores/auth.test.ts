@@ -167,7 +167,15 @@ describe('authStore', () => {
   describe('logout', () => {
     it('clears user and isAuthenticated', async () => {
       useAuthStore.setState({
-        user: { id: 'u1', username: 'alice', displayName: 'Alice', role: 'user', theme: 'light', homeView: 'today', dietaryPreferences: [] },
+        user: {
+          id: 'u1',
+          username: 'alice',
+          displayName: 'Alice',
+          role: 'user',
+          theme: 'light',
+          homeView: 'today',
+          dietaryPreferences: [],
+        },
         isAuthenticated: true,
       });
       mockAuthLogout.mockResolvedValue(undefined);
@@ -193,7 +201,15 @@ describe('authStore', () => {
   describe('updateUser', () => {
     it('merges updates into existing user', () => {
       useAuthStore.setState({
-        user: { id: 'u1', username: 'alice', displayName: 'Alice', role: 'user', theme: 'light', homeView: 'today', dietaryPreferences: [] },
+        user: {
+          id: 'u1',
+          username: 'alice',
+          displayName: 'Alice',
+          role: 'user',
+          theme: 'light',
+          homeView: 'today',
+          dietaryPreferences: [],
+        },
       });
       act(() => {
         getState().updateUser({ displayName: 'Alice Smith' });

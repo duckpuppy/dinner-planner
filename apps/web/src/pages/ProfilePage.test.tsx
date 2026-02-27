@@ -120,7 +120,10 @@ describe('ProfilePage', () => {
 
     it('calls setTheme and updatePreferences when theme button clicked', async () => {
       const mockSetTheme = vi.fn();
-      vi.mocked(useThemeStore).mockImplementation(() => ({ theme: 'light', setTheme: mockSetTheme }));
+      vi.mocked(useThemeStore).mockImplementation(() => ({
+        theme: 'light',
+        setTheme: mockSetTheme,
+      }));
       vi.mocked(users.updatePreferences).mockResolvedValue({ user: mockUser });
       render(<ProfilePage />, { wrapper });
       fireEvent.click(screen.getByRole('button', { name: /light/i }));
@@ -139,7 +142,9 @@ describe('ProfilePage', () => {
     });
 
     it('calls updateUser and updatePreferences when Week clicked', async () => {
-      vi.mocked(users.updatePreferences).mockResolvedValue({ user: { ...mockUser, homeView: 'week' } });
+      vi.mocked(users.updatePreferences).mockResolvedValue({
+        user: { ...mockUser, homeView: 'week' },
+      });
       render(<ProfilePage />, { wrapper });
       fireEvent.click(screen.getByRole('button', { name: /^week$/i }));
       expect(mockUpdateUser).toHaveBeenCalledWith({ homeView: 'week' });

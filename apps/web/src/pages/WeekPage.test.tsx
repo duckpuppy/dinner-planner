@@ -498,7 +498,7 @@ describe('WeekPage', () => {
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
       fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
-      const notesInput = screen.getByPlaceholderText('Reservation, what you\'re ordering...');
+      const notesInput = screen.getByPlaceholderText("Reservation, what you're ordering...");
       fireEvent.change(notesInput, { target: { value: '7pm reservation' } });
       expect((notesInput as HTMLInputElement).value).toBe('7pm reservation');
     });
@@ -510,7 +510,7 @@ describe('WeekPage', () => {
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
       fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
-      const customInput = screen.getByPlaceholderText("What are you having?");
+      const customInput = screen.getByPlaceholderText('What are you having?');
       fireEvent.change(customInput, { target: { value: 'Cooking class night' } });
       expect((customInput as HTMLInputElement).value).toBe('Cooking class night');
     });
@@ -518,9 +518,7 @@ describe('WeekPage', () => {
     it('changes main dish selection when select changes', async () => {
       vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
       vi.mocked(dishes.list).mockResolvedValue({
-        dishes: [
-          { id: 'main-1', name: 'Pasta', type: 'main', tags: [], archived: false },
-        ],
+        dishes: [{ id: 'main-1', name: 'Pasta', type: 'main', tags: [], archived: false }],
       });
       render(<WeekPage />, { wrapper });
       const editBtns = await screen.findAllByRole('button', { name: /edit/i });

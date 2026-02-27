@@ -177,9 +177,7 @@ describe('getWeekGroceries', () => {
   });
 
   it('returns empty groceries when menu has no assembled entries with dishes', async () => {
-    mockGetOrCreateWeekMenu.mockResolvedValueOnce(
-      makeMenu([makeEntry({ type: 'fend_for_self' })])
-    );
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([makeEntry({ type: 'fend_for_self' })]));
 
     const result = await getWeekGroceries('2024-01-01');
 
@@ -206,7 +204,15 @@ describe('getWeekGroceries', () => {
     mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
     mockDb.select.mockReturnValueOnce(
       selFromWhereOrderBy([
-        { id: 'ing-1', dishId: 'dish-1', name: 'Flour', quantity: 200, unit: 'g', notes: null, sortOrder: 0 },
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Flour',
+          quantity: 200,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+        },
       ])
     );
 
@@ -226,7 +232,15 @@ describe('getWeekGroceries', () => {
     mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
     mockDb.select.mockReturnValueOnce(
       selFromWhereOrderBy([
-        { id: 'ing-2', dishId: 'dish-2', name: 'Lettuce', quantity: 1, unit: 'head', notes: null, sortOrder: 0 },
+        {
+          id: 'ing-2',
+          dishId: 'dish-2',
+          name: 'Lettuce',
+          quantity: 1,
+          unit: 'head',
+          notes: null,
+          sortOrder: 0,
+        },
       ])
     );
 
@@ -245,11 +259,26 @@ describe('getWeekGroceries', () => {
     mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
     mockDb.select.mockReturnValueOnce(
       selFromWhereOrderBy([
-        { id: 'ing-1', dishId: 'dish-1', name: 'Olive Oil', quantity: 1, unit: 'tbsp', notes: null, sortOrder: 0 },
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Olive Oil',
+          quantity: 1,
+          unit: 'tbsp',
+          notes: null,
+          sortOrder: 0,
+        },
       ])
     );
     mockListPantryItems.mockResolvedValueOnce([
-      { id: 'p-1', ingredientName: 'Olive Oil', quantity: 1, unit: null, expiresAt: null, createdAt: '' },
+      {
+        id: 'p-1',
+        ingredientName: 'Olive Oil',
+        quantity: 1,
+        unit: null,
+        expiresAt: null,
+        createdAt: '',
+      },
     ]);
 
     const result = await getWeekGroceries('2024-01-01');
@@ -275,7 +304,15 @@ describe('getWeekGroceries', () => {
     mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu(entries));
     mockDb.select.mockReturnValueOnce(
       selFromWhereOrderBy([
-        { id: 'ing-1', dishId: 'dish-1', name: 'Garlic', quantity: 2, unit: 'cloves', notes: null, sortOrder: 0 },
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Garlic',
+          quantity: 2,
+          unit: 'cloves',
+          notes: null,
+          sortOrder: 0,
+        },
       ])
     );
 
