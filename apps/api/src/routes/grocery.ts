@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
-  getCustomItemsForWeek,
   addCustomItem,
   updateCustomItem,
   deleteCustomItem,
