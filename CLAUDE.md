@@ -154,8 +154,29 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 
 ## Current State
 
-<!--
-ORCHESTRATOR: Update this section as the project evolves.
-Include: active work, recent decisions, known issues, architectural notes.
-Keep it concise — pointers to files are better than duplicated content.
--->
+### Completed milestones: M0–M22 (all on main)
+
+- M21: First-run setup wizard (`POST /api/setup`, `setupRequired` on health, `SetupPage`)
+- M22: Test coverage ≥80% API (88%/80%/84%) and Web (86%/86%/80%)
+
+### Active / upcoming milestones
+
+| M | Title | Status |
+| --- | --- | --- |
+| 23 | Custom grocery items | open |
+| 24 | Shared check state + live sync | open (blocked by M23) |
+| 25 | Grocery category grouping | open |
+
+### Grocery system architecture notes
+
+- Grocery list is **derived** from dish ingredients via `getWeekGroceries(weekDate)` in `apps/api/src/services/groceries.ts`
+- Check state currently in **localStorage** (`useGroceryChecklist`) — moves server-side in M24
+- M24 sync strategy: **5s polling** (not SSE/WS) — right choice for family scale, resilient on mobile
+- M24 check model: shared (any family member checks → all see it); `groceryChecks(weekDate, itemName, checkedByUserId)`
+
+### Future enhancements (not yet scheduled)
+
+- **Recurring/standing items** — items that always appear regardless of meal plan (milk, eggs, etc.)
+- **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity
+- **Serving size scaling** — scale ingredient quantities on grocery list for larger gatherings
+- **Category heuristics** — auto-assign ingredient categories by name rules (after M25 manual assignment ships)
