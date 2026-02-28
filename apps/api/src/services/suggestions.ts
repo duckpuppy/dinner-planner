@@ -3,6 +3,12 @@ import { db, schema } from '../db/index.js';
 import type { SuggestionsQueryInput, SuggestedDish } from '@dinner-planner/shared';
 import { getSettings } from './settings.js';
 
+// Returns YYYY-MM-DD using local date methods (respects TZ env var)
+function localDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
  * Score a dish for suggestion ranking.
  *
@@ -17,7 +23,7 @@ export function scoreDish(
   avgRating: number | null,
   lastPreparedDate: string | null,
   recencyWindowDays: number,
-  today: string = new Date().toISOString().slice(0, 10)
+  today: string = localDateStr()
 ): number {
   const base = avgRating ?? 3;
   if (!lastPreparedDate) return base;
@@ -36,7 +42,7 @@ export function buildReasons(
   totalRatings: number,
   lastPreparedDate: string | null,
   recencyWindowDays: number,
-  today: string = new Date().toISOString().slice(0, 10)
+  today: string = localDateStr()
 ): string[] {
   const reasons: string[] = [];
 
@@ -80,7 +86,7 @@ export function buildReasons(
 export async function getSuggestions(query: SuggestionsQueryInput): Promise<SuggestedDish[]> {
   const settings = await getSettings();
   const recencyWindowDays = settings.recencyWindowDays;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
 
   // Build exclude condition
   const baseConditions = [eq(schema.dishes.archived, false), eq(schema.dishes.type, 'main')];

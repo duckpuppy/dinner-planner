@@ -16,6 +16,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - TZ=${TZ:-}
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/health']
       interval: 30s
@@ -46,6 +47,7 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=admin123
       - CORS_ORIGIN=http://localhost:5173
+      - TZ=${TZ:-}
     command: pnpm dev
 
 volumes:
