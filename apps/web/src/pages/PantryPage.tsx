@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, Plus, Trash2, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { pantry as pantryApi, type PantryItem } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, localDateStr } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SkeletonList } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
@@ -13,12 +13,11 @@ import { useSwipeActions } from '@/hooks/useSwipeActions';
 
 function getExpiryStatus(expiresAt: string | null): 'expired' | 'soon' | 'ok' | null {
   if (!expiresAt) return null;
-  // Compare date strings directly to avoid timezone shift (YYYY-MM-DD is date-only)
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
   if (expiresAt < todayStr) return 'expired';
   const soon = new Date();
   soon.setDate(soon.getDate() + 7);
-  const soonStr = soon.toISOString().split('T')[0];
+  const soonStr = localDateStr(soon);
   if (expiresAt <= soonStr) return 'soon';
   return 'ok';
 }

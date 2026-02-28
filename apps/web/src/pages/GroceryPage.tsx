@@ -4,11 +4,11 @@ import { useSearchParams } from 'react-router-dom';
 import { ShoppingCart, Check, Copy, Trash2, ChefHat, Package, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { menus, stores as storesApi, type GroceryItem, type CustomGroceryItem } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
-import { cn } from '@/lib/utils';
+import { cn, localDateStr } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function getTodayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr();
 }
 
 function formatQuantity(item: GroceryItem): string {

@@ -26,7 +26,7 @@ import {
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, localDateStr } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
@@ -44,10 +44,6 @@ const DAY_NAMES_FULL = [
   'Friday',
   'Saturday',
 ];
-
-function formatDateForApi(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
 
 function getWeekStartDate(date: Date): Date {
   const d = new Date(date);
@@ -73,7 +69,7 @@ export function WeekPage() {
     return weekStart;
   }, [weekOffset]);
 
-  const dateStr = formatDateForApi(currentWeekStart);
+  const dateStr = localDateStr(currentWeekStart);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['week', dateStr],
@@ -198,7 +194,7 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
   const prepTaskCount = prepTasksData?.prepTasks.length ?? 0;
   const completedCount = prepTasksData?.prepTasks.filter((t) => t.completed).length ?? 0;
 
-  const isToday = entry.date === formatDateForApi(new Date());
+  const isToday = entry.date === localDateStr();
   const date = new Date(entry.date + 'T00:00:00');
 
   const updateMutation = useMutation({

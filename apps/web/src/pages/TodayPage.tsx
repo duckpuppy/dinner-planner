@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, localDateStr } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { StarRating } from '@/components/StarRating';
 import { SkeletonCard, Skeleton } from '@/components/Skeleton';
@@ -24,14 +24,10 @@ import { EmptyState } from '@/components/EmptyState';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function formatDateForApi(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
 function getTomorrowDateStr(): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return formatDateForApi(tomorrow);
+  return localDateStr(tomorrow);
 }
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
