@@ -48,6 +48,8 @@ export const ingredientSchema = z.object({
   unit: z.string().max(50).nullable(),
   name: z.string().min(1, 'Ingredient name is required').max(200),
   notes: z.string().max(500).nullable(),
+  category: z.string().default('Other'),
+  storeIds: z.array(z.string()).default([]),
 });
 
 // Dish schemas
@@ -187,6 +189,8 @@ export const groceryItemSchema = z.object({
   dishes: z.array(z.string()),
   notes: z.array(z.string()),
   inPantry: z.boolean().default(false),
+  category: z.string().default('Other'),
+  stores: z.array(z.string()).default([]),
 });
 
 export const groceriesResponseSchema = z.object({
@@ -279,6 +283,13 @@ export const prepTaskSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+// Store type (M25)
+export type Store = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
 
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;

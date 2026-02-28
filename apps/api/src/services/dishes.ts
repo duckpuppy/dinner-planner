@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, and, like, desc, asc, sql, or } from 'drizzle-orm';
+import { eq, and, like, desc, asc, sql, or, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreateDishInput, UpdateDishInput, DishQueryInput } from '@dinner-planner/shared';
 
@@ -34,10 +34,13 @@ export interface IngredientResponse {
   name: string;
   notes: string | null;
   sortOrder: number;
+  category: string;
+  stores: string[];
 }
 
 function toIngredientResponse(
-  ingredient: typeof schema.ingredients.$inferSelect
+  ingredient: typeof schema.ingredients.$inferSelect,
+  storeNames: string[] = []
 ): IngredientResponse {
   return {
     id: ingredient.id,
@@ -46,7 +49,42 @@ function toIngredientResponse(
     name: ingredient.name,
     notes: ingredient.notes,
     sortOrder: ingredient.sortOrder,
+    category: ingredient.category,
+    stores: storeNames,
   };
+}
+
+/**
+ * Fetch store names for a list of ingredient IDs. Returns a Map<ingredientId, storeName[]>.
+ */
+async function fetchStoresByIngredient(ingredientIds: string[]): Promise<Map<string, string[]>> {
+  if (ingredientIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      ingredientId: schema.ingredientStores.ingredientId,
+      storeName: schema.stores.name,
+    })
+    .from(schema.ingredientStores)
+    .innerJoin(schema.stores, eq(schema.ingredientStores.storeId, schema.stores.id))
+    .where(inArray(schema.ingredientStores.ingredientId, ingredientIds));
+
+  const result = new Map<string, string[]>();
+  for (const row of rows) {
+    const existing = result.get(row.ingredientId) ?? [];
+    existing.push(row.storeName);
+    result.set(row.ingredientId, existing);
+  }
+  return result;
+}
+
+/**
+ * Insert ingredient_stores rows for a set of ingredient IDs and store IDs.
+ */
+async function insertIngredientStores(ingredientId: string, storeIds: string[]): Promise<void> {
+  if (storeIds.length === 0) return;
+  await db.insert(schema.ingredientStores).values(
+    storeIds.map((storeId) => ({ ingredientId, storeId }))
+  );
 }
 
 async function getDishWithRelations(id: string): Promise<DishResponse | null> {
@@ -61,6 +99,8 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     .from(schema.ingredients)
     .where(eq(schema.ingredients.dishId, id))
     .orderBy(asc(schema.ingredients.sortOrder));
+
+  const storesByIngredient = await fetchStoresByIngredient(ingredients.map((i) => i.id));
 
   const dishTags = await db
     .select({ name: schema.tags.name })
@@ -92,7 +132,7 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     createdById: dish.createdById,
     createdAt: dish.createdAt,
     updatedAt: dish.updatedAt,
-    ingredients: ingredients.map(toIngredientResponse),
+    ingredients: ingredients.map((ing) => toIngredientResponse(ing, storesByIngredient.get(ing.id) ?? [])),
     tags: dishTags.map((t) => t.name),
     dietaryTags: dietaryTagRows.map((r) => r.tag),
   };
@@ -222,19 +262,23 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
     updatedAt: now,
   });
 
-  // Insert ingredients
+  // Insert ingredients (with category and store associations)
   if (input.ingredients && input.ingredients.length > 0) {
-    await db.insert(schema.ingredients).values(
-      input.ingredients.map((ing, index) => ({
-        id: crypto.randomUUID(),
+    for (let index = 0; index < input.ingredients.length; index++) {
+      const ing = input.ingredients[index];
+      const ingId = crypto.randomUUID();
+      await db.insert(schema.ingredients).values({
+        id: ingId,
         dishId: id,
         quantity: ing.quantity,
         unit: ing.unit,
         name: ing.name,
         notes: ing.notes,
         sortOrder: index,
-      }))
-    );
+        category: ing.category ?? 'Other',
+      });
+      await insertIngredientStores(ingId, ing.storeIds ?? []);
+    }
   }
 
   // Handle free-form tags
@@ -304,22 +348,24 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
 
   // Update ingredients if provided
   if (input.ingredients !== undefined) {
-    // Delete existing ingredients
+    // Delete existing ingredients (cascade removes ingredient_stores rows)
     await db.delete(schema.ingredients).where(eq(schema.ingredients.dishId, id));
 
-    // Insert new ingredients
-    if (input.ingredients.length > 0) {
-      await db.insert(schema.ingredients).values(
-        input.ingredients.map((ing, index) => ({
-          id: crypto.randomUUID(),
-          dishId: id,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          name: ing.name,
-          notes: ing.notes,
-          sortOrder: index,
-        }))
-      );
+    // Insert new ingredients with category and store associations
+    for (let index = 0; index < input.ingredients.length; index++) {
+      const ing = input.ingredients[index];
+      const ingId = crypto.randomUUID();
+      await db.insert(schema.ingredients).values({
+        id: ingId,
+        dishId: id,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        name: ing.name,
+        notes: ing.notes,
+        sortOrder: index,
+        category: ing.category ?? 'Other',
+      });
+      await insertIngredientStores(ingId, ing.storeIds ?? []);
     }
   }
 

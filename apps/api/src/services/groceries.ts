@@ -1,4 +1,4 @@
-import { inArray, asc } from 'drizzle-orm';
+import { inArray, asc, eq } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { GroceryItem } from '@dinner-planner/shared';
 import { getOrCreateWeekMenu } from './menus.js';
@@ -10,12 +10,15 @@ interface IngredientSource {
   unit: string | null;
   name: string;
   notes: string | null;
+  category: string;
+  storeNames: string[];
 }
 
 /**
  * Aggregate a flat list of ingredient sources into deduplicated grocery items.
  * Groups by (name.toLowerCase(), unit?.toLowerCase()), summing quantities.
  * Quantity becomes null if any contributing ingredient has null quantity.
+ * Category: first source wins. Stores: union (deduplicated).
  */
 export function aggregateIngredients(sources: IngredientSource[]): GroceryItem[] {
   const map = new Map<string, GroceryItem>();
@@ -36,6 +39,11 @@ export function aggregateIngredients(sources: IngredientSource[]): GroceryItem[]
       if (src.notes && !existing.notes.includes(src.notes)) {
         existing.notes.push(src.notes);
       }
+      // category: first wins (no change)
+      // stores: union
+      for (const s of src.storeNames) {
+        if (!existing.stores.includes(s)) existing.stores.push(s);
+      }
     } else {
       map.set(key, {
         name: src.name,
@@ -44,6 +52,8 @@ export function aggregateIngredients(sources: IngredientSource[]): GroceryItem[]
         dishes: [src.dishName],
         notes: src.notes ? [src.notes] : [],
         inPantry: false,
+        category: src.category,
+        stores: [...src.storeNames],
       });
     }
   }
@@ -86,12 +96,34 @@ export async function getWeekGroceries(
     .where(inArray(schema.ingredients.dishId, dishIds))
     .orderBy(asc(schema.ingredients.sortOrder));
 
+  // Fetch store names for all ingredient IDs
+  const ingredientIds = ingredientRows.map((r) => r.id);
+  const storesByIngredient = new Map<string, string[]>();
+  if (ingredientIds.length > 0) {
+    const storeRows = await db
+      .select({
+        ingredientId: schema.ingredientStores.ingredientId,
+        storeName: schema.stores.name,
+      })
+      .from(schema.ingredientStores)
+      .innerJoin(schema.stores, eq(schema.ingredientStores.storeId, schema.stores.id))
+      .where(inArray(schema.ingredientStores.ingredientId, ingredientIds));
+
+    for (const row of storeRows) {
+      const existing = storesByIngredient.get(row.ingredientId) ?? [];
+      existing.push(row.storeName);
+      storesByIngredient.set(row.ingredientId, existing);
+    }
+  }
+
   const sources: IngredientSource[] = ingredientRows.map((ing) => ({
     dishName: dishIdToName.get(ing.dishId) ?? 'Unknown',
     quantity: ing.quantity,
     unit: ing.unit,
     name: ing.name,
     notes: ing.notes,
+    category: ing.category,
+    storeNames: storesByIngredient.get(ing.id) ?? [],
   }));
 
   const groceries = aggregateIngredients(sources);

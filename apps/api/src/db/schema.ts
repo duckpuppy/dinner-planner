@@ -75,6 +75,7 @@ export const ingredients = sqliteTable('ingredients', {
   name: text('name').notNull(),
   notes: text('notes'),
   sortOrder: integer('sort_order').notNull().default(0),
+  category: text('category').notNull().default('Other'),
 });
 
 // Tags table
@@ -277,6 +278,29 @@ export const pantryItems = sqliteTable('pantry_items', {
     .default(sql`(datetime('now'))`),
 });
 
+// Stores table (M25: managed store list for grocery organization)
+export const stores = sqliteTable('stores', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// Ingredient <-> Store junction table (M25)
+export const ingredientStores = sqliteTable(
+  'ingredient_stores',
+  {
+    ingredientId: text('ingredient_id')
+      .notNull()
+      .references(() => ingredients.id, { onDelete: 'cascade' }),
+    storeId: text('store_id')
+      .notNull()
+      .references(() => stores.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.ingredientId, table.storeId] })]
+);
+
 // Custom grocery items table (M23: user-added free-form grocery items)
 export const customGroceryItems = sqliteTable('custom_grocery_items', {
   id: text('id').primaryKey(),
@@ -286,6 +310,7 @@ export const customGroceryItems = sqliteTable('custom_grocery_items', {
   unit: text('unit'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull(),
+  storeId: text('store_id').references(() => stores.id, { onDelete: 'set null' }),
 });
 
 // Grocery checks table (M24: shared server-side check state)

@@ -24,6 +24,8 @@ export interface Ingredient {
   unit: string | null;
   name: string;
   notes: string | null;
+  category: string;
+  stores: string[];
 }
 
 export interface Dish {

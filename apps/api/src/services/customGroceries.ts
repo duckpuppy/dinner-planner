@@ -10,6 +10,8 @@ export interface CustomGroceryItem {
   unit: string | null;
   sortOrder: number;
   createdAt: string;
+  storeId: string | null;
+  storeName: string | null;
 }
 
 function rowToItem(row: {
@@ -20,6 +22,8 @@ function rowToItem(row: {
   unit: string | null;
   sortOrder: number;
   createdAt: string;
+  storeId: string | null;
+  storeName: string | null;
 }): CustomGroceryItem {
   return {
     id: row.id,
@@ -29,16 +33,29 @@ function rowToItem(row: {
     unit: row.unit ?? null,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
+    storeId: row.storeId ?? null,
+    storeName: row.storeName ?? null,
   };
 }
 
 /**
- * Get all custom grocery items for a specific week.
+ * Get all custom grocery items for a specific week, joined with store name.
  */
 export async function getCustomItemsForWeek(weekDate: string): Promise<CustomGroceryItem[]> {
   const rows = await db
-    .select()
+    .select({
+      id: schema.customGroceryItems.id,
+      weekDate: schema.customGroceryItems.weekDate,
+      name: schema.customGroceryItems.name,
+      quantity: schema.customGroceryItems.quantity,
+      unit: schema.customGroceryItems.unit,
+      sortOrder: schema.customGroceryItems.sortOrder,
+      createdAt: schema.customGroceryItems.createdAt,
+      storeId: schema.customGroceryItems.storeId,
+      storeName: schema.stores.name,
+    })
     .from(schema.customGroceryItems)
+    .leftJoin(schema.stores, eq(schema.customGroceryItems.storeId, schema.stores.id))
     .where(eq(schema.customGroceryItems.weekDate, weekDate))
     .orderBy(asc(schema.customGroceryItems.sortOrder));
 
@@ -52,7 +69,8 @@ export async function addCustomItem(
   weekDate: string,
   name: string,
   quantity: number | null,
-  unit: string | null
+  unit: string | null,
+  storeId?: string | null
 ): Promise<CustomGroceryItem> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -72,11 +90,23 @@ export async function addCustomItem(
     unit: unit ?? null,
     sortOrder,
     createdAt: now,
+    storeId: storeId ?? null,
   });
 
   const rows = await db
-    .select()
+    .select({
+      id: schema.customGroceryItems.id,
+      weekDate: schema.customGroceryItems.weekDate,
+      name: schema.customGroceryItems.name,
+      quantity: schema.customGroceryItems.quantity,
+      unit: schema.customGroceryItems.unit,
+      sortOrder: schema.customGroceryItems.sortOrder,
+      createdAt: schema.customGroceryItems.createdAt,
+      storeId: schema.customGroceryItems.storeId,
+      storeName: schema.stores.name,
+    })
     .from(schema.customGroceryItems)
+    .leftJoin(schema.stores, eq(schema.customGroceryItems.storeId, schema.stores.id))
     .where(eq(schema.customGroceryItems.id, id));
 
   return rowToItem(rows[0]);
@@ -87,7 +117,7 @@ export async function addCustomItem(
  */
 export async function updateCustomItem(
   id: string,
-  data: Partial<Pick<CustomGroceryItem, 'name' | 'quantity' | 'unit'>>
+  data: Partial<Pick<CustomGroceryItem, 'name' | 'quantity' | 'unit' | 'storeId'>>
 ): Promise<CustomGroceryItem | null> {
   const existing = await db.query.customGroceryItems.findFirst({
     where: eq(schema.customGroceryItems.id, id),
@@ -98,6 +128,7 @@ export async function updateCustomItem(
   if (data.name !== undefined) updates.name = data.name;
   if (data.quantity !== undefined) updates.quantity = data.quantity ?? null;
   if (data.unit !== undefined) updates.unit = data.unit ?? null;
+  if (data.storeId !== undefined) updates.storeId = data.storeId ?? null;
 
   await db
     .update(schema.customGroceryItems)
@@ -105,8 +136,19 @@ export async function updateCustomItem(
     .where(eq(schema.customGroceryItems.id, id));
 
   const rows = await db
-    .select()
+    .select({
+      id: schema.customGroceryItems.id,
+      weekDate: schema.customGroceryItems.weekDate,
+      name: schema.customGroceryItems.name,
+      quantity: schema.customGroceryItems.quantity,
+      unit: schema.customGroceryItems.unit,
+      sortOrder: schema.customGroceryItems.sortOrder,
+      createdAt: schema.customGroceryItems.createdAt,
+      storeId: schema.customGroceryItems.storeId,
+      storeName: schema.stores.name,
+    })
     .from(schema.customGroceryItems)
+    .leftJoin(schema.stores, eq(schema.customGroceryItems.storeId, schema.stores.id))
     .where(eq(schema.customGroceryItems.id, id));
 
   return rowToItem(rows[0]);

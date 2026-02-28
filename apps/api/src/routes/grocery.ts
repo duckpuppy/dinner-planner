@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
 import { toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
+import { listStores } from '../services/stores.js';
 
 const toggleCheckSchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
@@ -18,6 +19,7 @@ const createCustomItemSchema = z.object({
   name: z.string().min(1, 'name must not be empty'),
   quantity: z.number().optional(),
   unit: z.string().optional(),
+  storeId: z.string().optional(),
 });
 
 const updateCustomItemSchema = z
@@ -25,12 +27,22 @@ const updateCustomItemSchema = z
     name: z.string().min(1, 'name must not be empty').optional(),
     quantity: z.number().nullable().optional(),
     unit: z.string().nullable().optional(),
+    storeId: z.string().nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
 export async function groceryRoutes(fastify: FastifyInstance) {
+  /**
+   * GET /api/stores
+   * List all managed stores sorted by name.
+   */
+  fastify.get('/api/stores', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const stores = await listStores();
+    return reply.send({ stores: stores.map((s) => ({ id: s.id, name: s.name })) });
+  });
+
   /**
    * POST /api/grocery/custom
    * Add a custom grocery item for a week.
@@ -46,8 +58,8 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      const { weekDate, name, quantity = null, unit = null } = parsed.data;
-      const item = await addCustomItem(weekDate, name, quantity ?? null, unit ?? null);
+      const { weekDate, name, quantity = null, unit = null, storeId } = parsed.data;
+      const item = await addCustomItem(weekDate, name, quantity ?? null, unit ?? null, storeId);
       return reply.status(201).send({ item });
     }
   );

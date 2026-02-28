@@ -256,6 +256,8 @@ export function parseSchemaOrgRecipe(html: string, sourceUrl: string): ImportedR
           unit: null,
           name: (s as string).slice(0, 200),
           notes: null,
+          category: 'Other',
+          storeIds: [],
         })),
         instructions: parseInstructions(recipe['recipeInstructions']).slice(0, 10000),
         prepTime: parseDuration(recipe['prepTime']),

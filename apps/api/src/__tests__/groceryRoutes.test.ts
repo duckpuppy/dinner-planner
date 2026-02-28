@@ -21,8 +21,13 @@ vi.mock('../services/groceryChecks.js', () => ({
   clearAllChecks: vi.fn(),
 }));
 
+vi.mock('../services/stores.js', () => ({
+  listStores: vi.fn(),
+}));
+
 import * as customGroceriesService from '../services/customGroceries.js';
 import * as groceryChecksService from '../services/groceryChecks.js';
+import * as storesService from '../services/stores.js';
 
 const TEST_JWT_SECRET = 'integration-test-secret-must-be-32-chars!';
 
@@ -55,6 +60,8 @@ const mockItem = {
   unit: 'litre',
   sortOrder: 0,
   createdAt: '2026-02-24T00:00:00.000Z',
+  storeId: null,
+  storeName: null,
 };
 
 // ===========================================================================
@@ -442,5 +449,151 @@ describe('DELETE /api/grocery/checks', () => {
       url: '/api/grocery/checks?weekDate=2026-02-24',
     });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// GET /api/stores
+// ===========================================================================
+
+describe('GET /api/stores', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns 200 with stores list', async () => {
+    const stores = [
+      { id: 's-1', name: 'Aldi', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 's-2', name: 'Whole Foods', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    vi.mocked(storesService.listStores).mockResolvedValueOnce(stores);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/stores',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.stores).toHaveLength(2);
+    expect(body.stores[0]).toEqual({ id: 's-1', name: 'Aldi' });
+    expect(body.stores[1]).toEqual({ id: 's-2', name: 'Whole Foods' });
+  });
+
+  it('returns 200 with empty stores list', async () => {
+    vi.mocked(storesService.listStores).mockResolvedValueOnce([]);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/stores',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.stores).toEqual([]);
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/stores',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// POST /api/grocery/custom — storeId support
+// ===========================================================================
+
+describe('POST /api/grocery/custom with storeId', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('passes storeId to service when provided', async () => {
+    const itemWithStore = { ...mockItem, storeId: 's-1', storeName: 'Aldi' };
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce(itemWithStore);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/custom',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        weekDate: '2026-02-24',
+        name: 'Milk',
+        quantity: 2,
+        unit: 'litre',
+        storeId: 's-1',
+      }),
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.item.storeId).toBe('s-1');
+    expect(body.item.storeName).toBe('Aldi');
+    expect(customGroceriesService.addCustomItem).toHaveBeenCalledWith(
+      '2026-02-24',
+      'Milk',
+      2,
+      'litre',
+      's-1'
+    );
+  });
+});
+
+// ===========================================================================
+// PATCH /api/grocery/custom/:id — storeId support
+// ===========================================================================
+
+describe('PATCH /api/grocery/custom/:id with storeId', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('passes storeId to service when provided', async () => {
+    const updated = { ...mockItem, storeId: 's-2', storeName: 'Costco' };
+    vi.mocked(customGroceriesService.updateCustomItem).mockResolvedValueOnce(updated);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/grocery/custom/item-1',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ storeId: 's-2' }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.item.storeId).toBe('s-2');
+    expect(body.item.storeName).toBe('Costco');
+  });
+
+  it('passes null storeId to clear store association', async () => {
+    const updated = { ...mockItem, storeId: null, storeName: null };
+    vi.mocked(customGroceriesService.updateCustomItem).mockResolvedValueOnce(updated);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/grocery/custom/item-1',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ storeId: null }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).item.storeId).toBeNull();
   });
 });

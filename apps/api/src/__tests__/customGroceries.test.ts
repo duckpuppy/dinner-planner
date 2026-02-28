@@ -35,6 +35,11 @@ vi.mock('../db/index.js', () => ({
       unit: null,
       sortOrder: null,
       createdAt: null,
+      storeId: null,
+    },
+    stores: {
+      id: null,
+      name: null,
     },
   },
 }));
@@ -51,8 +56,10 @@ import {
 function selFrom(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        orderBy: vi.fn().mockResolvedValue(result),
+      leftJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue(result),
+        }),
       }),
     }),
   };
@@ -61,6 +68,9 @@ function selFrom(result: unknown[]) {
 function selFromWhere(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(result),
+      }),
       where: vi.fn().mockResolvedValue(result),
     }),
   };
@@ -93,6 +103,8 @@ function makeItemRow(overrides: Record<string, unknown> = {}) {
     unit: 'litre',
     sortOrder: 0,
     createdAt: '2026-02-24T00:00:00.000Z',
+    storeId: null,
+    storeName: null,
     ...overrides,
   };
 }
@@ -139,6 +151,8 @@ describe('getCustomItemsForWeek', () => {
       unit: 'litre',
       sortOrder: 0,
       createdAt: '2026-02-24T00:00:00.000Z',
+      storeId: null,
+      storeName: null,
     });
   });
 
