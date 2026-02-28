@@ -13,6 +13,9 @@ vi.mock('@/lib/api', () => ({
     toggleGroceryCheck: vi.fn(),
     clearGroceryChecks: vi.fn(),
   },
+  stores: {
+    list: vi.fn().mockResolvedValue([]),
+  },
 }));
 
 vi.mock('sonner', () => ({
@@ -66,7 +69,7 @@ describe('GroceryPage', () => {
   it('renders grocery items after loading', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Pantry Staples', stores: [] },
         {
           name: 'Salt',
           quantity: null,
@@ -74,6 +77,8 @@ describe('GroceryPage', () => {
           dishes: ['Pasta', 'Pizza'],
           notes: ['to taste'],
           inPantry: false,
+          category: 'Pantry Staples',
+          stores: [],
         },
       ],
       customItems: [],
@@ -100,8 +105,8 @@ describe('GroceryPage', () => {
   it('shows item count when items are loaded', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
-        { name: 'Salt', quantity: null, unit: null, dishes: [], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
+        { name: 'Salt', quantity: null, unit: null, dishes: [], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -114,7 +119,7 @@ describe('GroceryPage', () => {
   it('shows Copy button when items are loaded', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -127,7 +132,7 @@ describe('GroceryPage', () => {
   it('toggles item checked state when clicked', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -148,7 +153,7 @@ describe('GroceryPage', () => {
   it('toggle calls menus.toggleGroceryCheck', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -175,7 +180,7 @@ describe('GroceryPage', () => {
   it('shows Clear button when items are checked', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -194,7 +199,7 @@ describe('GroceryPage', () => {
   it('clears all checked items when Clear clicked', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -217,7 +222,7 @@ describe('GroceryPage', () => {
   it('clearAll calls menus.clearGroceryChecks', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -259,6 +264,8 @@ describe('GroceryPage', () => {
           dishes: ['Pasta'],
           notes: [],
           inPantry: true,
+          category: 'Other',
+          stores: [],
         },
       ],
       customItems: [],
@@ -275,7 +282,7 @@ describe('GroceryPage', () => {
   it('renders item with unit only (no quantity)', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Pepper', quantity: null, unit: 'tsp', dishes: [], notes: [], inPantry: false },
+        { name: 'Pepper', quantity: null, unit: 'tsp', dishes: [], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -295,6 +302,8 @@ describe('GroceryPage', () => {
           dishes: ['Pizza'],
           notes: ['fresh'],
           inPantry: false,
+          category: 'Other',
+          stores: [],
         },
       ],
       customItems: [],
@@ -315,7 +324,7 @@ describe('GroceryPage', () => {
     });
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
-        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false },
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Other', stores: [] },
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
@@ -341,6 +350,8 @@ describe('GroceryPage', () => {
             quantity: null,
             unit: null,
             sortOrder: 0,
+            storeId: null,
+            storeName: null,
           },
         ],
         weekStartDate: '2024-06-10',
@@ -361,6 +372,8 @@ describe('GroceryPage', () => {
             quantity: 2,
             unit: 'L',
             sortOrder: 0,
+            storeId: null,
+            storeName: null,
           },
         ],
         weekStartDate: '2024-06-10',
@@ -393,6 +406,8 @@ describe('GroceryPage', () => {
         quantity: null,
         unit: null,
         sortOrder: 0,
+        storeId: null,
+        storeName: null,
       });
 
       render(<GroceryPage />, { wrapper });
@@ -417,6 +432,8 @@ describe('GroceryPage', () => {
         quantity: null,
         unit: null,
         sortOrder: 0,
+        storeId: null,
+        storeName: null,
       });
 
       render(<GroceryPage />, { wrapper });
@@ -450,6 +467,8 @@ describe('GroceryPage', () => {
             quantity: null,
             unit: null,
             sortOrder: 0,
+            storeId: null,
+            storeName: null,
           },
         ],
         weekStartDate: '2024-06-10',
@@ -475,6 +494,8 @@ describe('GroceryPage', () => {
         quantity: null,
         unit: null,
         sortOrder: 0,
+        storeId: null,
+        storeName: null,
       });
 
       render(<GroceryPage />, { wrapper });
@@ -501,6 +522,8 @@ describe('GroceryPage', () => {
             quantity: null,
             unit: null,
             sortOrder: 0,
+            storeId: null,
+            storeName: null,
           },
         ],
         weekStartDate: '2024-06-10',
@@ -535,6 +558,8 @@ describe('GroceryPage', () => {
             quantity: null,
             unit: null,
             sortOrder: 0,
+            storeId: null,
+            storeName: null,
           },
         ],
         weekStartDate: '2024-06-10',

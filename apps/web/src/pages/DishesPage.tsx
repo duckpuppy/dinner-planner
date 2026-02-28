@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   dishes as dishesApi,
   ratings as ratingsApi,
+  stores as storesApi,
   type Dish,
   type CreateDishData,
+  type Store,
   DIETARY_TAGS,
 } from '@/lib/api';
 import { DishNotes } from '@/components/DishNotes';
@@ -24,7 +26,7 @@ import {
   Minus,
   AlertTriangle,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
@@ -862,11 +864,26 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
   );
 }
 
+const INGREDIENT_CATEGORIES = [
+  'Produce',
+  'Dairy',
+  'Meat',
+  'Seafood',
+  'Bakery',
+  'Frozen',
+  'Pantry Staples',
+  'Beverages',
+  'Household',
+  'Other',
+] as const;
+
 interface IngredientRow {
   quantity: string;
   unit: string;
   name: string;
   notes: string;
+  category: string;
+  storeIds: string[];
 }
 
 interface DishFormProps {
@@ -914,12 +931,17 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
       unit: i.unit ?? '',
       name: i.name,
       notes: i.notes ?? '',
+      category: i.category ?? 'Other',
+      // storeIds will be resolved once stores data loads (see useEffect below)
+      storeIds: [],
     })) ??
       prefill?.ingredients?.map((i) => ({
         quantity: i.quantity?.toString() ?? '',
         unit: i.unit ?? '',
         name: i.name,
         notes: i.notes ?? '',
+        category: 'Other',
+        storeIds: [],
       })) ??
       []
   );
@@ -949,16 +971,29 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   }
 
   function addIngredientRow() {
-    setIngredientRows((prev) => [...prev, { quantity: '', unit: '', name: '', notes: '' }]);
+    setIngredientRows((prev) => [
+      ...prev,
+      { quantity: '', unit: '', name: '', notes: '', category: 'Other', storeIds: [] },
+    ]);
   }
 
   function removeIngredientRow(index: number) {
     setIngredientRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateIngredientRow(index: number, field: keyof IngredientRow, value: string) {
+  function updateIngredientRow(
+    index: number,
+    field: Exclude<keyof IngredientRow, 'storeIds'>,
+    value: string
+  ) {
     setIngredientRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function updateIngredientStores(index: number, storeIds: string[]) {
+    setIngredientRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, storeIds } : row))
     );
   }
 
@@ -971,6 +1006,33 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
       return next;
     });
   }
+
+  const { data: storesList } = useQuery({
+    queryKey: ['stores'],
+    queryFn: storesApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Resolve store names → IDs for existing dish ingredients (runs once when stores load)
+  const storesResolved = useRef(false);
+  useEffect(() => {
+    if (!storesList || storesResolved.current || !dish?.ingredients.length) return;
+    storesResolved.current = true;
+    const nameToId = new Map(storesList.map((s: Store) => [s.name, s.id]));
+    setIngredientRows((prev) =>
+      prev.map((row, i) => {
+        const ing = dish.ingredients[i];
+        if (!ing) return row;
+        const resolvedIds = (ing.stores ?? [])
+          .map((name: string) => nameToId.get(name))
+          .filter((id): id is string => id !== undefined);
+        return { ...row, storeIds: resolvedIds };
+      })
+    );
+  }, [storesList, dish]);
+
+  // Per-ingredient store input state (for the combobox)
+  const [storeInputs, setStoreInputs] = useState<Record<number, string>>({});
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDishData) => dishesApi.create(data),
@@ -1010,6 +1072,8 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
         unit: row.unit.trim() || null,
         name: row.name.trim(),
         notes: row.notes.trim() || null,
+        category: row.category || 'Other',
+        storeIds: row.storeIds,
       }));
 
     const data: CreateDishData = {
@@ -1334,6 +1398,94 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
                   className="w-full px-2 py-1 border rounded text-xs bg-background text-muted-foreground"
                   aria-label="Notes"
                 />
+                {/* Category + Stores row */}
+                <div className="flex flex-wrap items-start gap-1.5">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <label
+                      className="text-xs text-muted-foreground"
+                      htmlFor={`ingredient-category-${index}`}
+                    >
+                      Category:
+                    </label>
+                    <select
+                      id={`ingredient-category-${index}`}
+                      value={row.category}
+                      onChange={(e) => updateIngredientRow(index, 'category', e.target.value)}
+                      className="px-1.5 py-0.5 border rounded text-xs bg-background"
+                      aria-label="Ingredient category"
+                    >
+                      {INGREDIENT_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Store multi-select */}
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs text-muted-foreground">Stores:</label>
+                    <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                      {row.storeIds.map((id) => {
+                        const storeName = storesList?.find((s: Store) => s.id === id)?.name ?? id;
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground border"
+                          >
+                            {storeName}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateIngredientStores(
+                                  index,
+                                  row.storeIds.filter((sid) => sid !== id)
+                                )
+                              }
+                              className="p-0.5 hover:text-destructive"
+                              aria-label={`Remove store ${storeName}`}
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <input
+                        type="text"
+                        value={storeInputs[index] ?? ''}
+                        onChange={(e) =>
+                          setStoreInputs((prev) => ({ ...prev, [index]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const inputVal = (storeInputs[index] ?? '').trim();
+                            if (!inputVal) return;
+                            // Match existing store by name (case-insensitive)
+                            const match = storesList?.find(
+                              (s: Store) => s.name.toLowerCase() === inputVal.toLowerCase()
+                            );
+                            if (match && !row.storeIds.includes(match.id)) {
+                              updateIngredientStores(index, [...row.storeIds, match.id]);
+                            }
+                            setStoreInputs((prev) => ({ ...prev, [index]: '' }));
+                          }
+                        }}
+                        placeholder={row.storeIds.length === 0 ? 'Type store name…' : ''}
+                        list={`stores-list-${index}`}
+                        className="flex-1 min-w-[100px] px-1.5 py-0.5 border rounded text-xs bg-background"
+                        aria-label="Add store"
+                      />
+                      <datalist id={`stores-list-${index}`}>
+                        {(storesList ?? [])
+                          .filter((s: Store) => !row.storeIds.includes(s.id))
+                          .map((s: Store) => (
+                            <option key={s.id} value={s.name} />
+                          ))}
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
             <button

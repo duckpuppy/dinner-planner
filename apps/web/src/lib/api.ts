@@ -244,22 +244,25 @@ export const menus = {
       method: 'DELETE',
     }),
 
-  addCustomItem: (weekDate: string, data: { name: string; quantity?: number; unit?: string }) =>
-    request<CustomGroceryItem>('/grocery/custom', {
+  addCustomItem: (
+    weekDate: string,
+    data: { name: string; quantity?: number; unit?: string; storeId?: string | null }
+  ) =>
+    request<{ item: CustomGroceryItem }>('/grocery/custom', {
       method: 'POST',
       body: JSON.stringify({ weekDate, ...data }),
-    }),
+    }).then((res) => res.item),
 
   deleteCustomItem: (id: string) => request<void>(`/grocery/custom/${id}`, { method: 'DELETE' }),
 
   updateCustomItem: (
     id: string,
-    data: { name?: string; quantity?: number | null; unit?: string | null }
+    data: { name?: string; quantity?: number | null; unit?: string | null; storeId?: string | null }
   ) =>
-    request<CustomGroceryItem>(`/grocery/custom/${id}`, {
+    request<{ item: CustomGroceryItem }>(`/grocery/custom/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
-    }),
+    }).then((res) => res.item),
 
   getToday: () => request<{ entry: DinnerEntry }>('/menus/today'),
 
@@ -382,6 +385,12 @@ export const settings = {
     }),
 };
 
+// Stores API
+export const stores = {
+  list: () =>
+    request<{ stores: Store[] }>('/stores').then((res) => res.stores),
+};
+
 export const suggestions = {
   list: (params?: { tag?: string; limit?: number; exclude?: string[]; dietaryTags?: string[] }) => {
     const query = new URLSearchParams();
@@ -483,6 +492,8 @@ export interface Ingredient {
   name: string;
   notes: string | null;
   sortOrder: number;
+  category: string;
+  stores: string[];
 }
 
 export interface CreateDishData {
@@ -504,6 +515,8 @@ export interface CreateDishData {
     unit: string | null;
     name: string;
     notes: string | null;
+    category?: string;
+    storeIds?: string[];
   }>;
   tags?: string[];
   dietaryTags?: string[];
@@ -629,6 +642,8 @@ export interface GroceryItem {
   dishes: string[];
   notes: string[];
   inPantry: boolean;
+  category: string;
+  stores: string[];
 }
 
 export interface CustomGroceryItem {
@@ -638,6 +653,13 @@ export interface CustomGroceryItem {
   quantity: number | null;
   unit: string | null;
   sortOrder: number;
+  storeId: string | null;
+  storeName: string | null;
+}
+
+export interface Store {
+  id: string;
+  name: string;
 }
 
 export interface PantryItem {

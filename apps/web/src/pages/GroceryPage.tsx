@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Check, Copy, Trash2, ChefHat, Package, Plus, X } from 'lucide-react';
-import { menus, type GroceryItem, type CustomGroceryItem } from '@/lib/api';
+import { ShoppingCart, Check, Copy, Trash2, ChefHat, Package, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { menus, stores as storesApi, type GroceryItem, type CustomGroceryItem } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -23,6 +23,27 @@ function buildPlainText(items: GroceryItem[]): string {
   return items.map((item) => `- ${formatQuantity(item)}`).join('\n');
 }
 
+const CATEGORY_ORDER = [
+  'Produce',
+  'Dairy',
+  'Meat',
+  'Seafood',
+  'Bakery',
+  'Frozen',
+  'Pantry Staples',
+  'Beverages',
+  'Household',
+  'Other',
+] as const;
+
+function sortByCategory(a: string, b: string): number {
+  const ai = CATEGORY_ORDER.indexOf(a as (typeof CATEGORY_ORDER)[number]);
+  const bi = CATEGORY_ORDER.indexOf(b as (typeof CATEGORY_ORDER)[number]);
+  const aIdx = ai === -1 ? CATEGORY_ORDER.length : ai;
+  const bIdx = bi === -1 ? CATEGORY_ORDER.length : bi;
+  return aIdx - bIdx;
+}
+
 interface AddCustomItemFormProps {
   weekDate: string;
   onSuccess: () => void;
@@ -32,6 +53,13 @@ function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+
+  const { data: storesList } = useQuery({
+    queryKey: ['stores'],
+    queryFn: storesApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -39,11 +67,13 @@ function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
         name: name.trim(),
         ...(quantity !== '' ? { quantity: Number(quantity) } : {}),
         ...(unit.trim() !== '' ? { unit: unit.trim() } : {}),
+        ...(selectedStoreId !== '' ? { storeId: selectedStoreId } : {}),
       }),
     onSuccess: () => {
       setName('');
       setQuantity('');
       setUnit('');
+      setSelectedStoreId('');
       onSuccess();
     },
     onError: () => {
@@ -64,7 +94,7 @@ function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-2">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 pt-2">
       <input
         type="number"
         value={quantity}
@@ -89,9 +119,24 @@ function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
         onKeyDown={handleKeyDown}
         placeholder="Item name"
         required
-        className="flex-1 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className="flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Item name"
       />
+      {storesList && storesList.length > 0 && (
+        <select
+          value={selectedStoreId}
+          onChange={(e) => setSelectedStoreId(e.target.value)}
+          className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Store (optional)"
+        >
+          <option value="">No store</option>
+          {storesList.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      )}
       <button
         type="submit"
         disabled={!name.trim() || mutation.isPending}
@@ -151,6 +196,11 @@ function CustomGroceryRow({
           )}
           {item.name}
         </span>
+        {item.storeName && (
+          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+            {item.storeName}
+          </span>
+        )}
       </span>
 
       <button
@@ -161,6 +211,78 @@ function CustomGroceryRow({
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>
+    </div>
+  );
+}
+
+interface CategorySectionProps {
+  category: string;
+  items: GroceryItem[];
+  checkedSet: Set<string>;
+  onToggle: (key: string, name: string) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  isPantry?: boolean;
+}
+
+function CategorySection({
+  category,
+  items,
+  checkedSet,
+  onToggle,
+  collapsed,
+  onToggleCollapse,
+  isPantry = false,
+}: CategorySectionProps) {
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-muted/50 rounded-md transition-colors"
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+        )}
+        {isPantry && (
+          <Package
+            className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0"
+            aria-hidden="true"
+          />
+        )}
+        <span
+          className={cn(
+            'text-xs font-semibold uppercase tracking-wide',
+            isPantry ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
+          )}
+        >
+          {category}
+        </span>
+        <span className="ml-1 text-xs text-muted-foreground tabular-nums">({items.length})</span>
+      </button>
+
+      {!collapsed && (
+        <div>
+          {isPantry
+            ? items.map((item) => (
+                <PantryGroceryRow key={groceryItemKey(item.name, item.unit)} item={item} />
+              ))
+            : items.map((item) => {
+                const key = groceryItemKey(item.name, item.unit);
+                return (
+                  <GroceryRow
+                    key={key}
+                    item={item}
+                    checked={checkedSet.has(key)}
+                    onToggle={() => onToggle(key, item.name)}
+                  />
+                );
+              })}
+        </div>
+      )}
     </div>
   );
 }
@@ -188,16 +310,61 @@ export function GroceryPage() {
   const allItems = data?.groceries ?? [];
   const customItems = data?.customItems ?? [];
 
-  // inPantry items go to their own section regardless of checked state
-  const pantryItems = allItems.filter((i) => i.inPantry);
-  const shoppingItems = allItems.filter((i) => !i.inPantry);
-  const unchecked = shoppingItems.filter((i) => !checked.has(groceryItemKey(i.name, i.unit)));
-  const checkedItems = shoppingItems.filter((i) => checked.has(groceryItemKey(i.name, i.unit)));
+  const [selectedStore, setSelectedStore] = useState<string>('');
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
-  // Count checked custom items for accurate progress
-  const checkedCustomCount = customItems.filter((i) =>
-    checked.has(`custom::${i.id}`)
+  function toggleCategory(category: string) {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  }
+
+  // Derive all unique store names from recipe items
+  const allStoreNames = Array.from(
+    new Set(allItems.flatMap((item) => item.stores ?? []))
+  ).sort();
+  const showStoreFilter = allStoreNames.length > 1;
+
+  // Filter recipe items by selected store
+  const filteredItems = selectedStore
+    ? allItems.filter((item) => (item.stores ?? []).includes(selectedStore))
+    : allItems;
+
+  // Split into pantry vs shopping
+  const pantryItems = filteredItems.filter((i) => i.inPantry);
+  const shoppingItems = filteredItems.filter((i) => !i.inPantry);
+
+  // Group shopping items by category
+  const categoryMap = new Map<string, GroceryItem[]>();
+  for (const item of shoppingItems) {
+    const cat = item.category || 'Other';
+    const group = categoryMap.get(cat) ?? [];
+    group.push(item);
+    categoryMap.set(cat, group);
+  }
+  const sortedCategories = Array.from(categoryMap.keys()).sort(sortByCategory);
+
+  // Group pantry items by category
+  const pantryCategoryMap = new Map<string, GroceryItem[]>();
+  for (const item of pantryItems) {
+    const cat = item.category || 'Other';
+    const group = pantryCategoryMap.get(cat) ?? [];
+    group.push(item);
+    pantryCategoryMap.set(cat, group);
+  }
+  const sortedPantryCategories = Array.from(pantryCategoryMap.keys()).sort(sortByCategory);
+
+  // For progress bar: count checked shopping items (not pantry, not custom)
+  const checkedShoppingCount = shoppingItems.filter((i) =>
+    checked.has(groceryItemKey(i.name, i.unit))
   ).length;
+  const checkedCustomCount = customItems.filter((i) => checked.has(`custom::${i.id}`)).length;
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => menus.deleteCustomItem(id),
@@ -214,7 +381,7 @@ export function GroceryPage() {
   }
 
   async function handleCopy() {
-    const text = buildPlainText(unchecked.concat(checkedItems));
+    const text = buildPlainText(shoppingItems);
     try {
       await navigator.clipboard.writeText(text);
       toast.success('Copied to clipboard');
@@ -224,12 +391,9 @@ export function GroceryPage() {
   }
 
   const hasAnyItems = allItems.length > 0 || customItems.length > 0;
-  // Effective week date for new custom items — use resolved weekStartDate when available,
-  // fall back to requestedDate so the form is available even before data loads
   const effectiveWeekDate = weekStartDate || requestedDate;
-
-  const totalChecked = checked.size;
   const totalShoppable = shoppingItems.length + customItems.length;
+  const totalChecked = checkedShoppingCount + checkedCustomCount;
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
@@ -265,6 +429,28 @@ export function GroceryPage() {
         </div>
       </div>
 
+      {/* Store filter */}
+      {!isLoading && !isError && showStoreFilter && (
+        <div className="mb-4">
+          <label htmlFor="store-filter" className="sr-only">
+            Filter by store
+          </label>
+          <select
+            id="store-filter"
+            value={selectedStore}
+            onChange={(e) => setSelectedStore(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">All Stores</option>
+            {allStoreNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {isLoading && (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
@@ -296,46 +482,43 @@ export function GroceryPage() {
       )}
 
       {!isLoading && !isError && (
-        <div className="space-y-1">
-          {/* Unchecked items */}
-          {unchecked.map((item) => (
-            <GroceryRow
-              key={groceryItemKey(item.name, item.unit)}
-              item={item}
-              checked={false}
-              onToggle={() => toggle(groceryItemKey(item.name, item.unit), item.name)}
-            />
-          ))}
+        <div className="space-y-0.5">
+          {/* Category-grouped shopping items */}
+          {sortedCategories.map((category) => {
+            const items = categoryMap.get(category) ?? [];
+            return (
+              <CategorySection
+                key={category}
+                category={category}
+                items={items}
+                checkedSet={checked}
+                onToggle={toggle}
+                collapsed={collapsedCategories.has(category)}
+                onToggleCollapse={() => toggleCategory(category)}
+              />
+            );
+          })}
 
-          {/* Divider between unchecked and checked */}
-          {checkedItems.length > 0 && unchecked.length > 0 && <div className="border-t my-3" />}
-
-          {/* Checked items (strikethrough, dimmed) */}
-          {checkedItems.map((item) => (
-            <GroceryRow
-              key={groceryItemKey(item.name, item.unit)}
-              item={item}
-              checked={true}
-              onToggle={() => toggle(groceryItemKey(item.name, item.unit), item.name)}
-            />
-          ))}
-
-          {/* In pantry section */}
-          {pantryItems.length > 0 && (
+          {/* Pantry sections */}
+          {sortedPantryCategories.length > 0 && (
             <>
-              <div className="border-t my-3" />
-              <div className="flex items-center gap-1.5 px-3 py-1">
-                <Package
-                  className="h-3.5 w-3.5 text-green-600 dark:text-green-400"
-                  aria-hidden="true"
-                />
-                <span className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                  In Pantry
-                </span>
-              </div>
-              {pantryItems.map((item) => (
-                <PantryGroceryRow key={groceryItemKey(item.name, item.unit)} item={item} />
-              ))}
+              {sortedCategories.length > 0 && <div className="border-t my-3" />}
+              {sortedPantryCategories.map((category) => {
+                const items = pantryCategoryMap.get(category) ?? [];
+                const key = `pantry-${category}`;
+                return (
+                  <CategorySection
+                    key={key}
+                    category={`${category} — In Pantry`}
+                    items={items}
+                    checkedSet={checked}
+                    onToggle={toggle}
+                    collapsed={collapsedCategories.has(key)}
+                    onToggleCollapse={() => toggleCategory(key)}
+                    isPantry
+                  />
+                );
+              })}
             </>
           )}
 
@@ -368,7 +551,7 @@ export function GroceryPage() {
           {/* Progress summary */}
           {totalShoppable > 0 && (
             <p className="text-xs text-muted-foreground text-center pt-4 tabular-nums">
-              {totalChecked - checkedCustomCount} of {shoppingItems.length} items checked
+              {checkedShoppingCount} of {shoppingItems.length} items checked
             </p>
           )}
         </div>

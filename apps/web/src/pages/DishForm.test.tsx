@@ -18,6 +18,9 @@ vi.mock('@/lib/api', () => ({
   ratings: {
     getDishStats: vi.fn(),
   },
+  stores: {
+    list: vi.fn().mockResolvedValue([]),
+  },
   DIETARY_TAGS: [
     'vegetarian',
     'vegan',
@@ -73,8 +76,8 @@ const mockDish: Dish = {
   tags: ['italian'],
   dietaryTags: ['vegetarian'],
   ingredients: [
-    { id: 'ing-1', quantity: 2, unit: 'cups', name: 'flour', notes: null, sortOrder: 0 },
-    { id: 'ing-2', quantity: null, unit: null, name: 'salt', notes: 'to taste', sortOrder: 1 },
+    { id: 'ing-1', quantity: 2, unit: 'cups', name: 'flour', notes: null, sortOrder: 0, category: 'Other', stores: [] },
+    { id: 'ing-2', quantity: null, unit: null, name: 'salt', notes: 'to taste', sortOrder: 1, category: 'Other', stores: [] },
   ],
 };
 
@@ -207,10 +210,10 @@ describe('DishForm - ingredient editor', () => {
       expect(dishesApi.update).toHaveBeenCalledWith(
         'dish-1',
         expect.objectContaining({
-          ingredients: [
-            { quantity: 2, unit: 'cups', name: 'flour', notes: null },
-            { quantity: null, unit: null, name: 'salt', notes: 'to taste' },
-          ],
+          ingredients: expect.arrayContaining([
+            expect.objectContaining({ quantity: 2, unit: 'cups', name: 'flour', notes: null }),
+            expect.objectContaining({ quantity: null, unit: null, name: 'salt', notes: 'to taste' }),
+          ]),
           tags: ['italian'],
         })
       );
@@ -236,7 +239,9 @@ describe('DishForm - ingredient editor', () => {
     await waitFor(() => {
       expect(dishesApi.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          ingredients: [{ quantity: null, unit: null, name: 'garlic', notes: null }],
+          ingredients: expect.arrayContaining([
+            expect.objectContaining({ quantity: null, unit: null, name: 'garlic', notes: null }),
+          ]),
         })
       );
     });
