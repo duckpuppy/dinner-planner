@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Check, Copy, Trash2, ChefHat, Package, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  ShoppingCart,
+  Check,
+  Copy,
+  Trash2,
+  ChefHat,
+  Package,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { menus, stores as storesApi, type GroceryItem, type CustomGroceryItem } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
 import { cn, localDateStr } from '@/lib/utils';
@@ -326,9 +337,7 @@ export function GroceryPage() {
   }
 
   // Derive all unique store names from recipe items
-  const allStoreNames = Array.from(
-    new Set(allItems.flatMap((item) => item.stores ?? []))
-  ).sort();
+  const allStoreNames = Array.from(new Set(allItems.flatMap((item) => item.stores ?? []))).sort();
   const showStoreFilter = allStoreNames.length > 1;
 
   // Filter recipe items by selected store

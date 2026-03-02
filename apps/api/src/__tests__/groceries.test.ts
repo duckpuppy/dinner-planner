@@ -38,15 +38,17 @@ import { aggregateIngredients, getWeekGroceries } from '../services/groceries.js
 // Helper factories
 // ---------------------------------------------------------------------------
 
-function makeSrc(overrides: Partial<{
-  dishName: string;
-  quantity: number | null;
-  unit: string | null;
-  name: string;
-  notes: string | null;
-  category: string;
-  storeNames: string[];
-}> = {}) {
+function makeSrc(
+  overrides: Partial<{
+    dishName: string;
+    quantity: number | null;
+    unit: string | null;
+    name: string;
+    notes: string | null;
+    category: string;
+    storeNames: string[];
+  }> = {}
+) {
   return {
     dishName: 'Dish',
     quantity: 1,
@@ -70,7 +72,14 @@ describe('aggregateIngredients', () => {
 
   it('returns single item unchanged', () => {
     const result = aggregateIngredients([
-      makeSrc({ dishName: 'Pasta', quantity: 200, unit: 'g', name: 'Flour', category: 'Pantry Staples', storeNames: ['Aldi'] }),
+      makeSrc({
+        dishName: 'Pasta',
+        quantity: 200,
+        unit: 'g',
+        name: 'Flour',
+        category: 'Pantry Staples',
+        storeNames: ['Aldi'],
+      }),
     ]);
     expect(result).toEqual([
       {

@@ -82,9 +82,9 @@ async function fetchStoresByIngredient(ingredientIds: string[]): Promise<Map<str
  */
 async function insertIngredientStores(ingredientId: string, storeIds: string[]): Promise<void> {
   if (storeIds.length === 0) return;
-  await db.insert(schema.ingredientStores).values(
-    storeIds.map((storeId) => ({ ingredientId, storeId }))
-  );
+  await db
+    .insert(schema.ingredientStores)
+    .values(storeIds.map((storeId) => ({ ingredientId, storeId })));
 }
 
 async function getDishWithRelations(id: string): Promise<DishResponse | null> {
@@ -132,7 +132,9 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
     createdById: dish.createdById,
     createdAt: dish.createdAt,
     updatedAt: dish.updatedAt,
-    ingredients: ingredients.map((ing) => toIngredientResponse(ing, storesByIngredient.get(ing.id) ?? [])),
+    ingredients: ingredients.map((ing) =>
+      toIngredientResponse(ing, storesByIngredient.get(ing.id) ?? [])
+    ),
     tags: dishTags.map((t) => t.name),
     dietaryTags: dietaryTagRows.map((r) => r.tag),
   };

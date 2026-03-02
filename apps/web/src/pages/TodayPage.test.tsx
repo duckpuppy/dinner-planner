@@ -650,7 +650,14 @@ describe('TodayPage PreparationWithRating', () => {
     vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
     vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
       ratings: [
-        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+        {
+          id: 'r-1',
+          userId: 'user-1',
+          userName: 'Alice',
+          stars: 5,
+          note: '',
+          preparationId: 'prep-1',
+        },
       ],
     });
     vi.mocked(ratingsApi.delete).mockRejectedValue(new Error('Server error'));

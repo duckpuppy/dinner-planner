@@ -992,9 +992,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   }
 
   function updateIngredientStores(index: number, storeIds: string[]) {
-    setIngredientRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, storeIds } : row))
-    );
+    setIngredientRows((prev) => prev.map((row, i) => (i === index ? { ...row, storeIds } : row)));
   }
 
   function moveIngredientRow(index: number, direction: 'up' | 'down') {
