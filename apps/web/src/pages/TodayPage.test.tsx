@@ -63,6 +63,7 @@ vi.mock('@/components/EmptyState', () => ({
 }));
 
 import { menus, preparations, ratings as ratingsApi, prepTasks } from '@/lib/api';
+import { toast } from 'sonner';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -628,6 +629,36 @@ describe('TodayPage PreparationWithRating', () => {
     fireEvent.click(submitBtn);
     await waitFor(() => {
       expect(ratingsApi.create).toHaveBeenCalledWith('prep-1', { stars: 5, note: undefined });
+    });
+  });
+
+  it('shows error toast when rating creation fails', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({ ratings: [] });
+    vi.mocked(ratingsApi.create).mockRejectedValue(new Error('Server error'));
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('Rate this meal'));
+    await screen.findByTestId('star-rating');
+    fireEvent.click(screen.getByTestId('star-rating')); // sets stars to 5
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to add rating');
+    });
+  });
+
+  it('shows error toast when rating deletion fails', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: prepEntry });
+    vi.mocked(ratingsApi.getForPreparation).mockResolvedValue({
+      ratings: [
+        { id: 'r-1', userId: 'user-1', userName: 'Alice', stars: 5, note: '', preparationId: 'prep-1' },
+      ],
+    });
+    vi.mocked(ratingsApi.delete).mockRejectedValue(new Error('Server error'));
+    render(<TodayPage />, { wrapper });
+    const removeBtn = await screen.findByRole('button', { name: /remove/i });
+    fireEvent.click(removeBtn);
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to delete rating');
     });
   });
 });

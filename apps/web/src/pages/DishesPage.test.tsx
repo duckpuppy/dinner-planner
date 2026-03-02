@@ -384,5 +384,35 @@ describe('DishesPage', () => {
       fireEvent.change(sourceInput, { target: { value: 'https://example.com/my-recipe' } });
       expect((sourceInput as HTMLInputElement).value).toBe('https://example.com/my-recipe');
     });
+
+    it('updates ingredient category select', async () => {
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: /add ingredient/i }));
+      const categorySelect = screen.getByRole('combobox', { name: /ingredient category/i });
+      fireEvent.change(categorySelect, { target: { value: 'Dairy' } });
+      expect((categorySelect as HTMLSelectElement).value).toBe('Dairy');
+    });
+
+    it('adds store to ingredient via Enter key in store input', async () => {
+      const { stores } = await import('@/lib/api');
+      vi.mocked(stores.list).mockResolvedValue([
+        { id: 'store-1', name: 'Whole Foods', createdAt: '' },
+      ] as never);
+      render(<DishesPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: /Add dish/i }));
+      await screen.findByRole('heading', { name: 'New Dish' });
+      fireEvent.click(screen.getByRole('button', { name: /add ingredient/i }));
+      // The store input has a list attribute, which makes jsdom assign it combobox role
+      // Query by placeholder text instead
+      const storeInput = await screen.findByPlaceholderText('Type store name…');
+      fireEvent.change(storeInput, { target: { value: 'Whole Foods' } });
+      fireEvent.keyDown(storeInput, { key: 'Enter' });
+      // The store input should clear after adding
+      await waitFor(() => {
+        expect((storeInput as HTMLInputElement).value).toBe('');
+      });
+    });
   });
 });
