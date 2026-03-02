@@ -23,7 +23,8 @@
       "tar": ">=7.5.8",
       "minimatch": ">=10.2.3",
       "rollup@^4": "4.59.0",
-      "rollup@^2": "2.80.0"
+      "rollup@^2": "2.80.0",
+      "serialize-javascript": ">=7.0.3"
     }
   },
   "devDependencies": {
