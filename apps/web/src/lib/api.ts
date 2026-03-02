@@ -387,8 +387,7 @@ export const settings = {
 
 // Stores API
 export const stores = {
-  list: () =>
-    request<{ stores: Store[] }>('/stores').then((res) => res.stores),
+  list: () => request<{ stores: Store[] }>('/stores').then((res) => res.stores),
 };
 
 export const suggestions = {

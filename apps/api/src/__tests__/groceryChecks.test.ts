@@ -31,11 +31,7 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import {
-  getCheckedKeys,
-  toggleCheck,
-  clearAllChecks,
-} from '../services/groceryChecks.js';
+import { getCheckedKeys, toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
 
 // --- Chain helpers ---
 

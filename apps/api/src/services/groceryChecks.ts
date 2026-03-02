@@ -29,20 +29,14 @@ export async function toggleCheck(
     .select()
     .from(schema.groceryChecks)
     .where(
-      and(
-        eq(schema.groceryChecks.weekDate, weekDate),
-        eq(schema.groceryChecks.itemKey, itemKey)
-      )
+      and(eq(schema.groceryChecks.weekDate, weekDate), eq(schema.groceryChecks.itemKey, itemKey))
     );
 
   if (existing.length > 0) {
     await db
       .delete(schema.groceryChecks)
       .where(
-        and(
-          eq(schema.groceryChecks.weekDate, weekDate),
-          eq(schema.groceryChecks.itemKey, itemKey)
-        )
+        and(eq(schema.groceryChecks.weekDate, weekDate), eq(schema.groceryChecks.itemKey, itemKey))
       );
     return false;
   }
@@ -60,7 +54,5 @@ export async function toggleCheck(
  * Clear all grocery checks for a given week.
  */
 export async function clearAllChecks(weekDate: string): Promise<void> {
-  await db
-    .delete(schema.groceryChecks)
-    .where(eq(schema.groceryChecks.weekDate, weekDate));
+  await db.delete(schema.groceryChecks).where(eq(schema.groceryChecks.weekDate, weekDate));
 }

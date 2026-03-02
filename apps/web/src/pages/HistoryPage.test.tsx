@@ -43,7 +43,11 @@ vi.mock('@/components/mobile/SwipeableListItem', () => ({
     <div>
       {children}
       {actions?.map((a) => (
-        <button key={a.label} onClick={a.onAction} data-testid={`swipe-action-${a.label.toLowerCase()}`}>
+        <button
+          key={a.label}
+          onClick={a.onAction}
+          data-testid={`swipe-action-${a.label.toLowerCase()}`}
+        >
           {a.label}
         </button>
       ))}
@@ -624,7 +628,12 @@ describe('HistoryPage', () => {
         entries: [
           makeEntry({
             preparations: [
-              { id: 'prep-1', preparers: [{ id: 'u-1', name: 'Alice' }], notes: 'Added extra spice', ratings: [] },
+              {
+                id: 'prep-1',
+                preparers: [{ id: 'u-1', name: 'Alice' }],
+                notes: 'Added extra spice',
+                ratings: [],
+              },
             ],
           }),
         ],

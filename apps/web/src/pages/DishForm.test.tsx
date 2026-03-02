@@ -76,8 +76,26 @@ const mockDish: Dish = {
   tags: ['italian'],
   dietaryTags: ['vegetarian'],
   ingredients: [
-    { id: 'ing-1', quantity: 2, unit: 'cups', name: 'flour', notes: null, sortOrder: 0, category: 'Other', stores: [] },
-    { id: 'ing-2', quantity: null, unit: null, name: 'salt', notes: 'to taste', sortOrder: 1, category: 'Other', stores: [] },
+    {
+      id: 'ing-1',
+      quantity: 2,
+      unit: 'cups',
+      name: 'flour',
+      notes: null,
+      sortOrder: 0,
+      category: 'Other',
+      stores: [],
+    },
+    {
+      id: 'ing-2',
+      quantity: null,
+      unit: null,
+      name: 'salt',
+      notes: 'to taste',
+      sortOrder: 1,
+      category: 'Other',
+      stores: [],
+    },
   ],
 };
 
@@ -212,7 +230,12 @@ describe('DishForm - ingredient editor', () => {
         expect.objectContaining({
           ingredients: expect.arrayContaining([
             expect.objectContaining({ quantity: 2, unit: 'cups', name: 'flour', notes: null }),
-            expect.objectContaining({ quantity: null, unit: null, name: 'salt', notes: 'to taste' }),
+            expect.objectContaining({
+              quantity: null,
+              unit: null,
+              name: 'salt',
+              notes: 'to taste',
+            }),
           ]),
           tags: ['italian'],
         })

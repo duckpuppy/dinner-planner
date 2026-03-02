@@ -88,7 +88,7 @@ describe('findOrCreateStore', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns existing store when found by name', async () => {
-    const existing = { id: 's-1', name: 'Trader Joe\'s', createdAt: '2026-01-01T00:00:00.000Z' };
+    const existing = { id: 's-1', name: "Trader Joe's", createdAt: '2026-01-01T00:00:00.000Z' };
     mockDb.select.mockReturnValueOnce(selectFromWhereLimitOnly([existing]));
 
     const result = await findOrCreateStore("Trader Joe's");

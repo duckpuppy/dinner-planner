@@ -38,9 +38,7 @@ export function useGroceryChecklist({
   const toggle = useCallback(
     (key: string, itemName: string) => {
       const isChecked = checked.has(key);
-      const nextChecked = isChecked
-        ? checkedKeys.filter((k) => k !== key)
-        : [...checkedKeys, key];
+      const nextChecked = isChecked ? checkedKeys.filter((k) => k !== key) : [...checkedKeys, key];
 
       // Optimistic update
       queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
