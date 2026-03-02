@@ -1,0 +1,16 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: [self-hosted, dinner-planner]
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Deploy latest image
+        working-directory: /home/duckpuppy/src/services
+        run: just dinner-planner-deploy
