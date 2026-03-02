@@ -572,4 +572,50 @@ describe('GroceryPage', () => {
       ).toBeTruthy();
     });
   });
+
+  it('calls refetch when Try again button clicked', async () => {
+    vi.mocked(menus.getGroceries)
+      .mockRejectedValueOnce(new Error('fail'))
+      .mockResolvedValue(baseGroceriesResponse);
+    render(<GroceryPage />, { wrapper });
+    await screen.findByText('Try again');
+    fireEvent.click(screen.getByText('Try again'));
+    await waitFor(() => {
+      expect(vi.mocked(menus.getGroceries).mock.calls.length).toBeGreaterThan(1);
+    });
+  });
+
+  it('collapses category section when category header button clicked', async () => {
+    vi.mocked(menus.getGroceries).mockResolvedValue({
+      groceries: [
+        { name: 'Flour', quantity: 500, unit: 'g', dishes: ['Pasta'], notes: [], inPantry: false, category: 'Pantry Staples', stores: [] },
+      ],
+      customItems: [],
+      weekStartDate: '2024-06-10',
+      checkedKeys: [],
+    });
+    render(<GroceryPage />, { wrapper });
+    await screen.findByText('Flour');
+    // The category toggle button has aria-expanded=true when not collapsed
+    const categoryBtn = document.querySelector('button[aria-expanded="true"]') as HTMLButtonElement;
+    expect(categoryBtn).toBeTruthy();
+    fireEvent.click(categoryBtn);
+    // After collapse, items are hidden
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Check Flour/i })).toBeNull());
+  });
+
+  it('renders items from two different categories (exercises sort)', async () => {
+    vi.mocked(menus.getGroceries).mockResolvedValue({
+      groceries: [
+        { name: 'Cheese', quantity: null, unit: null, dishes: [], notes: [], inPantry: false, category: 'Dairy', stores: [] },
+        { name: 'Apples', quantity: null, unit: null, dishes: [], notes: [], inPantry: false, category: 'Produce', stores: [] },
+      ],
+      customItems: [],
+      weekStartDate: '2024-06-10',
+      checkedKeys: [],
+    });
+    render(<GroceryPage />, { wrapper });
+    expect(await screen.findByText('Cheese')).toBeTruthy();
+    expect(await screen.findByText('Apples')).toBeTruthy();
+  });
 });

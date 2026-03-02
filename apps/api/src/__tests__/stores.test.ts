@@ -36,17 +36,6 @@ import { listStores, findOrCreateStore, deleteStore } from '../services/stores.j
 // Helpers
 // ---------------------------------------------------------------------------
 
-function selectFromWhereLimitResult(result: unknown[]) {
-  return {
-    from: vi.fn().mockReturnValue({
-      orderBy: vi.fn().mockResolvedValue(result),
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue(result),
-      }),
-    }),
-  };
-}
-
 function selectFromOrderBy(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({

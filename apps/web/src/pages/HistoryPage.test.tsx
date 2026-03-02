@@ -33,7 +33,22 @@ vi.mock('@/components/mobile/PullToRefresh', () => ({
 }));
 
 vi.mock('@/components/mobile/SwipeableListItem', () => ({
-  SwipeableListItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SwipeableListItem: ({
+    children,
+    actions,
+  }: {
+    children: React.ReactNode;
+    actions?: Array<{ label: string; onAction: () => void }>;
+  }) => (
+    <div>
+      {children}
+      {actions?.map((a) => (
+        <button key={a.label} onClick={a.onAction} data-testid={`swipe-action-${a.label.toLowerCase()}`}>
+          {a.label}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock('@/hooks/useSwipeActions', () => ({
@@ -85,6 +100,7 @@ vi.mock('@/components/ConfirmDialog', () => ({
 }));
 
 import { history } from '@/lib/api';
+import { toast } from 'sonner';
 
 function makeEntry(overrides = {}) {
   return {
@@ -301,6 +317,33 @@ describe('HistoryPage', () => {
       await screen.findByText('Pasta');
       // The ConfirmDialog is rendered but hidden (open=false) since deleteEntry is null
       expect(screen.queryByTestId('confirm-dialog')).toBeNull();
+    });
+
+    it('opens confirm dialog when Delete action triggered via swipe button', async () => {
+      vi.mocked(history.list).mockResolvedValue({ entries: [makeEntry()], total: 1 });
+      render(<HistoryPage />, { wrapper });
+      await screen.findByText('Pasta');
+      fireEvent.click(screen.getByTestId('swipe-action-delete'));
+      expect(screen.getByTestId('confirm-dialog')).toBeTruthy();
+    });
+
+    it('calls history.delete when confirm dialog confirmed via swipe', async () => {
+      vi.mocked(history.list).mockResolvedValue({ entries: [makeEntry()], total: 1 });
+      vi.mocked(history.delete).mockResolvedValue(undefined as never);
+      render(<HistoryPage />, { wrapper });
+      await screen.findByText('Pasta');
+      fireEvent.click(screen.getByTestId('swipe-action-delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await waitFor(() => expect(history.delete).toHaveBeenCalledWith('h-1'));
+    });
+
+    it('cancels delete when Cancel clicked in confirm dialog', async () => {
+      vi.mocked(history.list).mockResolvedValue({ entries: [makeEntry()], total: 1 });
+      render(<HistoryPage />, { wrapper });
+      await screen.findByText('Pasta');
+      fireEvent.click(screen.getByTestId('swipe-action-delete'));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).toBeNull());
     });
   });
 
@@ -542,6 +585,59 @@ describe('HistoryPage', () => {
       });
       render(<HistoryPage />, { wrapper });
       expect(await screen.findByText('Bob')).toBeTruthy();
+    });
+  });
+
+  describe('prev page navigation', () => {
+    it('navigates to previous page when prev button clicked from page 2', async () => {
+      vi.mocked(history.list).mockResolvedValue({
+        entries: Array.from({ length: 20 }, (_, i) =>
+          makeEntry({ id: `h-${i}`, mainDish: { id: `d-${i}`, name: `Dish ${i}`, type: 'main' } })
+        ),
+        total: 40,
+      });
+      render(<HistoryPage />, { wrapper });
+      // Wait for page 1 to load
+      await screen.findByText('Page 1 of 2');
+      // Find prev (disabled) and next (enabled) pagination buttons
+      const paginationBtns = screen.getAllByRole('button').filter((b) => b.querySelector('svg'));
+      const nextBtn = paginationBtns.find((b) => !b.hasAttribute('disabled'));
+      expect(nextBtn).toBeTruthy();
+      // Click next to go to page 2
+      fireEvent.click(nextBtn!);
+      // Wait for page 2 to load (history.list called twice)
+      await waitFor(() => expect(history.list).toHaveBeenCalledTimes(2));
+      // On page 2, the prev button is enabled — find and click it
+      await waitFor(() => {
+        const btns = screen.getAllByRole('button').filter((b) => b.querySelector('svg'));
+        const prevBtn = btns.find((b) => !b.hasAttribute('disabled'));
+        expect(prevBtn).toBeTruthy();
+        fireEvent.click(prevBtn!);
+      });
+      await waitFor(() => expect(history.list).toHaveBeenCalledTimes(3));
+    });
+  });
+
+  describe('save-as-note error', () => {
+    it('shows error toast when save as note API call fails', async () => {
+      vi.mocked(history.list).mockResolvedValue({
+        entries: [
+          makeEntry({
+            preparations: [
+              { id: 'prep-1', preparers: [{ id: 'u-1', name: 'Alice' }], notes: 'Added extra spice', ratings: [] },
+            ],
+          }),
+        ],
+        total: 1,
+      });
+      const { dishNotes } = await import('@/lib/api');
+      vi.mocked(dishNotes.create).mockRejectedValue(new Error('Server error'));
+      render(<HistoryPage />, { wrapper });
+      const saveBtn = await screen.findByText('Save as dish note');
+      fireEvent.click(saveBtn);
+      await waitFor(() => {
+        expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to save note');
+      });
     });
   });
 });
