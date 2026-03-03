@@ -844,11 +844,11 @@ describe('GroceryPage', () => {
       });
       render(<GroceryPage />, { wrapper });
       await screen.findByText('Milk');
-      // Default: 2
-      expect(screen.getByText(/2/)).toBeTruthy();
+      // Default: quantity "2" and unit "L" rendered together as "2 L"
+      expect(screen.getByText('2 L')).toBeTruthy();
       fireEvent.click(screen.getByRole('button', { name: /2×/i }));
-      // Now 4 should be shown
-      expect(screen.getByText(/4/)).toBeTruthy();
+      // Now 4 should be shown as "4 L"
+      expect(screen.getByText('4 L')).toBeTruthy();
     });
   });
 
