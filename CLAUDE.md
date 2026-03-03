@@ -178,6 +178,6 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 ### Future enhancements (not yet scheduled)
 
 - **Recurring/standing items** — items that always appear regardless of meal plan (milk, eggs, etc.)
-- **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity
-- **Serving size scaling** — scale ingredient quantities on grocery list for larger gatherings
-- **Category heuristics** — auto-assign ingredient categories by name rules (after M25 manual assignment ships)
+- **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
+- ~~**Serving size scaling**~~ — shipped
+- ~~**Category heuristics**~~ — shipped
