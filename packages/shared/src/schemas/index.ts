@@ -32,6 +32,7 @@ export const DIETARY_TAGS = [
   'dairy_free',
   'nut_free',
   'low_carb',
+  'low_calorie',
 ] as const;
 export const dietaryTagSchema = z.enum(DIETARY_TAGS);
 export type DietaryTag = z.infer<typeof dietaryTagSchema>;

@@ -22,7 +22,7 @@ import {
 } from '@dinner-planner/shared';
 
 describe('DIETARY_TAGS constant', () => {
-  it('contains the 6 expected tags', () => {
+  it('contains the 7 expected tags', () => {
     expect(DIETARY_TAGS).toEqual([
       'vegetarian',
       'vegan',
@@ -30,6 +30,7 @@ describe('DIETARY_TAGS constant', () => {
       'dairy_free',
       'nut_free',
       'low_carb',
+      'low_calorie',
     ]);
   });
 });
@@ -84,7 +85,7 @@ describe('updateDishSchema - dietaryTags', () => {
 
   it('accepts all dietary tags in update', () => {
     const result = updateDishSchema.parse({ dietaryTags: [...DIETARY_TAGS] });
-    expect(result.dietaryTags).toHaveLength(6);
+    expect(result.dietaryTags).toHaveLength(DIETARY_TAGS.length);
   });
 });
 
@@ -113,7 +114,7 @@ describe('userPreferencesSchema - dietaryPreferences', () => {
 
   it('accepts all dietary tags as preferences', () => {
     const result = userPreferencesSchema.parse({ dietaryPreferences: [...DIETARY_TAGS] });
-    expect(result.dietaryPreferences).toHaveLength(6);
+    expect(result.dietaryPreferences).toHaveLength(DIETARY_TAGS.length);
   });
 });
 
