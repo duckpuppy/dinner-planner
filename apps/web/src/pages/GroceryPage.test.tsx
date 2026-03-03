@@ -16,17 +16,23 @@ vi.mock('@/lib/api', () => ({
   stores: {
     list: vi.fn().mockResolvedValue([]),
   },
+  standing: {
+    list: vi.fn().mockResolvedValue([]),
+    add: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-import { menus } from '@/lib/api';
+import { menus, standing as standingApi } from '@/lib/api';
 
 const baseGroceriesResponse = {
   groceries: [],
   customItems: [],
+  standingItems: [],
   weekStartDate: '2024-06-10',
   checkedKeys: [],
 };
@@ -492,7 +498,9 @@ describe('GroceryPage', () => {
     it('shows the add item form', async () => {
       vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
       render(<GroceryPage />, { wrapper });
-      expect(await screen.findByPlaceholderText('Item name')).toBeTruthy();
+      // Two forms share the same placeholder — custom items form is first
+      const nameInputs = await screen.findAllByPlaceholderText('Item name');
+      expect(nameInputs.length).toBeGreaterThanOrEqual(1);
       expect(await screen.findByRole('button', { name: /Add item/i })).toBeTruthy();
     });
 
@@ -510,8 +518,9 @@ describe('GroceryPage', () => {
       });
 
       render(<GroceryPage />, { wrapper });
-      const nameInput = await screen.findByPlaceholderText('Item name');
-      fireEvent.change(nameInput, { target: { value: 'Bananas' } });
+      // Custom items form is first — use index 0
+      const nameInputs = await screen.findAllByPlaceholderText('Item name');
+      fireEvent.change(nameInputs[0], { target: { value: 'Bananas' } });
       fireEvent.click(screen.getByRole('button', { name: /Add item/i }));
 
       await waitFor(() => {
@@ -536,19 +545,20 @@ describe('GroceryPage', () => {
       });
 
       render(<GroceryPage />, { wrapper });
-      const nameInput = await screen.findByPlaceholderText('Item name');
-      fireEvent.change(nameInput, { target: { value: 'Bananas' } });
+      // Custom items form is first — use index 0
+      const nameInputs = await screen.findAllByPlaceholderText('Item name');
+      fireEvent.change(nameInputs[0], { target: { value: 'Bananas' } });
       fireEvent.click(screen.getByRole('button', { name: /Add item/i }));
 
       await waitFor(() => {
-        expect((screen.getByPlaceholderText('Item name') as HTMLInputElement).value).toBe('');
+        expect((screen.getAllByPlaceholderText('Item name')[0] as HTMLInputElement).value).toBe('');
       });
     });
 
     it('does not submit when item name is empty', async () => {
       vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
       render(<GroceryPage />, { wrapper });
-      await screen.findByPlaceholderText('Item name');
+      await screen.findAllByPlaceholderText('Item name');
       // Add button should be disabled when name is empty
       const addBtn = screen.getByRole('button', { name: /Add item/i });
       expect((addBtn as HTMLButtonElement).disabled).toBe(true);
@@ -598,9 +608,10 @@ describe('GroceryPage', () => {
       });
 
       render(<GroceryPage />, { wrapper });
-      const nameInput = await screen.findByPlaceholderText('Item name');
-      fireEvent.change(nameInput, { target: { value: 'Eggs' } });
-      fireEvent.keyDown(nameInput, { key: 'Enter' });
+      // Custom items form is first — use index 0
+      const nameInputs = await screen.findAllByPlaceholderText('Item name');
+      fireEvent.change(nameInputs[0], { target: { value: 'Eggs' } });
+      fireEvent.keyDown(nameInputs[0], { key: 'Enter' });
 
       await waitFor(() => {
         expect(vi.mocked(menus.addCustomItem)).toHaveBeenCalledWith(
@@ -879,11 +890,208 @@ describe('GroceryPage', () => {
         },
       ],
       customItems: [],
+      standingItems: [],
       weekStartDate: '2024-06-10',
       checkedKeys: [],
     });
     render(<GroceryPage />, { wrapper });
     expect(await screen.findByText('Cheese')).toBeTruthy();
     expect(await screen.findByText('Apples')).toBeTruthy();
+  });
+
+  describe('standing items (Every Week)', () => {
+    it('renders Every Week section header', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('Every Week')).toBeTruthy();
+    });
+
+    it('renders standing item name and quantity when present', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        standingItems: [
+          {
+            id: 'si-1',
+            name: 'Milk',
+            quantity: 2,
+            unit: 'L',
+            category: 'Dairy',
+            storeId: null,
+            storeName: null,
+          },
+        ],
+      });
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('Milk')).toBeTruthy();
+      expect(await screen.findByText(/2.*L/)).toBeTruthy();
+    });
+
+    it('shows No standing items yet placeholder when list is empty', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByText('No standing items yet')).toBeTruthy();
+    });
+
+    it('check calls toggle with standing:: key', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        standingItems: [
+          {
+            id: 'si-1',
+            name: 'Eggs',
+            quantity: 12,
+            unit: null,
+            category: 'Dairy',
+            storeId: null,
+            storeName: null,
+          },
+        ],
+      });
+      vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
+        itemKey: 'standing::si-1',
+        checked: true,
+      });
+
+      render(<GroceryPage />, { wrapper });
+      const checkBtn = await screen.findByRole('button', { name: /Check Eggs/i });
+      fireEvent.click(checkBtn);
+
+      await waitFor(() => {
+        expect(vi.mocked(menus.toggleGroceryCheck)).toHaveBeenCalledWith(
+          '2024-06-10',
+          'standing::si-1',
+          'Eggs'
+        );
+      });
+    });
+
+    it('uncheck calls toggle with standing:: key when already checked', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        standingItems: [
+          {
+            id: 'si-2',
+            name: 'Bread',
+            quantity: null,
+            unit: null,
+            category: 'Bakery',
+            storeId: null,
+            storeName: null,
+          },
+        ],
+        checkedKeys: ['standing::si-2'],
+      });
+
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByRole('button', { name: /Uncheck Bread/i })).toBeTruthy();
+    });
+
+    it('store filter hides standing item with mismatched store', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        groceries: [
+          {
+            name: 'Flour',
+            quantity: null,
+            unit: null,
+            dishes: [],
+            notes: [],
+            inPantry: false,
+            category: 'Pantry Staples',
+            stores: ['Store A', 'Store B'],
+          },
+        ],
+        customItems: [],
+        standingItems: [
+          {
+            id: 'si-3',
+            name: 'Butter',
+            quantity: null,
+            unit: null,
+            category: 'Dairy',
+            storeId: 'store-b-id',
+            storeName: 'Store B',
+          },
+        ],
+        weekStartDate: '2024-06-10',
+        checkedKeys: [],
+      });
+
+      render(<GroceryPage />, { wrapper });
+      await screen.findByText('Butter');
+
+      // Select Store A — Butter is from Store B so should be hidden
+      const storeFilter = screen.getByRole('combobox', { name: /filter by store/i });
+      fireEvent.change(storeFilter, { target: { value: 'Store A' } });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Butter')).toBeNull();
+      });
+    });
+
+    it('store filter shows standing item with no store regardless of filter', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        groceries: [
+          {
+            name: 'Flour',
+            quantity: null,
+            unit: null,
+            dishes: [],
+            notes: [],
+            inPantry: false,
+            category: 'Pantry Staples',
+            stores: ['Store A', 'Store B'],
+          },
+        ],
+        customItems: [],
+        standingItems: [
+          {
+            id: 'si-4',
+            name: 'Olive Oil',
+            quantity: null,
+            unit: null,
+            category: 'Pantry Staples',
+            storeId: null,
+            storeName: null,
+          },
+        ],
+        weekStartDate: '2024-06-10',
+        checkedKeys: [],
+      });
+
+      render(<GroceryPage />, { wrapper });
+      await screen.findByText('Olive Oil');
+
+      // Select Store A — Olive Oil has no store so should still show
+      const storeFilter = screen.getByRole('combobox', { name: /filter by store/i });
+      fireEvent.change(storeFilter, { target: { value: 'Store A' } });
+
+      expect(await screen.findByText('Olive Oil')).toBeTruthy();
+    });
+
+    it('delete button calls standing.delete', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        standingItems: [
+          {
+            id: 'si-5',
+            name: 'Orange Juice',
+            quantity: null,
+            unit: null,
+            category: 'Beverages',
+            storeId: null,
+            storeName: null,
+          },
+        ],
+      });
+      vi.mocked(standingApi.delete).mockResolvedValue(undefined);
+
+      render(<GroceryPage />, { wrapper });
+      const deleteBtn = await screen.findByRole('button', { name: /Delete Orange Juice/i });
+      fireEvent.click(deleteBtn);
+
+      await waitFor(() => {
+        expect(vi.mocked(standingApi.delete)).toHaveBeenCalledWith('si-5');
+      });
+    });
   });
 });

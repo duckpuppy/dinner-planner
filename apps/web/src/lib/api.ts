@@ -229,6 +229,7 @@ export const menus = {
     request<{
       groceries: GroceryItem[];
       customItems: CustomGroceryItem[];
+      standingItems: StandingItem[];
       weekStartDate: string;
       checkedKeys: string[];
     }>(`/menus/week/${date}/groceries`),
@@ -388,6 +389,23 @@ export const settings = {
 // Stores API
 export const stores = {
   list: () => request<{ stores: Store[] }>('/stores').then((res) => res.stores),
+};
+
+// Standing Items API
+export const standing = {
+  list: () => request<StandingItem[]>('/grocery/standing'),
+  add: (data: {
+    name: string;
+    quantity?: number | null;
+    unit?: string | null;
+    category?: string;
+    storeId?: string | null;
+  }) =>
+    request<StandingItem>('/grocery/standing', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) => request<void>(`/grocery/standing/${id}`, { method: 'DELETE' }),
 };
 
 export const suggestions = {
@@ -659,6 +677,16 @@ export interface CustomGroceryItem {
 export interface Store {
   id: string;
   name: string;
+}
+
+export interface StandingItem {
+  id: string;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  category: string;
+  storeId: string | null;
+  storeName: string | null;
 }
 
 export interface PantryItem {

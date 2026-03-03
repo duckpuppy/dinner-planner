@@ -12,8 +12,16 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
-import { menus, stores as storesApi, type GroceryItem, type CustomGroceryItem } from '@/lib/api';
+import {
+  menus,
+  stores as storesApi,
+  standing as standingApi,
+  type GroceryItem,
+  type CustomGroceryItem,
+  type StandingItem,
+} from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
 import { cn, localDateStr } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -319,6 +327,198 @@ function CategorySection({
   );
 }
 
+const CATEGORY_OPTIONS = [
+  'Produce',
+  'Dairy',
+  'Meat',
+  'Seafood',
+  'Bakery',
+  'Frozen',
+  'Pantry Staples',
+  'Beverages',
+  'Household',
+  'Other',
+] as const;
+
+interface AddStandingItemFormProps {
+  onSuccess: () => void;
+}
+
+function AddStandingItemForm({ onSuccess }: AddStandingItemFormProps) {
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [unit, setUnit] = useState('');
+  const [category, setCategory] = useState('Other');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+
+  const { data: storesList } = useQuery({
+    queryKey: ['stores'],
+    queryFn: storesApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      standingApi.add({
+        name: name.trim(),
+        ...(quantity !== '' ? { quantity: Number(quantity) } : { quantity: null }),
+        ...(unit.trim() !== '' ? { unit: unit.trim() } : { unit: null }),
+        category,
+        ...(selectedStoreId !== '' ? { storeId: selectedStoreId } : { storeId: null }),
+      }),
+    onSuccess: () => {
+      setName('');
+      setQuantity('');
+      setUnit('');
+      setCategory('Other');
+      setSelectedStoreId('');
+      onSuccess();
+    },
+    onError: () => {
+      toast.error('Failed to add standing item');
+    },
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    mutation.mutate();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      handleSubmit(e as unknown as React.FormEvent);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 pt-2">
+      <input
+        type="number"
+        value={quantity}
+        onChange={(e) => setQuantity(e.target.value)}
+        placeholder="Qty"
+        min={0}
+        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+        aria-label="Quantity (optional)"
+      />
+      <input
+        type="text"
+        value={unit}
+        onChange={(e) => setUnit(e.target.value)}
+        placeholder="Unit"
+        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        aria-label="Unit (optional)"
+      />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Item name"
+        required
+        className="flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        aria-label="Item name"
+      />
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        aria-label="Category"
+      >
+        {CATEGORY_OPTIONS.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+      {storesList && storesList.length > 0 && (
+        <select
+          value={selectedStoreId}
+          onChange={(e) => setSelectedStoreId(e.target.value)}
+          className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Store (optional)"
+        >
+          <option value="">No store</option>
+          {storesList.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <button
+        type="submit"
+        disabled={!name.trim() || mutation.isPending}
+        className="flex items-center gap-1 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-label="Add standing item"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        Add
+      </button>
+    </form>
+  );
+}
+
+interface StandingRowProps {
+  item: StandingItem;
+  checked: boolean;
+  onToggle: () => void;
+  onDelete: (id: string) => void;
+  isDeleting: boolean;
+  scale: number;
+}
+
+function StandingRow({ item, checked, onToggle, onDelete, isDeleting, scale }: StandingRowProps) {
+  const scaledQuantity = scaleQuantity(item.quantity, scale);
+  return (
+    <div
+      className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
+      role="listitem"
+    >
+      <button
+        onClick={onToggle}
+        className={cn(
+          'flex-shrink-0 size-5 rounded border-2 flex items-center justify-center transition-colors',
+          checked ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
+        )}
+        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}`}
+      >
+        {checked && <Check className="h-3 w-3 text-primary-foreground" />}
+      </button>
+
+      <span className={cn('flex-1 min-w-0', checked && 'opacity-50')}>
+        <span className={cn('text-sm font-medium', checked && 'line-through')}>
+          {scaledQuantity !== null && (
+            <span className="text-muted-foreground mr-1 tabular-nums">
+              {scaledQuantity}
+              {item.unit && ` ${item.unit}`}
+            </span>
+          )}
+          {item.unit && scaledQuantity === null && (
+            <span className="text-muted-foreground mr-1">{item.unit}</span>
+          )}
+          {item.name}
+        </span>
+        {item.storeName && (
+          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+            {item.storeName}
+          </span>
+        )}
+      </span>
+
+      <button
+        onClick={() => onDelete(item.id)}
+        disabled={isDeleting}
+        className="flex-shrink-0 p-2.5 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        aria-label={`Delete ${item.name}`}
+      >
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function GroceryPage() {
   const [searchParams] = useSearchParams();
   const requestedDate = searchParams.get('date') ?? getTodayDateStr();
@@ -341,6 +541,7 @@ export function GroceryPage() {
 
   const allItems = data?.groceries ?? [];
   const customItems = data?.customItems ?? [];
+  const standingItems = data?.standingItems ?? [];
 
   const [scale, setScale] = useState<1 | 2 | 4>(1);
   const [selectedStore, setSelectedStore] = useState<string>('');
@@ -407,6 +608,16 @@ export function GroceryPage() {
     },
   });
 
+  const deleteStandingMutation = useMutation({
+    mutationFn: (id: string) => standingApi.delete(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['groceries', requestedDate] });
+    },
+    onError: () => {
+      toast.error('Failed to delete standing item');
+    },
+  });
+
   function handleAddSuccess() {
     void queryClient.invalidateQueries({ queryKey: ['groceries', requestedDate] });
   }
@@ -420,6 +631,12 @@ export function GroceryPage() {
       toast.error('Could not copy to clipboard');
     }
   }
+
+  // Filter standing items by selected store:
+  // items with no store always shown; items with a store only shown if it matches
+  const filteredStandingItems = selectedStore
+    ? standingItems.filter((item) => item.storeId === null || item.storeName === selectedStore)
+    : standingItems;
 
   const hasAnyItems = allItems.length > 0 || customItems.length > 0;
   const effectiveWeekDate = weekStartDate || requestedDate;
@@ -606,6 +823,38 @@ export function GroceryPage() {
             </div>
             <div className="px-1">
               <AddCustomItemForm weekDate={effectiveWeekDate} onSuccess={handleAddSuccess} />
+            </div>
+          </>
+
+          {/* Every Week (standing items) section — always visible after data loads */}
+          <>
+            <div className="border-t my-3" />
+            <div className="flex items-center gap-1.5 px-3 py-1">
+              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Every Week
+              </span>
+            </div>
+            {filteredStandingItems.length === 0 && (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No standing items yet</p>
+            )}
+            <div role="list">
+              {filteredStandingItems.map((item) => (
+                <StandingRow
+                  key={item.id}
+                  item={item}
+                  checked={checked.has(`standing::${item.id}`)}
+                  onToggle={() => toggle(`standing::${item.id}`, item.name)}
+                  onDelete={(id) => deleteStandingMutation.mutate(id)}
+                  isDeleting={
+                    deleteStandingMutation.isPending && deleteStandingMutation.variables === item.id
+                  }
+                  scale={scale}
+                />
+              ))}
+            </div>
+            <div className="px-1">
+              <AddStandingItemForm onSuccess={handleAddSuccess} />
             </div>
           </>
 
