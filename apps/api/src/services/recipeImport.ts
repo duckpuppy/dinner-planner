@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import dns from 'node:dns';
 import type { ImportedRecipe } from '@dinner-planner/shared';
+import { inferCategory } from './dishes.js';
 
 /**
  * Custom error thrown when a URL is blocked for SSRF reasons.
@@ -251,14 +252,17 @@ export function parseSchemaOrgRecipe(html: string, sourceUrl: string): ImportedR
             ? recipe['description'].trim().slice(0, 2000)
             : '',
         type: 'main',
-        ingredients: rawIngredients.map((s) => ({
-          quantity: null,
-          unit: null,
-          name: (s as string).slice(0, 200),
-          notes: null,
-          category: 'Other',
-          storeIds: [],
-        })),
+        ingredients: rawIngredients.map((s) => {
+          const name = (s as string).slice(0, 200);
+          return {
+            quantity: null,
+            unit: null,
+            name,
+            notes: null,
+            category: inferCategory(name),
+            storeIds: [],
+          };
+        }),
         instructions: parseInstructions(recipe['recipeInstructions']).slice(0, 10000),
         prepTime: parseDuration(recipe['prepTime']),
         cookTime: parseDuration(recipe['cookTime']),
