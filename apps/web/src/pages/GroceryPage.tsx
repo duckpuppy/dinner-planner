@@ -483,7 +483,11 @@ export function GroceryPage() {
               </select>
             </div>
           )}
-          <div className="flex items-center gap-1.5 shrink-0" role="group" aria-label="Serving scale">
+          <div
+            className="flex items-center gap-1.5 shrink-0"
+            role="group"
+            aria-label="Serving scale"
+          >
             <span className="text-xs text-muted-foreground font-medium">Scale:</span>
             {([1, 2, 4] as const).map((s) => (
               <button

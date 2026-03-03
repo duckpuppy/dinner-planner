@@ -821,7 +821,9 @@ describe('GroceryPage', () => {
       await screen.findByText('Custom Items');
       const btn1x = screen.getByRole('button', { name: /1×/i });
       expect(btn1x.getAttribute('aria-pressed')).toBe('true');
-      expect(screen.getByRole('button', { name: /2×/i }).getAttribute('aria-pressed')).toBe('false');
+      expect(screen.getByRole('button', { name: /2×/i }).getAttribute('aria-pressed')).toBe(
+        'false'
+      );
     });
 
     it('doubles custom item quantity when 2× scale is selected', async () => {

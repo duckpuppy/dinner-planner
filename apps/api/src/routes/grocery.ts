@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
 import { toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
 import { listStores } from '../services/stores.js';
+import {
+  listStandingItems,
+  addStandingItem,
+  deleteStandingItem,
+} from '../services/standingItems.js';
 
 const toggleCheckSchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
@@ -19,6 +24,14 @@ const createCustomItemSchema = z.object({
   name: z.string().min(1, 'name must not be empty'),
   quantity: z.number().optional(),
   unit: z.string().optional(),
+  storeId: z.string().optional(),
+});
+
+const createStandingItemSchema = z.object({
+  name: z.string().min(1, 'name must not be empty'),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  category: z.string().optional(),
   storeId: z.string().optional(),
 });
 
@@ -140,6 +153,63 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       }
 
       await clearAllChecks(parsed.data.weekDate);
+      return reply.status(204).send();
+    }
+  );
+
+  /**
+   * GET /api/grocery/standing
+   * List all standing grocery items.
+   */
+  fastify.get(
+    '/api/grocery/standing',
+    { preHandler: [fastify.authenticate] },
+    async (_request, reply) => {
+      const items = await listStandingItems();
+      return reply.send({ items });
+    }
+  );
+
+  /**
+   * POST /api/grocery/standing
+   * Add a new standing grocery item.
+   */
+  fastify.post(
+    '/api/grocery/standing',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const parsed = createStandingItemSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
+      }
+
+      const { name, quantity = null, unit = null, category = 'Other', storeId } = parsed.data;
+      const userId = request.user.userId;
+      const item = await addStandingItem(
+        name,
+        quantity ?? null,
+        unit ?? null,
+        category,
+        storeId,
+        userId
+      );
+      return reply.status(201).send({ item });
+    }
+  );
+
+  /**
+   * DELETE /api/grocery/standing/:id
+   * Delete a standing grocery item.
+   */
+  fastify.delete(
+    '/api/grocery/standing/:id',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const deleted = await deleteStandingItem(id);
+      if (!deleted) return reply.status(404).send({ error: 'Standing item not found' });
       return reply.status(204).send();
     }
   );

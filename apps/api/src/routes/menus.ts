@@ -4,6 +4,7 @@ import * as menusService from '../services/menus.js';
 import * as groceriesService from '../services/groceries.js';
 import { getCustomItemsForWeek } from '../services/customGroceries.js';
 import { getCheckedKeys } from '../services/groceryChecks.js';
+import { listStandingItems } from '../services/standingItems.js';
 import { z } from 'zod';
 
 const dateParamSchema = z.object({
@@ -61,7 +62,8 @@ export async function menusRoutes(fastify: FastifyInstance) {
       const result = await groceriesService.getWeekGroceries(parseResult.data.date);
       const customItems = await getCustomItemsForWeek(result.weekStartDate);
       const checkedKeys = await getCheckedKeys(result.weekStartDate);
-      return reply.send({ ...result, customItems, checkedKeys });
+      const standingItems = await listStandingItems();
+      return reply.send({ ...result, customItems, checkedKeys, standingItems });
     }
   );
 

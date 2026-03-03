@@ -330,6 +330,22 @@ export const groceryChecks = sqliteTable(
   (table) => [primaryKey({ columns: [table.weekDate, table.itemKey] })]
 );
 
+// Standing grocery items table (M26: items that always appear on the grocery list)
+export const standingItems = sqliteTable('standing_items', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  quantity: real('quantity'),
+  unit: text('unit'),
+  category: text('category').notNull().default('Other'),
+  storeId: text('store_id').references(() => stores.id, { onDelete: 'set null' }),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // Refresh tokens table (for auth)
 export const refreshTokens = sqliteTable('refresh_tokens', {
   id: text('id').primaryKey(),

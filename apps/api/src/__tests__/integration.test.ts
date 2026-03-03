@@ -120,6 +120,12 @@ vi.mock('../services/groceryChecks.js', () => ({
   clearAllChecks: vi.fn(),
 }));
 
+vi.mock('../services/standingItems.js', () => ({
+  listStandingItems: vi.fn().mockResolvedValue([]),
+  addStandingItem: vi.fn(),
+  deleteStandingItem: vi.fn(),
+}));
+
 vi.mock('../services/setup.js', () => ({
   isSetupRequired: vi.fn().mockResolvedValue(false),
   createFirstAdmin: vi.fn(),

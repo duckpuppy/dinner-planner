@@ -121,6 +121,17 @@ export interface ApiErrorResponse {
   error: ApiError;
 }
 
+// Standing grocery item type (M26)
+export interface StandingItem {
+  id: string;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  category: string;
+  storeId: string | null;
+  storeName: string | null;
+}
+
 // Auth types
 export interface AuthTokens {
   accessToken: string;
