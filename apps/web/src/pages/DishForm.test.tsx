@@ -28,6 +28,7 @@ vi.mock('@/lib/api', () => ({
     'dairy_free',
     'nut_free',
     'low_carb',
+    'low_calorie',
   ] as const,
 }));
 
@@ -441,6 +442,7 @@ describe('DishForm - dietary tags', () => {
     expect(screen.getByLabelText('Dairy-Free')).toBeDefined();
     expect(screen.getByLabelText('Nut-Free')).toBeDefined();
     expect(screen.getByLabelText('Low-Carb')).toBeDefined();
+    expect(screen.getByLabelText('Low-Calorie')).toBeDefined();
   });
 
   it('initializes dietary tag checkboxes from existing dish', () => {

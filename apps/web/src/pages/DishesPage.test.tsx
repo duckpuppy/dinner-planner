@@ -43,7 +43,15 @@ vi.mock('@/lib/api', () => ({
   stores: {
     list: vi.fn().mockResolvedValue([]),
   },
-  DIETARY_TAGS: ['vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'nut_free', 'low_carb'],
+  DIETARY_TAGS: [
+    'vegetarian',
+    'vegan',
+    'gluten_free',
+    'dairy_free',
+    'nut_free',
+    'low_carb',
+    'low_calorie',
+  ],
 }));
 
 vi.mock('sonner', () => ({

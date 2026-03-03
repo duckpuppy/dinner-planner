@@ -48,6 +48,7 @@ const DIETARY_TAG_LABELS: Record<string, string> = {
   dairy_free: 'Dairy-Free',
   nut_free: 'Nut-Free',
   low_carb: 'Low-Carb',
+  low_calorie: 'Low-Calorie',
 };
 
 export function DishesPage() {
