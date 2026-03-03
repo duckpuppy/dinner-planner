@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inferCategory } from '../services/dishes.js';
+import { inferCategory } from '../services/categoryHeuristics.js';
 
 describe('inferCategory', () => {
   it('returns Meat for chicken', () => {

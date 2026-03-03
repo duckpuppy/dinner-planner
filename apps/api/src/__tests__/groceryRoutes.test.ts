@@ -25,6 +25,12 @@ vi.mock('../services/stores.js', () => ({
   listStores: vi.fn(),
 }));
 
+vi.mock('../services/standingItems.js', () => ({
+  listStandingItems: vi.fn(),
+  addStandingItem: vi.fn(),
+  deleteStandingItem: vi.fn(),
+}));
+
 import * as customGroceriesService from '../services/customGroceries.js';
 import * as groceryChecksService from '../services/groceryChecks.js';
 import * as storesService from '../services/stores.js';

@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import dns from 'node:dns';
 import type { ImportedRecipe } from '@dinner-planner/shared';
-import { inferCategory } from './dishes.js';
+import { inferCategory } from './categoryHeuristics.js';
 
 /**
  * Custom error thrown when a URL is blocked for SSRF reasons.
