@@ -249,7 +249,7 @@ describe('parseSchemaOrgRecipe', () => {
       unit: null,
       name: '500g ground beef',
       notes: null,
-      category: 'Other',
+      category: 'Meat',
       storeIds: [],
     });
     expect(result!.prepTime).toBe(15);
