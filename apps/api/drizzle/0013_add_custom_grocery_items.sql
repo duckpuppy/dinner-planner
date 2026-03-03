@@ -7,4 +7,5 @@ CREATE TABLE custom_grocery_items (
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
+--> statement-breakpoint
 CREATE INDEX idx_custom_grocery_items_week ON custom_grocery_items(week_date);
