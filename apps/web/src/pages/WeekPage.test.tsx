@@ -80,6 +80,7 @@ function makeEntry(overrides = {}) {
     restaurantNotes: null,
     completed: false,
     skipped: false,
+    scale: 1,
     mainDish: { id: 'dish-1', name: 'Pasta', type: 'main' },
     sideDishes: [],
     preparations: [],
@@ -227,6 +228,40 @@ describe('WeekPage', () => {
       // completed check icon should be in the DOM
       // It's inside a span.text-green-600, we check entry rendered
       expect(screen.getByText('Pasta')).toBeTruthy();
+    });
+
+    it('renders scale control with 1×/2×/4× buttons for assembled entry with main dish', async () => {
+      const entry = makeEntry({ scale: 1 });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+      const scaleGroup = screen.getByRole('group', { name: /serving scale/i });
+      expect(scaleGroup).toBeTruthy();
+      const btn1x = screen.getByRole('button', { name: /^1×$/i });
+      const btn2x = screen.getByRole('button', { name: /^2×$/i });
+      const btn4x = screen.getByRole('button', { name: /^4×$/i });
+      expect(btn1x.getAttribute('aria-pressed')).toBe('true');
+      expect(btn2x.getAttribute('aria-pressed')).toBe('false');
+      expect(btn4x.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('calls updateEntry with new scale when scale button is clicked', async () => {
+      vi.mocked(menus.updateEntry).mockResolvedValue({} as never);
+      const entry = makeEntry({ scale: 1 });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+      const scaleGroup = screen.getByRole('group', { name: /serving scale/i });
+      const buttons = Array.from(scaleGroup.querySelectorAll('button'));
+      // buttons are 1×, 2×, 4× — pick index 1 for 2×
+      expect(buttons).toHaveLength(3);
+      fireEvent.click(buttons[1]);
+      await waitFor(() => {
+        expect(vi.mocked(menus.updateEntry)).toHaveBeenCalledWith(
+          'entry-1',
+          expect.objectContaining({ scale: 2 })
+        );
+      });
     });
   });
 

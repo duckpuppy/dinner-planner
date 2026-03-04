@@ -203,6 +203,7 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
       toast.success('Dinner updated successfully');
       queryClient.invalidateQueries({ queryKey: ['week'] });
       queryClient.invalidateQueries({ queryKey: ['today'] });
+      queryClient.invalidateQueries({ queryKey: ['groceries'] });
       setIsEditing(false);
     },
     onError: (error) => {
@@ -210,6 +211,15 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
       console.error('Error updating entry:', error);
     },
   });
+
+  function handleScaleChange(newScale: 1 | 2 | 4) {
+    updateMutation.mutate({
+      type: entry.type,
+      mainDishId: entry.mainDish?.id ?? null,
+      sideDishIds: entry.sideDishes.map((d) => d.id),
+      scale: newScale,
+    });
+  }
 
   if (isEditing) {
     return (
@@ -258,12 +268,42 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
           <div className="flex-1 min-w-0">
             {entry.type === 'assembled' && entry.mainDish ? (
               <>
-                <div className="font-medium truncate">{entry.mainDish.name}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-medium truncate">{entry.mainDish.name}</div>
+                  {entry.scale > 1 && (
+                    <span className="shrink-0 text-xs font-semibold text-primary tabular-nums">
+                      {entry.scale}&times;
+                    </span>
+                  )}
+                </div>
                 {entry.sideDishes.length > 0 && (
                   <div className="text-sm text-muted-foreground truncate">
                     with {entry.sideDishes.map((d) => d.name).join(', ')}
                   </div>
                 )}
+                <div
+                  className="flex items-center gap-1 mt-1"
+                  role="group"
+                  aria-label="Serving scale"
+                >
+                  {([1, 2, 4] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleScaleChange(s)}
+                      disabled={updateMutation.isPending}
+                      className={cn(
+                        'px-1.5 py-0.5 text-xs font-medium rounded border transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                        entry.scale === s
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-input hover:bg-muted text-muted-foreground'
+                      )}
+                      aria-pressed={entry.scale === s}
+                    >
+                      {s}&times;
+                    </button>
+                  ))}
+                </div>
               </>
             ) : entry.type === 'assembled' ? (
               <div className="text-muted-foreground">No dish selected</div>
@@ -292,8 +332,8 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
           {/* Status & Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {entry.completed && (
-              <span className="text-green-600 dark:text-green-400">
-                <Check className="h-5 w-5" />
+              <span className="text-green-600 dark:text-green-400" aria-label="Completed">
+                <Check className="h-5 w-5" aria-hidden="true" />
               </span>
             )}
             {/* Prep tasks toggle */}
@@ -409,8 +449,8 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         <h3 className="font-semibold">
           {DAY_NAMES_FULL[entry.dayOfWeek]}, {date.toLocaleDateString()}
         </h3>
-        <button type="button" onClick={onCancel} className="p-1 hover:bg-muted rounded">
-          <X className="h-4 w-4" />
+        <button type="button" onClick={onCancel} className="p-1 hover:bg-muted rounded" aria-label="Cancel editing">
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
@@ -444,7 +484,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium">Main Dish</label>
+              <label htmlFor="main-dish-select" className="text-sm font-medium">Main Dish</label>
               <button
                 type="button"
                 onClick={() => setShowSuggest(true)}
@@ -455,6 +495,7 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
               </button>
             </div>
             <select
+              id="main-dish-select"
               value={mainDishId}
               onChange={(e) => setMainDishId(e.target.value)}
               className="w-full px-3 py-2 border rounded-md bg-background"

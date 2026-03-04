@@ -30,14 +30,7 @@ function getTodayDateStr(): string {
   return localDateStr();
 }
 
-function scaleQuantity(quantity: number | null, scale: number): number | null {
-  if (quantity === null) return null;
-  const result = quantity * scale;
-  // Avoid floating point noise: trim to 4 significant figures
-  return Number(result.toPrecision(4));
-}
-
-function formatScaledQuantity(quantity: number | null, unit: string | null, name: string): string {
+function formatItemText(quantity: number | null, unit: string | null, name: string): string {
   const parts: string[] = [];
   if (quantity !== null) parts.push(String(quantity));
   if (unit) parts.push(unit);
@@ -45,12 +38,12 @@ function formatScaledQuantity(quantity: number | null, unit: string | null, name
   return parts.join(' ');
 }
 
-function formatQuantity(item: GroceryItem, scale = 1): string {
-  return formatScaledQuantity(scaleQuantity(item.quantity, scale), item.unit, item.name);
+function formatQuantity(item: GroceryItem): string {
+  return formatItemText(item.quantity, item.unit, item.name);
 }
 
-function buildPlainText(items: GroceryItem[], scale = 1): string {
-  return items.map((item) => `- ${formatQuantity(item, scale)}`).join('\n');
+function buildPlainText(items: GroceryItem[]): string {
+  return items.map((item) => `- ${formatQuantity(item)}`).join('\n');
 }
 
 const CATEGORY_ORDER = [
@@ -186,7 +179,6 @@ interface CustomGroceryRowProps {
   onToggle: () => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
-  scale: number;
 }
 
 function CustomGroceryRow({
@@ -195,9 +187,8 @@ function CustomGroceryRow({
   onToggle,
   onDelete,
   isDeleting,
-  scale,
 }: CustomGroceryRowProps) {
-  const scaledQuantity = scaleQuantity(item.quantity, scale);
+  const scaledQuantity = item.quantity;
   return (
     <div
       className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
@@ -256,7 +247,6 @@ interface CategorySectionProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   isPantry?: boolean;
-  scale: number;
 }
 
 function CategorySection({
@@ -267,7 +257,6 @@ function CategorySection({
   collapsed,
   onToggleCollapse,
   isPantry = false,
-  scale,
 }: CategorySectionProps) {
   return (
     <div className="mb-1">
@@ -306,7 +295,6 @@ function CategorySection({
                 <PantryGroceryRow
                   key={groceryItemKey(item.name, item.unit)}
                   item={item}
-                  scale={scale}
                 />
               ))
             : items.map((item) => {
@@ -317,7 +305,6 @@ function CategorySection({
                     item={item}
                     checked={checkedSet.has(key)}
                     onToggle={() => onToggle(key, item.name)}
-                    scale={scale}
                   />
                 );
               })}
@@ -466,11 +453,10 @@ interface StandingRowProps {
   onToggle: () => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
-  scale: number;
 }
 
-function StandingRow({ item, checked, onToggle, onDelete, isDeleting, scale }: StandingRowProps) {
-  const scaledQuantity = scaleQuantity(item.quantity, scale);
+function StandingRow({ item, checked, onToggle, onDelete, isDeleting }: StandingRowProps) {
+  const scaledQuantity = item.quantity;
   return (
     <div
       className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
@@ -543,7 +529,6 @@ export function GroceryPage() {
   const customItems = data?.customItems ?? [];
   const standingItems = data?.standingItems ?? [];
 
-  const [scale, setScale] = useState<1 | 2 | 4>(1);
   const [selectedStore, setSelectedStore] = useState<string>('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
@@ -623,7 +608,7 @@ export function GroceryPage() {
   }
 
   async function handleCopy() {
-    const text = buildPlainText(shoppingItems, scale);
+    const text = buildPlainText(shoppingItems);
     try {
       await navigator.clipboard.writeText(text);
       toast.success('Copied to clipboard');
@@ -677,51 +662,26 @@ export function GroceryPage() {
         </div>
       </div>
 
-      {/* Store filter + scale selector toolbar */}
-      {!isLoading && !isError && (
+      {/* Store filter toolbar */}
+      {!isLoading && !isError && showStoreFilter && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          {showStoreFilter && (
-            <div className="flex-1 min-w-[160px]">
-              <label htmlFor="store-filter" className="sr-only">
-                Filter by store
-              </label>
-              <select
-                id="store-filter"
-                value={selectedStore}
-                onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">All Stores</option>
-                {allStoreNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div
-            className="flex items-center gap-1.5 shrink-0"
-            role="group"
-            aria-label="Serving scale"
-          >
-            <span className="text-xs text-muted-foreground font-medium">Scale:</span>
-            {([1, 2, 4] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setScale(s)}
-                className={cn(
-                  'px-2.5 py-1 text-xs font-medium rounded-md border transition-colors',
-                  scale === s
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-input hover:bg-muted text-muted-foreground'
-                )}
-                aria-pressed={scale === s}
-              >
-                {s}&times;
-              </button>
-            ))}
+          <div className="flex-1 min-w-[160px]">
+            <label htmlFor="store-filter" className="sr-only">
+              Filter by store
+            </label>
+            <select
+              id="store-filter"
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">All Stores</option>
+              {allStoreNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -770,7 +730,6 @@ export function GroceryPage() {
                 onToggle={toggle}
                 collapsed={collapsedCategories.has(category)}
                 onToggleCollapse={() => toggleCategory(category)}
-                scale={scale}
               />
             );
           })}
@@ -792,7 +751,6 @@ export function GroceryPage() {
                     collapsed={collapsedCategories.has(key)}
                     onToggleCollapse={() => toggleCategory(key)}
                     isPantry
-                    scale={scale}
                   />
                 );
               })}
@@ -817,7 +775,6 @@ export function GroceryPage() {
                   onToggle={() => toggle(`custom::${item.id}`, item.name)}
                   onDelete={(id) => deleteMutation.mutate(id)}
                   isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
-                  scale={scale}
                 />
               ))}
             </div>
@@ -849,7 +806,6 @@ export function GroceryPage() {
                   isDeleting={
                     deleteStandingMutation.isPending && deleteStandingMutation.variables === item.id
                   }
-                  scale={scale}
                 />
               ))}
             </div>
@@ -874,16 +830,14 @@ interface GroceryRowProps {
   item: GroceryItem;
   checked: boolean;
   onToggle: () => void;
-  scale: number;
 }
 
 interface PantryGroceryRowProps {
   item: GroceryItem;
-  scale: number;
 }
 
-function PantryGroceryRow({ item, scale }: PantryGroceryRowProps) {
-  const scaledQuantity = scaleQuantity(item.quantity, scale);
+function PantryGroceryRow({ item }: PantryGroceryRowProps) {
+  const scaledQuantity = item.quantity;
   return (
     <div
       role="listitem"
@@ -927,8 +881,8 @@ function PantryGroceryRow({ item, scale }: PantryGroceryRowProps) {
   );
 }
 
-function GroceryRow({ item, checked, onToggle, scale }: GroceryRowProps) {
-  const scaledQuantity = scaleQuantity(item.quantity, scale);
+function GroceryRow({ item, checked, onToggle }: GroceryRowProps) {
+  const scaledQuantity = item.quantity;
   return (
     <button
       onClick={onToggle}

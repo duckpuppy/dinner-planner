@@ -557,6 +557,7 @@ export interface DinnerEntry {
   restaurantNotes: string | null;
   completed: boolean;
   skipped: boolean;
+  scale: number;
   sourceEntryId: string | null;
   sourceEntryDishName: string | null;
   mainDish: { id: string; name: string; type: string } | null;
@@ -574,6 +575,7 @@ export interface UpdateEntryData {
   mainDishId?: string | null;
   sideDishIds?: string[];
   sourceEntryId?: string | null;
+  scale?: number;
 }
 
 export interface Preparation {
