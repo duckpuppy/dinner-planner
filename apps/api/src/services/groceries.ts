@@ -71,24 +71,26 @@ export async function getWeekGroceries(
 ): Promise<{ groceries: GroceryItem[]; weekStartDate: string }> {
   const menu = await getOrCreateWeekMenu(date);
 
-  // Collect all dish IDs from assembled entries
-  const dishIdToName = new Map<string, string>();
+  // Collect dish+scale pairs from assembled entries (allows same dish at different scales)
+  const dishEntries: Array<{ dishId: string; dishName: string; scale: number }> = [];
 
   for (const entry of menu.entries) {
     if (entry.type !== 'assembled') continue;
+    const scale = entry.scale ?? 1;
     if (entry.mainDish) {
-      dishIdToName.set(entry.mainDish.id, entry.mainDish.name);
+      dishEntries.push({ dishId: entry.mainDish.id, dishName: entry.mainDish.name, scale });
     }
     for (const side of entry.sideDishes) {
-      dishIdToName.set(side.id, side.name);
+      dishEntries.push({ dishId: side.id, dishName: side.name, scale });
     }
   }
 
-  if (dishIdToName.size === 0) {
+  if (dishEntries.length === 0) {
     return { groceries: [], weekStartDate: menu.weekStartDate };
   }
 
-  const dishIds = Array.from(dishIdToName.keys());
+  // Fetch ingredients for all unique dish IDs
+  const dishIds = [...new Set(dishEntries.map((e) => e.dishId))];
 
   const ingredientRows = await db
     .select()
@@ -116,15 +118,22 @@ export async function getWeekGroceries(
     }
   }
 
-  const sources: IngredientSource[] = ingredientRows.map((ing) => ({
-    dishName: dishIdToName.get(ing.dishId) ?? 'Unknown',
-    quantity: ing.quantity,
-    unit: ing.unit,
-    name: ing.name,
-    notes: ing.notes,
-    category: ing.category,
-    storeNames: storesByIngredient.get(ing.id) ?? [],
-  }));
+  // Build sources, expanding by entry occurrences and applying per-entry scale
+  const sources: IngredientSource[] = [];
+  for (const { dishId, dishName, scale } of dishEntries) {
+    const ings = ingredientRows.filter((r) => r.dishId === dishId);
+    for (const ing of ings) {
+      sources.push({
+        dishName,
+        name: ing.name,
+        quantity: ing.quantity !== null ? ing.quantity * scale : null,
+        unit: ing.unit,
+        notes: ing.notes,
+        category: ing.category,
+        storeNames: storesByIngredient.get(ing.id) ?? [],
+      });
+    }
+  }
 
   const groceries = aggregateIngredients(sources);
 
