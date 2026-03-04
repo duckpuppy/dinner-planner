@@ -177,7 +177,8 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 
 ### Future enhancements (not yet scheduled)
 
-- **Recurring/standing items** — items that always appear regardless of meal plan (milk, eggs, etc.)
+- ~~**Recurring/standing items**~~ — shipped (M26)
 - **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
 - ~~**Serving size scaling**~~ — shipped
 - ~~**Category heuristics**~~ — shipped
+- **Automatic dietary tagging** — infer dietary tags from nutrition fields when saved. Configurable thresholds (e.g. <35g carbs → Low-Carb, <300 calories → Low-Calorie, 0g meat + dairy → Vegan). Should be opt-in per tag so manual overrides are respected.
