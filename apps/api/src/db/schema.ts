@@ -132,6 +132,7 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
   sourceEntryId: text('source_entry_id').references((): AnySQLiteColumn => dinnerEntries.id),
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+  scale: integer('scale').notNull().default(1),
   ...timestamps,
 });
 

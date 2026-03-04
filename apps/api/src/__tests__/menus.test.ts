@@ -30,7 +30,7 @@ vi.mock('../db/index.js', () => ({
   schema: {
     appSettings: { id: null, weekStartDay: null },
     weeklyMenus: { weekStartDate: null, id: null },
-    dinnerEntries: { id: null, menuId: null, date: null, completed: null, mainDishId: null },
+    dinnerEntries: { id: null, menuId: null, date: null, completed: null, mainDishId: null, scale: null },
     dishes: { id: null, name: null },
     users: { id: null },
     preparations: { id: null, dishId: null, dinnerEntryId: null, preparedDate: null },
@@ -79,6 +79,7 @@ function makeEntry(overrides: Record<string, unknown> = {}) {
     restaurantNotes: null,
     completed: false,
     skipped: false,
+    scale: 1,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -179,6 +180,17 @@ describe('updateDinnerEntry', () => {
 
     await updateDinnerEntry('entry-1', { type: 'assembled' });
     expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('persists scale when provided', async () => {
+    const entry = makeEntry();
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [], scale: 3 });
+
+    const updateCall = mockDb.update().set;
+    expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ scale: 3 }));
   });
 });
 

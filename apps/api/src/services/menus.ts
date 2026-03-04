@@ -75,6 +75,7 @@ export interface DinnerEntryResponse {
   restaurantNotes: string | null;
   completed: boolean;
   skipped: boolean;
+  scale: number;
   mainDish: {
     id: string;
     name: string;
@@ -192,6 +193,7 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     restaurantNotes: entry.restaurantNotes,
     completed: entry.completed,
     skipped: entry.skipped,
+    scale: entry.scale,
     mainDish,
     sideDishes: sideDishes.filter((d): d is NonNullable<typeof d> => d !== null),
     preparations,
@@ -331,6 +333,7 @@ export async function updateDinnerEntry(
       restaurantNotes: input.restaurantNotes,
       mainDishId: input.mainDishId,
       sourceEntryId,
+      scale: input.scale ?? 1,
       updatedAt: now,
     })
     .where(eq(schema.dinnerEntries.id, entryId));

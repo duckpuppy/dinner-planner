@@ -417,19 +417,21 @@ describe('getWeekGroceries', () => {
     expect(result.groceries[0].category).toBe('Produce');
   });
 
-  it('deduplicates dishes across entries', async () => {
+  it('sums quantities when same dish appears in two entries at scale=1 each', async () => {
     const entries = [
       makeEntry({
         id: 'entry-1',
         type: 'assembled',
         mainDish: { id: 'dish-1', name: 'Pasta' },
         sideDishes: [],
+        scale: 1,
       }),
       makeEntry({
         id: 'entry-2',
         type: 'assembled',
         mainDish: { id: 'dish-1', name: 'Pasta' },
         sideDishes: [],
+        scale: 1,
       }),
     ];
     mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu(entries));
@@ -453,5 +455,108 @@ describe('getWeekGroceries', () => {
 
     expect(result.groceries).toHaveLength(1);
     expect(result.groceries[0].name).toBe('Garlic');
+    // 2 entries × 2 cloves each = 4
+    expect(result.groceries[0].quantity).toBe(4);
+  });
+
+  it('doubles ingredient quantities when entry scale is 2', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Pasta' },
+      sideDishes: [],
+      scale: 2,
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Flour',
+          quantity: 200,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Pantry Staples',
+        },
+      ])
+    );
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhere([]));
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toHaveLength(1);
+    expect(result.groceries[0].quantity).toBe(400); // 200g × scale 2
+  });
+
+  it('sums quantities for same dish at different scales across entries', async () => {
+    // entry 1: scale=1, entry 2: scale=2 → total 3x base quantity
+    const entries = [
+      makeEntry({
+        id: 'entry-1',
+        type: 'assembled',
+        mainDish: { id: 'dish-1', name: 'Pasta' },
+        sideDishes: [],
+        scale: 1,
+      }),
+      makeEntry({
+        id: 'entry-2',
+        type: 'assembled',
+        mainDish: { id: 'dish-1', name: 'Pasta' },
+        sideDishes: [],
+        scale: 2,
+      }),
+    ];
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu(entries));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Flour',
+          quantity: 100,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Pantry Staples',
+        },
+      ])
+    );
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhere([]));
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries).toHaveLength(1);
+    // scale=1 → 100g + scale=2 → 200g = 300g
+    expect(result.groceries[0].quantity).toBe(300);
+  });
+
+  it('preserves null quantity when scale applied to null quantity ingredient', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Pasta' },
+      sideDishes: [],
+      scale: 3,
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Salt',
+          quantity: null,
+          unit: null,
+          notes: null,
+          sortOrder: 0,
+          category: 'Other',
+        },
+      ])
+    );
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhere([]));
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    expect(result.groceries[0].quantity).toBeNull();
   });
 });
