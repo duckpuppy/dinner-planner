@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { menus, preparations, ratings, prepTasks, users, type DinnerEntry } from '@/lib/api';
+import {
+  menus,
+  preparations,
+  ratings,
+  prepTasks,
+  users,
+  type DinnerEntry,
+  type UpdateEntryData,
+} from '@/lib/api';
 import { PrepTaskList } from '@/components/PrepTaskList';
 import { PreparationPhotos } from '@/components/PreparationPhotos';
 import {
@@ -155,6 +163,25 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
     onError: () => toast.error('Failed to update'),
   });
 
+  const scaleMutation = useMutation({
+    mutationFn: (data: UpdateEntryData) => menus.updateEntry(entry.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['today'] });
+      queryClient.invalidateQueries({ queryKey: ['week'] });
+      queryClient.invalidateQueries({ queryKey: ['groceries'] });
+    },
+    onError: () => toast.error('Failed to update serving scale'),
+  });
+
+  function handleScaleChange(newScale: 1 | 2 | 4) {
+    scaleMutation.mutate({
+      type: entry.type,
+      mainDishId: entry.mainDish?.id ?? null,
+      sideDishIds: entry.sideDishes.map((d) => d.id),
+      scale: newScale,
+    });
+  }
+
   const { data: usersData } = useQuery({
     queryKey: ['users'],
     queryFn: () => users.list(),
@@ -238,12 +265,45 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
         {/* Main dish */}
         {entry.type === 'assembled' && entry.mainDish && (
           <div>
-            <h2 className="text-xl font-semibold">{entry.mainDish.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">{entry.mainDish.name}</h2>
+              {entry.scale > 1 && (
+                <span
+                  className="text-sm font-semibold text-primary tabular-nums"
+                  aria-label={`Serving scale: ${entry.scale}×`}
+                >
+                  {entry.scale}&times;
+                </span>
+              )}
+            </div>
             {entry.sideDishes.length > 0 && (
               <p className="text-muted-foreground mt-1">
                 with {entry.sideDishes.map((d) => d.name).join(', ')}
               </p>
             )}
+            <div
+              className="flex items-center gap-1 mt-2"
+              role="group"
+              aria-label="Serving scale"
+            >
+              {([1, 2, 4] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleScaleChange(s)}
+                  disabled={scaleMutation.isPending}
+                  className={cn(
+                    'px-2 py-1 text-xs font-medium rounded border transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    entry.scale === s
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-input hover:bg-muted text-muted-foreground'
+                  )}
+                  aria-pressed={entry.scale === s}
+                >
+                  {s}&times;
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
