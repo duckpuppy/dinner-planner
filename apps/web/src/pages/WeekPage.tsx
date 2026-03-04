@@ -449,7 +449,12 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         <h3 className="font-semibold">
           {DAY_NAMES_FULL[entry.dayOfWeek]}, {date.toLocaleDateString()}
         </h3>
-        <button type="button" onClick={onCancel} className="p-1 hover:bg-muted rounded" aria-label="Cancel editing">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-1 hover:bg-muted rounded"
+          aria-label="Cancel editing"
+        >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
@@ -484,7 +489,9 @@ function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorProps) {
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="main-dish-select" className="text-sm font-medium">Main Dish</label>
+              <label htmlFor="main-dish-select" className="text-sm font-medium">
+                Main Dish
+              </label>
               <button
                 type="button"
                 onClick={() => setShowSuggest(true)}

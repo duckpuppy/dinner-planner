@@ -721,7 +721,6 @@ describe('GroceryPage', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /Check Flour/i })).toBeNull());
   });
 
-
   it('renders items from two different categories (exercises sort)', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [

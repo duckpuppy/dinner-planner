@@ -292,10 +292,7 @@ function CategorySection({
         <div>
           {isPantry
             ? items.map((item) => (
-                <PantryGroceryRow
-                  key={groceryItemKey(item.name, item.unit)}
-                  item={item}
-                />
+                <PantryGroceryRow key={groceryItemKey(item.name, item.unit)} item={item} />
               ))
             : items.map((item) => {
                 const key = groceryItemKey(item.name, item.unit);

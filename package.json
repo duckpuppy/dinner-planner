@@ -29,7 +29,12 @@
       "rollup@^4": "4.59.0",
       "rollup@^2": "4.59.0",
       "serialize-javascript": ">=7.0.3"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "sharp",
+      "simple-git-hooks"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

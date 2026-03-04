@@ -281,11 +281,7 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                 with {entry.sideDishes.map((d) => d.name).join(', ')}
               </p>
             )}
-            <div
-              className="flex items-center gap-1 mt-2"
-              role="group"
-              aria-label="Serving scale"
-            >
+            <div className="flex items-center gap-1 mt-2" role="group" aria-label="Serving scale">
               {([1, 2, 4] as const).map((s) => (
                 <button
                   key={s}

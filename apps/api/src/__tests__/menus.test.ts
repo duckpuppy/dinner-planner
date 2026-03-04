@@ -30,7 +30,14 @@ vi.mock('../db/index.js', () => ({
   schema: {
     appSettings: { id: null, weekStartDay: null },
     weeklyMenus: { weekStartDate: null, id: null },
-    dinnerEntries: { id: null, menuId: null, date: null, completed: null, mainDishId: null, scale: null },
+    dinnerEntries: {
+      id: null,
+      menuId: null,
+      date: null,
+      completed: null,
+      mainDishId: null,
+      scale: null,
+    },
     dishes: { id: null, name: null },
     users: { id: null },
     preparations: { id: null, dishId: null, dinnerEntryId: null, preparedDate: null },
