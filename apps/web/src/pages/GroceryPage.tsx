@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  Settings,
 } from 'lucide-react';
 import {
   menus,
@@ -21,10 +22,13 @@ import {
   type GroceryItem,
   type CustomGroceryItem,
   type StandingItem,
+  type Store,
 } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
 import { cn, localDateStr } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AddCustomItemDialog } from '@/components/AddCustomItemDialog';
+import { ManageStandingItemsDialog } from '@/components/ManageStandingItemsDialog';
 
 function getTodayDateStr(): string {
   return localDateStr();
@@ -65,112 +69,6 @@ function sortByCategory(a: string, b: string): number {
   const aIdx = ai === -1 ? CATEGORY_ORDER.length : ai;
   const bIdx = bi === -1 ? CATEGORY_ORDER.length : bi;
   return aIdx - bIdx;
-}
-
-interface AddCustomItemFormProps {
-  weekDate: string;
-  onSuccess: () => void;
-}
-
-function AddCustomItemForm({ weekDate, onSuccess }: AddCustomItemFormProps) {
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('');
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-
-  const { data: storesList } = useQuery({
-    queryKey: ['stores'],
-    queryFn: storesApi.list,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      menus.addCustomItem(weekDate, {
-        name: name.trim(),
-        ...(quantity !== '' ? { quantity: Number(quantity) } : {}),
-        ...(unit.trim() !== '' ? { unit: unit.trim() } : {}),
-        ...(selectedStoreId !== '' ? { storeId: selectedStoreId } : {}),
-      }),
-    onSuccess: () => {
-      setName('');
-      setQuantity('');
-      setUnit('');
-      setSelectedStoreId('');
-      onSuccess();
-    },
-    onError: () => {
-      toast.error('Failed to add item');
-    },
-  });
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    mutation.mutate();
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      handleSubmit(e as unknown as React.FormEvent);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 pt-2">
-      <input
-        type="number"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        placeholder="Qty"
-        min={0}
-        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
-        aria-label="Quantity (optional)"
-      />
-      <input
-        type="text"
-        value={unit}
-        onChange={(e) => setUnit(e.target.value)}
-        placeholder="Unit"
-        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Unit (optional)"
-      />
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Item name"
-        required
-        className="flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Item name"
-      />
-      {storesList && storesList.length > 0 && (
-        <select
-          value={selectedStoreId}
-          onChange={(e) => setSelectedStoreId(e.target.value)}
-          className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          aria-label="Store (optional)"
-        >
-          <option value="">No store</option>
-          {storesList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button
-        type="submit"
-        disabled={!name.trim() || mutation.isPending}
-        className="flex items-center gap-1 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        aria-label="Add item"
-      >
-        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-        Add
-      </button>
-    </form>
-  );
 }
 
 interface CustomGroceryRowProps {
@@ -311,139 +209,6 @@ function CategorySection({
   );
 }
 
-const CATEGORY_OPTIONS = [
-  'Produce',
-  'Dairy',
-  'Meat',
-  'Seafood',
-  'Bakery',
-  'Frozen',
-  'Pantry Staples',
-  'Beverages',
-  'Household',
-  'Other',
-] as const;
-
-interface AddStandingItemFormProps {
-  onSuccess: () => void;
-}
-
-function AddStandingItemForm({ onSuccess }: AddStandingItemFormProps) {
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('');
-  const [category, setCategory] = useState('Other');
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-
-  const { data: storesList } = useQuery({
-    queryKey: ['stores'],
-    queryFn: storesApi.list,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      standingApi.add({
-        name: name.trim(),
-        ...(quantity !== '' ? { quantity: Number(quantity) } : { quantity: null }),
-        ...(unit.trim() !== '' ? { unit: unit.trim() } : { unit: null }),
-        category,
-        ...(selectedStoreId !== '' ? { storeId: selectedStoreId } : { storeId: null }),
-      }),
-    onSuccess: () => {
-      setName('');
-      setQuantity('');
-      setUnit('');
-      setCategory('Other');
-      setSelectedStoreId('');
-      onSuccess();
-    },
-    onError: () => {
-      toast.error('Failed to add standing item');
-    },
-  });
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    mutation.mutate();
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      handleSubmit(e as unknown as React.FormEvent);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 pt-2">
-      <input
-        type="number"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        placeholder="Qty"
-        min={0}
-        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
-        aria-label="Quantity (optional)"
-      />
-      <input
-        type="text"
-        value={unit}
-        onChange={(e) => setUnit(e.target.value)}
-        placeholder="Unit"
-        className="w-16 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Unit (optional)"
-      />
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Item name"
-        required
-        className="flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Item name"
-      />
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Category"
-      >
-        {CATEGORY_OPTIONS.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-      {storesList && storesList.length > 0 && (
-        <select
-          value={selectedStoreId}
-          onChange={(e) => setSelectedStoreId(e.target.value)}
-          className="rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          aria-label="Store (optional)"
-        >
-          <option value="">No store</option>
-          {storesList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button
-        type="submit"
-        disabled={!name.trim() || mutation.isPending}
-        className="flex items-center gap-1 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        aria-label="Add standing item"
-      >
-        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-        Add
-      </button>
-    </form>
-  );
-}
-
 interface StandingRowProps {
   item: StandingItem;
   checked: boolean;
@@ -513,6 +278,12 @@ export function GroceryPage() {
     refetchInterval: 5000,
   });
 
+  const { data: storesList } = useQuery({
+    queryKey: ['stores'],
+    queryFn: storesApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const weekStartDate = data?.weekStartDate ?? '';
   const checkedKeys = data?.checkedKeys ?? [];
 
@@ -525,9 +296,12 @@ export function GroceryPage() {
   const allItems = data?.groceries ?? [];
   const customItems = data?.customItems ?? [];
   const standingItems = data?.standingItems ?? [];
+  const stores: Store[] = storesList ?? [];
 
   const [selectedStore, setSelectedStore] = useState<string>('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [customItemDialogOpen, setCustomItemDialogOpen] = useState(false);
+  const [standingDialogOpen, setStandingDialogOpen] = useState(false);
 
   function toggleCategory(category: string) {
     setCollapsedCategories((prev) => {
@@ -599,10 +373,6 @@ export function GroceryPage() {
       toast.error('Failed to delete standing item');
     },
   });
-
-  function handleAddSuccess() {
-    void queryClient.invalidateQueries({ queryKey: ['groceries', requestedDate] });
-  }
 
   async function handleCopy() {
     const text = buildPlainText(shoppingItems);
@@ -757,11 +527,21 @@ export function GroceryPage() {
           {/* Custom items section — always visible after data loads */}
           <>
             {(allItems.length > 0 || customItems.length > 0) && <div className="border-t my-3" />}
-            <div className="flex items-center gap-1.5 px-3 py-1">
-              <Plus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Custom Items
-              </span>
+            <div className="flex items-center justify-between px-3 py-1">
+              <div className="flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Custom Items
+                </span>
+              </div>
+              <button
+                onClick={() => setCustomItemDialogOpen(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border rounded hover:bg-muted transition-colors"
+                aria-label="Add item"
+              >
+                <Plus className="h-3 w-3" aria-hidden="true" />
+                Add item
+              </button>
             </div>
             <div role="list">
               {customItems.map((item) => (
@@ -775,19 +555,26 @@ export function GroceryPage() {
                 />
               ))}
             </div>
-            <div className="px-1">
-              <AddCustomItemForm weekDate={effectiveWeekDate} onSuccess={handleAddSuccess} />
-            </div>
           </>
 
           {/* Every Week (standing items) section — always visible after data loads */}
           <>
             <div className="border-t my-3" />
-            <div className="flex items-center gap-1.5 px-3 py-1">
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Every Week
-              </span>
+            <div className="flex items-center justify-between px-3 py-1">
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Every Week
+                </span>
+              </div>
+              <button
+                onClick={() => setStandingDialogOpen(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border rounded hover:bg-muted transition-colors"
+                aria-label="Manage recurring items"
+              >
+                <Settings className="h-3 w-3" aria-hidden="true" />
+                Manage recurring items
+              </button>
             </div>
             {filteredStandingItems.length === 0 && (
               <p className="px-3 py-2 text-sm text-muted-foreground">No standing items yet</p>
@@ -806,9 +593,6 @@ export function GroceryPage() {
                 />
               ))}
             </div>
-            <div className="px-1">
-              <AddStandingItemForm onSuccess={handleAddSuccess} />
-            </div>
           </>
 
           {/* Progress summary */}
@@ -818,6 +602,22 @@ export function GroceryPage() {
             </p>
           )}
         </div>
+      )}
+
+      {customItemDialogOpen && (
+        <AddCustomItemDialog
+          weekDate={effectiveWeekDate}
+          stores={stores}
+          onClose={() => setCustomItemDialogOpen(false)}
+        />
+      )}
+
+      {standingDialogOpen && (
+        <ManageStandingItemsDialog
+          standingItems={standingItems}
+          stores={stores}
+          onClose={() => setStandingDialogOpen(false)}
+        />
       )}
     </div>
   );
