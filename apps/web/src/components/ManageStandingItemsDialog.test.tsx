@@ -71,7 +71,8 @@ describe('ManageStandingItemsDialog', () => {
 
   it('renders item category badge', () => {
     render(<ManageStandingItemsDialog {...baseProps} standingItems={[sampleItem]} />, { wrapper });
-    expect(screen.getByText('Dairy')).toBeTruthy();
+    // 'Dairy' appears as both the item badge and a category <option> — use getAllByText
+    expect(screen.getAllByText('Dairy').length).toBeGreaterThan(0);
   });
 
   it('renders delete button for each item', () => {
