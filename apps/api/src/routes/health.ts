@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { isSetupRequired } from '../services/setup.js';
 
-const BUILD_ID = Date.now().toString();
+const BOOT_ID = Date.now().toString();
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/health', async () => {
@@ -10,7 +10,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       status: 'ok',
       timestamp: new Date().toISOString(),
       setupRequired,
-      buildId: BUILD_ID,
+      bootId: BOOT_ID,
     };
   });
 

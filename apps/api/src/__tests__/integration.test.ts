@@ -296,6 +296,16 @@ describe('GET /health', () => {
     await app.close();
   });
 
+  it('returns bootId that is present and stable across calls', async () => {
+    const res1 = await app.inject({ method: 'GET', url: '/health' });
+    const res2 = await app.inject({ method: 'GET', url: '/health' });
+    const body1 = JSON.parse(res1.body);
+    const body2 = JSON.parse(res2.body);
+    expect(typeof body1.bootId).toBe('string');
+    expect(body1.bootId.length).toBeGreaterThan(0);
+    expect(body1.bootId).toBe(body2.bootId);
+  });
+
   it('returns 200 with status ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
