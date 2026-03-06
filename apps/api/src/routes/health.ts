@@ -1,7 +1,8 @@
 import { FastifyPluginAsync } from 'fastify';
 import { isSetupRequired } from '../services/setup.js';
 
-const BOOT_ID = Date.now().toString();
+// Generated once per process start; changes when the server restarts (e.g. after redeployment)
+const INSTANCE_ID = crypto.randomUUID();
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/health', async () => {
@@ -10,7 +11,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       status: 'ok',
       timestamp: new Date().toISOString(),
       setupRequired,
-      bootId: BOOT_ID,
+      instanceId: INSTANCE_ID,
     };
   });
 
