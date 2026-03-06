@@ -6,11 +6,12 @@ const POLL_INTERVAL_MS = 60_000;
 export function useVersionCheck() {
   const bootIdRef = useRef<string | null>(null);
   const toastShownRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch('/health');
         if (!res.ok) return;
         const data = await res.json();
         const { bootId } = data;
@@ -20,6 +21,10 @@ export function useVersionCheck() {
           bootIdRef.current = bootId;
         } else if (bootId !== bootIdRef.current && !toastShownRef.current) {
           toastShownRef.current = true;
+          if (intervalRef.current !== null) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           toast.info('Update available', {
             description: 'A new version of the app has been deployed.',
             action: { label: 'Refresh', onClick: () => window.location.reload() },
@@ -32,7 +37,12 @@ export function useVersionCheck() {
     };
 
     check();
-    const interval = setInterval(check, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(check, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, []);
 }
