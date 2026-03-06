@@ -296,14 +296,16 @@ describe('GET /health', () => {
     await app.close();
   });
 
-  it('returns bootId that is present and stable across calls', async () => {
+  it('returns instanceId that is present and stable across calls', async () => {
     const res1 = await app.inject({ method: 'GET', url: '/health' });
     const res2 = await app.inject({ method: 'GET', url: '/health' });
+    expect(res1.statusCode).toBe(200);
+    expect(res2.statusCode).toBe(200);
     const body1 = JSON.parse(res1.body);
     const body2 = JSON.parse(res2.body);
-    expect(typeof body1.bootId).toBe('string');
-    expect(body1.bootId.length).toBeGreaterThan(0);
-    expect(body1.bootId).toBe(body2.bootId);
+    expect(typeof body1.instanceId).toBe('string');
+    expect(body1.instanceId.length).toBeGreaterThan(0);
+    expect(body1.instanceId).toBe(body2.instanceId);
   });
 
   it('returns 200 with status ok', async () => {
