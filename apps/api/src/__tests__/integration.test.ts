@@ -1020,9 +1020,9 @@ describe('Menus routes', () => {
       url: '/api/preparations',
       headers: jsonHeaders(app),
       body: JSON.stringify({
-        dishId: '00000000-0000-0000-0000-000000000001',
-        dinnerEntryId: '00000000-0000-0000-0000-000000000002',
-        preparerIds: ['00000000-0000-0000-0000-000000000003'],
+        dishId: '00000000-0000-4000-8000-000000000001',
+        dinnerEntryId: '00000000-0000-4000-8000-000000000002',
+        preparerIds: ['00000000-0000-4000-8000-000000000003'],
       }),
     });
     expect(res.statusCode).toBe(201);
