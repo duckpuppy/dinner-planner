@@ -73,7 +73,24 @@ export const createDishSchema = z.object({
   dietaryTags: z.array(dietaryTagSchema).default([]),
 });
 
-export const updateDishSchema = createDishSchema.partial();
+export const updateDishSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200).optional(),
+  description: z.string().max(2000).optional(),
+  type: z.enum(['main', 'side']).optional(),
+  ingredients: z.array(ingredientSchema).optional(),
+  instructions: z.string().max(10000).optional(),
+  prepTime: z.number().int().positive().nullable().optional(),
+  cookTime: z.number().int().positive().nullable().optional(),
+  servings: z.number().int().positive().nullable().optional(),
+  calories: z.number().nonnegative().nullable().optional(),
+  proteinG: z.number().nonnegative().nullable().optional(),
+  carbsG: z.number().nonnegative().nullable().optional(),
+  fatG: z.number().nonnegative().nullable().optional(),
+  sourceUrl: z.string().url().nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  tags: z.array(z.string().max(50)).optional(),
+  dietaryTags: z.array(dietaryTagSchema).optional(),
+});
 
 // Dinner entry schemas
 export const updateDinnerEntrySchema = z.object({
@@ -124,7 +141,10 @@ export const createRatingSchema = z.object({
   note: z.string().max(1000).nullable().default(null),
 });
 
-export const updateRatingSchema = createRatingSchema.partial();
+export const updateRatingSchema = z.object({
+  stars: z.number().int().min(1).max(5).optional(),
+  note: z.string().max(1000).nullable().optional(),
+});
 
 // Settings schemas
 export const updateSettingsSchema = z.object({
