@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { renderHook, cleanup, act } from '@testing-library/react';
 
@@ -8,45 +9,44 @@ vi.mock('sonner', () => ({
 import { useVersionCheck } from './useVersionCheck';
 import { toast } from 'sonner';
 
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
-
-function healthResponse(bootId: string) {
+function healthResponse(instanceId: string) {
   return Promise.resolve({
     ok: true,
-    json: () => Promise.resolve({ status: 'ok', bootId }),
+    json: () => Promise.resolve({ status: 'ok', instanceId }),
   });
 }
 
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   vi.useFakeTimers();
-  mockFetch.mockReset();
+  fetchSpy = vi.spyOn(globalThis, 'fetch');
   vi.clearAllMocks();
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
 describe('useVersionCheck', () => {
-  it('captures initial bootId without showing toast', async () => {
-    mockFetch.mockReturnValue(healthResponse('abc123'));
+  it('captures initial instanceId without showing toast', async () => {
+    fetchSpy.mockReturnValue(healthResponse('abc123'));
     renderHook(() => useVersionCheck());
     await act(async () => {});
     expect(toast.info).not.toHaveBeenCalled();
   });
 
-  it('shows toast when bootId changes', async () => {
-    mockFetch
+  it('shows toast when instanceId changes', async () => {
+    fetchSpy
       .mockReturnValueOnce(healthResponse('abc123'))
       .mockReturnValue(healthResponse('xyz789'));
 
     renderHook(() => useVersionCheck());
     await act(async () => {});
-
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
 
     expect(toast.info).toHaveBeenCalledOnce();
@@ -56,64 +56,63 @@ describe('useVersionCheck', () => {
     );
   });
 
-  it('shows toast only once even if bootId keeps changing', async () => {
-    mockFetch
+  it('shows toast only once even if instanceId keeps changing', async () => {
+    fetchSpy
       .mockReturnValueOnce(healthResponse('v1'))
       .mockReturnValueOnce(healthResponse('v2'))
       .mockReturnValue(healthResponse('v3'));
 
     renderHook(() => useVersionCheck());
     await act(async () => {});
-
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
 
     expect(toast.info).toHaveBeenCalledOnce();
   });
 
   it('stops polling after showing toast', async () => {
-    mockFetch.mockReturnValueOnce(healthResponse('v1')).mockReturnValue(healthResponse('v2'));
+    fetchSpy.mockReturnValueOnce(healthResponse('v1')).mockReturnValue(healthResponse('v2'));
 
     renderHook(() => useVersionCheck());
     await act(async () => {});
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
 
-    const callsAfterToast = mockFetch.mock.calls.length;
+    const callsAfterToast = fetchSpy.mock.calls.length;
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
-    expect(mockFetch.mock.calls.length).toBe(callsAfterToast);
+    expect(fetchSpy.mock.calls.length).toBe(callsAfterToast);
   });
 
   it('handles fetch failures silently', async () => {
-    mockFetch.mockRejectedValue(new Error('Network error'));
+    fetchSpy.mockRejectedValue(new Error('Network error'));
     renderHook(() => useVersionCheck());
     await act(async () => {});
     expect(toast.info).not.toHaveBeenCalled();
   });
 
   it('handles non-ok response silently', async () => {
-    mockFetch.mockResolvedValue({ ok: false });
+    fetchSpy.mockResolvedValue({ ok: false } as any);
     renderHook(() => useVersionCheck());
     await act(async () => {});
     expect(toast.info).not.toHaveBeenCalled();
   });
 
-  it('clears interval on unmount', async () => {
-    mockFetch.mockReturnValue(healthResponse('v1'));
+  it('clears timeout on unmount — no further fetches after unmount', async () => {
+    fetchSpy.mockReturnValue(healthResponse('v1'));
     const { unmount } = renderHook(() => useVersionCheck());
     await act(async () => {});
     unmount();
-    const callsBefore = mockFetch.mock.calls.length;
+    const callsBefore = fetchSpy.mock.calls.length;
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
-    expect(mockFetch.mock.calls.length).toBe(callsBefore);
+    expect(fetchSpy.mock.calls.length).toBe(callsBefore);
   });
 });
