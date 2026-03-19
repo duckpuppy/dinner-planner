@@ -139,7 +139,8 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
                   with {entry.sideDishes.map((d) => d.name).join(', ')}
                 </p>
               )}
-              {entry.type !== 'assembled' && (
+              {(entry.type === 'custom' ||
+                (entry.type === 'dining_out' && entry.restaurantName)) && (
                 <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide font-medium">
                   {entry.type.replace(/_/g, ' ')}
                 </span>
