@@ -154,31 +154,28 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 
 ## Current State
 
-### Completed milestones: M0–M22 (all on main)
+### Completed milestones: M0–M27 (all on main)
 
 - M21: First-run setup wizard (`POST /api/setup`, `setupRequired` on health, `SetupPage`)
 - M22: Test coverage ≥80% API (88%/80%/84%) and Web (86%/86%/80%)
+- M23: Custom grocery items — `customGroceryItems` table; CRUD routes; `AddCustomItemDialog`
+- M24: Shared check state + live sync — `groceryChecks` table; toggle/clear endpoints; 5s polling; optimistic updates; per-user tracking
+- M25: Grocery organization — `stores` + `ingredientStores` tables; store filter UI; category grouping
+- M26: Standing/recurring items — `standingItems` table; full CRUD; `ManageStandingItemsDialog`
+- M27: Week planning board — `PlanningBoardPage` + `PlanDayCard`; 7-day card grid; `@dnd-kit/core` drag-to-swap; "Plan next week →" button on `WeekPage`; progress chip; `SuggestionModal` for dish picking
 
 ### Active / upcoming milestones
 
-| M   | Title                                               | Status                |
-| --- | --------------------------------------------------- | --------------------- |
-| 23  | Custom grocery items                                | open                  |
-| 24  | Shared check state + live sync                      | open (blocked by M23) |
-| 25  | Grocery organization (categories + store filtering) | open                  |
+✨ No open milestones — all planned work through M27 is shipped.
 
 ### Grocery system architecture notes
 
 - Grocery list is **derived** from dish ingredients via `getWeekGroceries(weekDate)` in `apps/api/src/services/groceries.ts`
-- Check state currently in **localStorage** (`useGroceryChecklist`) — moves server-side in M24
-- M24 sync strategy: **5s polling** (not SSE/WS) — right choice for family scale, resilient on mobile
-- M24 check model: shared (any family member checks → all see it); `groceryChecks(weekDate, itemName, checkedByUserId)`
-- M25 store model: managed `stores(id, name)` table + `ingredientStores(ingredientId, storeId)` junction — chosen over JSON array for consistent naming and reliable filter dropdown
+- Check state is **server-side** (`groceryChecks` table) — 5s polling, shared across family members; `useGroceryChecklist` uses optimistic updates
+- Store model: `stores(id, name)` table + `ingredientStores(ingredientId, storeId)` junction; `customGroceryItems` and `standingItems` also have `storeId`
+- Custom items keyed as `custom::${id}`, standing items as `standing::${id}` in check state
 
 ### Future enhancements (not yet scheduled)
 
-- ~~**Recurring/standing items**~~ — shipped (M26)
 - **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
-- ~~**Serving size scaling**~~ — shipped
-- ~~**Category heuristics**~~ — shipped
 - **Automatic dietary tagging** — infer dietary tags from nutrition fields when saved. Configurable thresholds (e.g. <35g carbs → Low-Carb, <300 calories → Low-Calorie, 0g meat + dairy → Vegan). Should be opt-in per tag so manual overrides are respected.
