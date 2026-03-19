@@ -34,6 +34,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // setState-in-effect is sometimes necessary for cross-component sync and data
+      // initialization patterns; treat as warning rather than error
+      'react-hooks/set-state-in-effect': 'warn',
+      // React Compiler optimization rule — not a correctness issue, disable until
+      // we adopt the React Compiler
+      'react-hooks/preserve-manual-memoization': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   }
