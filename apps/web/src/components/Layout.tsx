@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Calendar,
   ChefHat,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Home,
-  User,
-  Users,
-  Settings,
   LogOut,
   Package,
+  Settings,
   ShoppingCart,
+  User,
+  Users,
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,10 +41,33 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sidebarCollapsed') === 'true'
+  );
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      localStorage.setItem('sidebarCollapsed', String(!prev));
+      return !prev;
+    });
+  };
+
+  const navLinkClass = (isActive: boolean) =>
+    cn(
+      'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+      collapsed && 'justify-center px-2',
+      isActive
+        ? 'bg-secondary text-secondary-foreground'
+        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+    );
+
   return (
     <div className="min-h-screen flex flex-col" style={{ paddingTop: 'var(--sat)' }}>
       {/* Main content */}
-      <main className="flex-1 pb-16 md:pb-0 md:pl-64">{children}</main>
+      <main className={cn('flex-1 pb-16 md:pb-0', collapsed ? 'md:pl-16' : 'md:pl-64')}>
+        {children}
+      </main>
 
       {/* Mobile bottom navigation */}
       <nav
@@ -68,64 +94,68 @@ export function Layout({ children }: LayoutProps) {
       </nav>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 flex-col bg-background border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Dinner Planner</h1>
+      <aside
+        className={cn(
+          'hidden md:flex fixed left-0 top-0 bottom-0 flex-col bg-background border-r transition-all duration-200',
+          collapsed ? 'w-16' : 'w-64'
+        )}
+      >
+        {/* Header */}
+        <div className={cn('p-4 border-b flex items-center', collapsed ? 'justify-center' : '')}>
+          {collapsed ? (
+            <ChefHat className="h-6 w-6 text-primary" />
+          ) : (
+            <h1 className="text-xl font-bold">Dinner Planner</h1>
+          )}
         </div>
-        <nav className="flex-1 p-2 space-y-6">
+
+        {/* Nav */}
+        <nav className="flex-1 p-2 space-y-6 overflow-y-auto">
           <div>
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
                 to={to}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm',
-                    isActive
-                      ? 'bg-secondary text-secondary-foreground'
-                      : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                  )
-                }
+                title={collapsed ? label : undefined}
+                className={({ isActive }) => navLinkClass(isActive)}
               >
-                <Icon className="h-5 w-5" />
-                {label}
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {!collapsed && label}
               </NavLink>
             ))}
           </div>
 
           {isAdmin && (
             <div>
-              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Admin
-              </div>
+              {!collapsed && (
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Admin
+                </div>
+              )}
               {adminItems.map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
                   to={to}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm',
-                      isActive
-                        ? 'bg-secondary text-secondary-foreground'
-                        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-                    )
-                  }
+                  title={collapsed ? label : undefined}
+                  className={({ isActive }) => navLinkClass(isActive)}
                 >
-                  <Icon className="h-5 w-5" />
-                  {label}
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && label}
                 </NavLink>
               ))}
             </div>
           )}
         </nav>
 
-        {/* Sidebar footer: user info + logout */}
+        {/* Footer: user + logout */}
         <div className="p-3 border-t space-y-1">
           <NavLink
             to="/profile"
+            title={collapsed ? (user?.displayName ?? 'Profile') : undefined}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full',
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full transition-colors',
+                collapsed && 'justify-center px-2',
                 isActive
                   ? 'bg-secondary text-secondary-foreground'
                   : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
@@ -137,16 +167,31 @@ export function Layout({ children }: LayoutProps) {
                 {user?.displayName?.[0]?.toUpperCase() ?? '?'}
               </span>
             </div>
-            <span className="truncate">{user?.displayName}</span>
+            {!collapsed && <span className="truncate">{user?.displayName}</span>}
           </NavLink>
+
           <button
             onClick={() => logout()}
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            title={collapsed ? 'Sign out' : undefined}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors',
+              collapsed && 'justify-center px-2'
+            )}
           >
             <LogOut className="h-4 w-4 flex-shrink-0" />
-            Sign out
+            {!collapsed && 'Sign out'}
           </button>
         </div>
+
+        {/* Collapse toggle */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="p-3 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted border-t transition-colors"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
       </aside>
     </div>
   );
