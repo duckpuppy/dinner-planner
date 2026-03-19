@@ -175,6 +175,12 @@ Log learnings: `bd comment {ID} "LEARNED: [insight]"` — captured automatically
 - Store model: `stores(id, name)` table + `ingredientStores(ingredientId, storeId)` junction; `customGroceryItems` and `standingItems` also have `storeId`
 - Custom items keyed as `custom::${id}`, standing items as `standing::${id}` in check state
 
+### Branch cleanup preferences
+
+When cleaning up branches (local or remote), **preserve**:
+
+- `renovate/*` branches — these are automated dependency update PRs managed by Renovate bot
+
 ### Future enhancements (not yet scheduled)
 
 - **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
