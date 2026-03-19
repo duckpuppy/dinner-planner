@@ -80,7 +80,7 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
       ref={combinedRef}
       style={style}
       className={cn(
-        'relative flex flex-col rounded-xl border bg-card p-3 min-h-[120px] select-none transition-colors',
+        'relative flex flex-col rounded-xl border bg-card p-3 min-h-[120px] select-none transition-colors overflow-hidden',
         highlighted ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-border',
         isDragging && 'opacity-50',
         !planned && 'border-dashed'
@@ -89,11 +89,11 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
     >
       {/* Day header */}
       <div className="flex items-center justify-between mb-2">
-        <div>
+        <div className="flex flex-col leading-tight">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {dayName.slice(0, 3)}
           </span>
-          <span className="ml-1 text-xs text-muted-foreground tabular-nums">{dateLabel}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{dateLabel}</span>
         </div>
 
         {planned && (
