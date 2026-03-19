@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   CalendarOff,
+  CalendarPlus,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -123,6 +124,14 @@ export function WeekPage() {
               title="Grocery list"
             >
               <ShoppingCart className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => navigate('/plan')}
+              className="p-3 md:p-2 hover:bg-muted rounded-md touch-manipulation"
+              aria-label="Open planning board"
+              title="Plan next week"
+            >
+              <CalendarPlus className="h-5 w-5" />
             </button>
             <button
               onClick={goToPrevWeek}

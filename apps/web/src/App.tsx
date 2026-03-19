@@ -18,6 +18,7 @@ import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { GroceryPage } from './pages/GroceryPage';
 import { PantryPage } from './pages/PantryPage';
 import { PatternsPage } from './pages/PatternsPage';
+import { PlanningBoardPage } from './pages/PlanningBoardPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="/pantry" element={<PantryPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/patterns" element={<PatternsPage />} />
+            <Route path="/plan" element={<PlanningBoardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route
               path="/admin/users"
