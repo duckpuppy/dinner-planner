@@ -4,7 +4,7 @@ FROM node:24-alpine AS builder
 # Build tools for native modules (bcrypt, better-sqlite3)
 RUN apk add --no-cache python3 make g++
 
-RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
+RUN corepack enable && corepack prepare pnpm@10.31.0 --activate
 
 WORKDIR /app
 
