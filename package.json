@@ -25,13 +25,15 @@
   "pnpm": {
     "overrides": {
       "vite": "^7.0.0",
-      "tar": ">=7.5.10",
+      "tar": ">=7.5.11",
       "esbuild": ">=0.25.0",
       "bn.js": ">=4.12.3",
       "minimatch": ">=10.2.3",
       "rollup@^4": "4.59.0",
       "rollup@^2": "4.59.0",
-      "serialize-javascript": ">=7.0.3"
+      "serialize-javascript": ">=7.0.3",
+      "flatted": ">=3.4.0",
+      "undici": ">=7.24.0"
     },
     "onlyBuiltDependencies": [
       "bcrypt",
