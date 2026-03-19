@@ -8,7 +8,7 @@ import { menus } from '@/lib/api';
 import type { DinnerEntry, UpdateEntryData } from '@/lib/api';
 import { localDateStr } from '@/lib/utils';
 import { PlanDayCard, isEntryPlanned } from '@/components/PlanDayCard';
-import { SuggestionModal } from '@/components/SuggestionModal';
+import { EntryEditor } from '@/components/EntryEditor';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 
@@ -47,8 +47,20 @@ export function PlanningBoardPage() {
   // Which entry is actively being dragged
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Suggestion modal state
-  const [pickingEntryId, setPickingEntryId] = useState<string | null>(null);
+  // Entry editor modal state
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+  const saveMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateEntryData }) =>
+      menus.updateEntry(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['week', nextWeekDate] });
+      setEditingEntryId(null);
+    },
+    onError: () => {
+      toast.error('Failed to save meal.');
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateEntryData }) =>
@@ -163,11 +175,18 @@ export function PlanningBoardPage() {
     [entries, updateMutation]
   );
 
+  const handleSave = useCallback(
+    (data: UpdateEntryData) => {
+      if (!editingEntryId) return;
+      saveMutation.mutate({ id: editingEntryId, data });
+    },
+    [editingEntryId, saveMutation]
+  );
+
   const plannedCount = entries.filter(isEntryPlanned).length;
   const totalCount = entries.length;
 
-  const pickingEntry = pickingEntryId ? entries.find((e) => e.id === pickingEntryId) : null;
-  const availableTags: string[] = [];
+  const editingEntry = editingEntryId ? entries.find((e) => e.id === editingEntryId) : null;
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
@@ -222,7 +241,7 @@ export function PlanningBoardPage() {
               <PlanDayCard
                 key={entry.id}
                 entry={entry}
-                onPick={() => setPickingEntryId(entry.id)}
+                onEdit={() => setEditingEntryId(entry.id)}
                 onClear={() => handleClear(entry.id)}
                 isDragging={activeId === entry.id}
                 isOver={false}
@@ -232,29 +251,18 @@ export function PlanningBoardPage() {
         </DndContext>
       )}
 
-      {/* Suggestion modal for picking a meal */}
-      {pickingEntry && (
-        <SuggestionModal
-          open={true}
-          availableTags={availableTags}
-          onSelect={(dish) => {
-            if (!pickingEntryId) return;
-            updateMutation.mutate({
-              id: pickingEntryId,
-              data: {
-                type: 'assembled',
-                mainDishId: dish.id,
-                sideDishIds: [],
-                customText: null,
-                restaurantName: null,
-                restaurantNotes: null,
-                sourceEntryId: null,
-              },
-            });
-            setPickingEntryId(null);
-          }}
-          onClose={() => setPickingEntryId(null)}
-        />
+      {/* Entry editor modal */}
+      {editingEntry && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg bg-background rounded-xl shadow-xl overflow-y-auto max-h-[90dvh]">
+            <EntryEditor
+              entry={editingEntry}
+              onSave={handleSave}
+              onCancel={() => setEditingEntryId(null)}
+              isSaving={saveMutation.isPending}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

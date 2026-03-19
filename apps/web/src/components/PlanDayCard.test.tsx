@@ -67,7 +67,7 @@ describe('isEntryPlanned', () => {
 });
 
 describe('PlanDayCard', () => {
-  const onPick = vi.fn();
+  const onEdit = vi.fn();
   const onClear = vi.fn();
 
   function renderCard(
@@ -77,7 +77,7 @@ describe('PlanDayCard', () => {
     return render(
       <PlanDayCard
         entry={makeEntry(overrides)}
-        onPick={onPick}
+        onEdit={onEdit}
         onClear={onClear}
         isDragging={props.isDragging ?? false}
         isOver={props.isOver ?? false}
@@ -94,10 +94,10 @@ describe('PlanDayCard', () => {
     expect(screen.getByRole('button', { name: /add meal for monday/i })).toBeInTheDocument();
   });
 
-  it('calls onPick when "Add meal" is clicked', () => {
+  it('calls onEdit when "Add meal" is clicked', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: /add meal for monday/i }));
-    expect(onPick).toHaveBeenCalledOnce();
+    expect(onEdit).toHaveBeenCalledOnce();
   });
 
   it('renders dish name for planned assembled entry', () => {
@@ -140,10 +140,10 @@ describe('PlanDayCard', () => {
     expect(onClear).toHaveBeenCalledOnce();
   });
 
-  it('calls onPick when edit button is clicked', () => {
+  it('calls onEdit when edit button is clicked', () => {
     renderCard({ mainDish: { id: '1', name: 'Pasta', type: 'main' } });
     fireEvent.click(screen.getByRole('button', { name: /edit meal for monday/i }));
-    expect(onPick).toHaveBeenCalledOnce();
+    expect(onEdit).toHaveBeenCalledOnce();
   });
 
   it('applies opacity when isDragging', () => {

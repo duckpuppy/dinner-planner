@@ -16,7 +16,7 @@ const DAY_NAMES_FULL = [
 
 export interface PlanDayCardProps {
   entry: DinnerEntry;
-  onPick: () => void;
+  onEdit: () => void;
   onClear: () => void;
   isDragging: boolean;
   isOver: boolean;
@@ -42,7 +42,7 @@ export function isEntryPlanned(entry: DinnerEntry): boolean {
   return entry.mainDish !== null || entry.type !== 'assembled';
 }
 
-export function PlanDayCard({ entry, onPick, onClear, isDragging, isOver }: PlanDayCardProps) {
+export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: PlanDayCardProps) {
   const planned = isEntryPlanned(entry);
 
   const {
@@ -100,7 +100,7 @@ export function PlanDayCard({ entry, onPick, onClear, isDragging, isOver }: Plan
           <div className="flex items-center gap-0.5">
             <button
               type="button"
-              onClick={onPick}
+              onClick={onEdit}
               className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               aria-label={`Edit meal for ${dayName}`}
             >
@@ -149,7 +149,7 @@ export function PlanDayCard({ entry, onPick, onClear, isDragging, isOver }: Plan
         ) : (
           <button
             type="button"
-            onClick={onPick}
+            onClick={onEdit}
             className="flex items-center justify-center gap-1.5 w-full h-full min-h-[48px] rounded-lg border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors text-sm"
             aria-label={`Add meal for ${dayName}`}
           >

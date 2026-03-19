@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { PlanningBoardPage } from './PlanningBoardPage';
-import type { DinnerEntry } from '@/lib/api';
+import type { DinnerEntry, UpdateEntryData } from '@/lib/api';
 
 const mockNavigate = vi.hoisted(() => vi.fn());
 
@@ -19,6 +19,10 @@ vi.mock('@/lib/api', () => ({
   menus: {
     getWeek: vi.fn(),
     updateEntry: vi.fn(),
+    recentCompleted: vi.fn().mockResolvedValue([]),
+  },
+  dishes: {
+    list: vi.fn().mockResolvedValue({ dishes: [] }),
   },
 }));
 
@@ -188,7 +192,7 @@ describe('PlanningBoardPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/week');
   });
 
-  it('opens suggestion modal when Add meal is clicked', async () => {
+  it('opens EntryEditor modal when Add meal is clicked', async () => {
     vi.mocked(menus.getWeek).mockResolvedValue({
       menu: {
         id: 'menu-1',
@@ -201,10 +205,11 @@ describe('PlanningBoardPage', () => {
     render(<PlanningBoardPage />, { wrapper });
     await waitFor(() => screen.getAllByRole('button', { name: /add meal/i }));
     fireEvent.click(screen.getAllByRole('button', { name: /add meal/i })[0]);
-    expect(screen.getByTestId('suggestion-modal')).toBeInTheDocument();
+    // EntryEditor renders a form with a Save button
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
   });
 
-  it('closes suggestion modal when Close is clicked', async () => {
+  it('closes EntryEditor modal when Cancel is clicked', async () => {
     vi.mocked(menus.getWeek).mockResolvedValue({
       menu: {
         id: 'menu-1',
@@ -217,11 +222,12 @@ describe('PlanningBoardPage', () => {
     render(<PlanningBoardPage />, { wrapper });
     await waitFor(() => screen.getAllByRole('button', { name: /add meal/i }));
     fireEvent.click(screen.getAllByRole('button', { name: /add meal/i })[0]);
-    fireEvent.click(screen.getByRole('button', { name: /close/i }));
-    expect(screen.queryByTestId('suggestion-modal')).not.toBeInTheDocument();
+    // Cancel button closes the modal
+    fireEvent.click(screen.getByRole('button', { name: /cancel editing/i }));
+    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
   });
 
-  it('calls updateEntry when a suggestion is selected', async () => {
+  it('calls updateEntry when entry is saved', async () => {
     vi.mocked(menus.updateEntry).mockResolvedValue({ entry: makeEntry() });
     vi.mocked(menus.getWeek).mockResolvedValue({
       menu: {
@@ -235,11 +241,11 @@ describe('PlanningBoardPage', () => {
     render(<PlanningBoardPage />, { wrapper });
     await waitFor(() => screen.getAllByRole('button', { name: /add meal/i }));
     fireEvent.click(screen.getAllByRole('button', { name: /add meal/i })[0]);
-    fireEvent.click(screen.getByRole('button', { name: /select pizza/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     await waitFor(() => {
       expect(menus.updateEntry).toHaveBeenCalledWith(
         'entry-0',
-        expect.objectContaining({ type: 'assembled', mainDishId: 'dish-1' })
+        expect.objectContaining<Partial<UpdateEntryData>>({ type: 'assembled' })
       );
     });
   });
