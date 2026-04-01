@@ -147,6 +147,13 @@ export function Layout({ children }: LayoutProps) {
           )}
         </nav>
 
+        {/* Version */}
+        {!collapsed && (
+          <div className="px-4 py-1 text-xs text-muted-foreground/50 select-none">
+            v{__APP_VERSION__}
+          </div>
+        )}
+
         {/* Footer: user + logout */}
         <div className="p-3 border-t space-y-1">
           <NavLink
