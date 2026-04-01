@@ -10,7 +10,7 @@ overrides:
   esbuild: '>=0.25.0'
   bn.js: '>=4.12.3'
   minimatch: '>=10.2.3'
-  rollup@^4: 4.59.0
+  rollup@^4: 4.60.1
   rollup@^2: 4.59.0
   serialize-javascript: '>=7.0.3'
   flatted: '>=3.4.0'
@@ -1634,7 +1634,7 @@ packages:
     resolution: {integrity: sha512-tgg6b91pAybXHJQMAAwW9VuWBO6Thi+q7BCNARLwSqlmsHz0XYURtGvh/AuwSADXSI4h/2uHbs7s4FzlZDGSGA==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      rollup: 4.59.0
+      rollup: 4.60.1
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -1648,7 +1648,7 @@ packages:
     resolution: {integrity: sha512-XHeJC5Bgvs8LfukDwWZp7yeqin6ns8RTl2B9avbejt6tZqsqvVoWI7ZTQrcNsfKEDWBTnTxM8nMDkO2IFFbd0A==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      rollup: 4.59.0
+      rollup: 4.60.1
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -1657,13 +1657,13 @@ packages:
     resolution: {integrity: sha512-GksZ6pr6TpIjHm8h9lSQ8pi8BE9VeubNT0OMJ3B5uZJ8pz73NPiqOtCog/x2/QzM1ENChPKxMDhiQuRHsqc+lg==}
     engines: {node: '>= 8.0.0'}
     peerDependencies:
-      rollup: 4.59.0
+      rollup: 4.60.1
 
   '@rollup/pluginutils@5.3.0':
     resolution: {integrity: sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      rollup: 4.59.0
+      rollup: 4.60.1
     peerDependenciesMeta:
       rollup:
         optional: true
