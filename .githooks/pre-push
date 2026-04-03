@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+# .githooks/pre-push — flush beads issues.jsonl before every push
+#
+# Ensures .beads/issues.jsonl is up to date so fresh clones see current issues.
+# Installed automatically via simple-git-hooks on pnpm install.
+#
+# Skip: SKIP_BEADS_SYNC=1 git push
+
+set -e
+
+[ "${SKIP_BEADS_SYNC:-0}" = "1" ] && exit 0
+
+# If bd is not installed, skip gracefully (CI, fresh environments, etc.)
+command -v bd >/dev/null 2>&1 || exit 0
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+JSONL="$REPO_ROOT/.beads/issues.jsonl"
+
+# Only act if issues.jsonl is tracked in git
+git ls-files --error-unmatch "$JSONL" >/dev/null 2>&1 || exit 0
+
+# Flush SQLite → issues.jsonl (no git operations)
+bd sync --flush-only || {
+  echo "[beads] WARNING: bd sync --flush-only failed, skipping auto-commit" >&2
+  exit 0
+}
+
+# Check if issues.jsonl has uncommitted changes
+if git diff --quiet HEAD -- "$JSONL" && git diff --cached --quiet -- "$JSONL"; then
+  exit 0
+fi
+
+echo "[beads] Auto-committing .beads/issues.jsonl..." >&2
+git add "$JSONL"
+
+# Also stage interactions.jsonl if tracked and dirty
+INTERACTIONS="$REPO_ROOT/.beads/interactions.jsonl"
+if git ls-files --error-unmatch "$INTERACTIONS" >/dev/null 2>&1; then
+  if ! git diff --quiet HEAD -- "$INTERACTIONS" || ! git diff --cached --quiet -- "$INTERACTIONS"; then
+    git add "$INTERACTIONS"
+  fi
+fi
+
+git commit --no-verify -m "chore: sync beads issues.jsonl [skip ci]"
+echo "[beads] issues.jsonl committed and included in this push." >&2
+exit 0
