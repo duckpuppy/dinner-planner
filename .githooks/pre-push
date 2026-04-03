@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+# pre-push: flush beads SQLite → issues.jsonl and auto-commit if dirty
+
+# Skip if bd is not installed
+command -v bd > /dev/null 2>&1 || exit 0
+
+# Skip if explicitly suppressed
+[ "${SKIP_BEADS_SYNC:-0}" = "1" ] && exit 0
+
+echo "[beads] Flushing issues.jsonl..." >&2
+
+# Flush SQLite → JSONL (no git ops performed by this command)
+if ! bd sync --flush-only 2>&1; then
+  echo "[beads] Warning: bd sync --flush-only failed, skipping auto-commit" >&2
+  exit 0
+fi
+
+# Check if issues.jsonl has uncommitted changes
+if ! git diff --quiet HEAD -- .beads/issues.jsonl 2>/dev/null; then
+  echo "[beads] Auto-committing .beads/issues.jsonl..." >&2
+  git add .beads/issues.jsonl
+
+  # Also stage interactions.jsonl if tracked and dirty
+  if git ls-files --error-unmatch .beads/interactions.jsonl > /dev/null 2>&1; then
+    if ! git diff --quiet HEAD -- .beads/interactions.jsonl 2>/dev/null; then
+      git add .beads/interactions.jsonl
+    fi
+  fi
+
+  git commit --no-verify -m "chore: sync beads issues.jsonl [skip ci]"
+fi
+
+exit 0
