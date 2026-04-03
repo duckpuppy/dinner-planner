@@ -20,7 +20,8 @@
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm type-check && pnpm lint && pnpm format:check"
+    "pre-commit": "pnpm type-check && pnpm lint && pnpm format:check",
+    "pre-push": "sh .githooks/pre-push"
   },
   "pnpm": {
     "overrides": {
