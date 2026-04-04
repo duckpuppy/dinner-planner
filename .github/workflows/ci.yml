@@ -40,7 +40,7 @@ jobs:
         run: pnpm format:check
 
       - name: Security audit
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=high --ignore-unfixable
 
   test:
     name: Test

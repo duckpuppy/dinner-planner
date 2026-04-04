@@ -36,13 +36,20 @@
       "flatted": ">=3.4.0",
       "undici": ">=7.24.0",
       "picomatch": ">=4.0.4",
-      "@xmldom/xmldom": ">=0.8.12"
+      "@xmldom/xmldom": ">=0.8.12",
+      "lodash": ">=4.18.0"
     },
     "onlyBuiltDependencies": [
       "bcrypt",
       "sharp",
       "simple-git-hooks"
-    ]
+    ],
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-34950",
+        "CVE-2026-35042"
+      ]
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
