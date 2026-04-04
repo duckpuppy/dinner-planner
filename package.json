@@ -41,6 +41,7 @@
     },
     "onlyBuiltDependencies": [
       "bcrypt",
+      "better-sqlite3",
       "sharp",
       "simple-git-hooks"
     ],
