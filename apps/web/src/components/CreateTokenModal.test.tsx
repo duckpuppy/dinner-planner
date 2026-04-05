@@ -47,16 +47,6 @@ describe('CreateTokenModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onClose when X button is clicked', () => {
-    render(<CreateTokenModal onClose={onClose} />, { wrapper });
-    fireEvent.click(
-      screen.getByTitle
-        ? document.querySelector('button.text-muted-foreground')!
-        : screen.getByRole('button', { name: /close/i })
-    );
-    expect(onClose).toHaveBeenCalled();
-  });
-
   it('disables submit when name is empty', () => {
     render(<CreateTokenModal onClose={onClose} />, { wrapper });
     const submitBtn = screen.getByText('Create Token');

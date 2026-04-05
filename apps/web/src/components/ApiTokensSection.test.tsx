@@ -107,7 +107,7 @@ describe('ApiTokensSection', () => {
     const revokeButtons = screen.getAllByTitle('Revoke token');
     fireEvent.click(revokeButtons[0]);
     expect(screen.getByText('Revoke token')).toBeTruthy();
-    expect(screen.getByText(/Home Assistant/i)).toBeTruthy();
+    expect(screen.getByText(/Revoke "Home Assistant"/i)).toBeTruthy();
   });
 
   it('calls revoke API and shows success toast on confirm', async () => {
