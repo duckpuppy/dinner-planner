@@ -1,24 +1,24 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { KeyRound, Plus, Trash2 } from 'lucide-react';
-import { apiTokens, type ApiTokenRow } from '@/lib/api';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CreateTokenModal } from '@/components/CreateTokenModal';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { KeyRound, Plus, Trash2 } from "lucide-react";
+import { apiTokens, type ApiTokenRow } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CreateTokenModal } from "@/components/CreateTokenModal";
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return "—";
   const diff = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'just now';
+  if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
@@ -32,19 +32,19 @@ export function ApiTokensSection() {
   const [revokeTarget, setRevokeTarget] = useState<ApiTokenRow | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['apiTokens'],
+    queryKey: ["apiTokens"],
     queryFn: () => apiTokens.list(),
   });
 
   const revokeMutation = useMutation({
     mutationFn: (id: string) => apiTokens.revoke(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['apiTokens'] });
-      toast.success('Token revoked');
+      void queryClient.invalidateQueries({ queryKey: ["apiTokens"] });
+      toast.success("Token revoked");
       setRevokeTarget(null);
     },
     onError: () => {
-      toast.error('Failed to revoke token');
+      toast.error("Failed to revoke token");
     },
   });
 
@@ -72,7 +72,9 @@ export function ApiTokensSection() {
           <div className="h-8 bg-muted rounded" />
         </div>
       ) : tokens.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">No API tokens yet.</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          No API tokens yet.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -90,22 +92,28 @@ export function ApiTokensSection() {
                 <tr
                   key={token.id}
                   className={
-                    revokeMutation.isPending && revokeMutation.variables === token.id
-                      ? 'opacity-50'
-                      : ''
+                    revokeMutation.isPending &&
+                    revokeMutation.variables === token.id
+                      ? "opacity-50"
+                      : ""
                   }
                 >
                   <td className="py-2 pr-4 font-medium">{token.name}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{formatDate(token.createdAt)}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{formatRelative(token.lastUsedAt)}</td>
                   <td className="py-2 pr-4 text-muted-foreground">
-                    {token.expiresAt ? formatDate(token.expiresAt) : 'Never'}
+                    {formatDate(token.createdAt)}
+                  </td>
+                  <td className="py-2 pr-4 text-muted-foreground">
+                    {formatRelative(token.lastUsedAt)}
+                  </td>
+                  <td className="py-2 pr-4 text-muted-foreground">
+                    {token.expiresAt ? formatDate(token.expiresAt) : "Never"}
                   </td>
                   <td className="py-2 text-right">
                     <button
                       onClick={() => setRevokeTarget(token)}
                       disabled={
-                        revokeMutation.isPending && revokeMutation.variables === token.id
+                        revokeMutation.isPending &&
+                        revokeMutation.variables === token.id
                       }
                       className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                       title="Revoke token"
