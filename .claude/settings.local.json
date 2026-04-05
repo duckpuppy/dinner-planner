@@ -35,7 +35,15 @@
       "Bash(npm run type-check:*)",
       "Bash(pnpm --filter api tsc:*)",
       "Bash(bash -i -c:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(find /home/duckpuppy/src/dinner-planner/apps/web/src -name *rocer* -o -name *check*)",
+      "Bash(git checkout:*)",
+      "Skill(beads:beads)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm --filter @dinner-planner/web build)",
+      "Bash(pnpm --filter @dinner-planner/web test --run)",
+      "Bash(pnpm --filter @dinner-planner/shared build)",
+      "Bash(git:*)"
     ]
   }
 }

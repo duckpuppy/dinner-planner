@@ -359,3 +359,17 @@ export const refreshTokens = sqliteTable('refresh_tokens', {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const apiTokens = sqliteTable('api_tokens', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  lastUsedAt: text('last_used_at'),
+  expiresAt: text('expires_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});

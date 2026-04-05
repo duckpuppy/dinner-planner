@@ -1,6 +1,6 @@
 {
   "name": "dinner-planner",
-  "version": "1.7.1",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.32.1",
@@ -20,7 +20,8 @@
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm type-check && pnpm lint && pnpm format:check"
+    "pre-commit": "pnpm type-check && pnpm lint && pnpm format:check",
+    "pre-push": "sh .githooks/pre-push"
   },
   "pnpm": {
     "overrides": {
@@ -35,13 +36,21 @@
       "flatted": ">=3.4.0",
       "undici": ">=7.24.0",
       "picomatch": ">=4.0.4",
-      "@xmldom/xmldom": ">=0.8.12"
+      "@xmldom/xmldom": ">=0.8.12",
+      "lodash": ">=4.18.0"
     },
     "onlyBuiltDependencies": [
       "bcrypt",
+      "better-sqlite3",
       "sharp",
       "simple-git-hooks"
-    ]
+    ],
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-34950",
+        "CVE-2026-35042"
+      ]
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

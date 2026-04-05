@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
+import { validateApiToken } from '../services/apiTokens.js';
 
 // Extend Fastify types
 declare module 'fastify' {
@@ -30,6 +31,22 @@ async function authPlugin(fastify: FastifyInstance) {
    * Extracts user info and adds to request.user
    */
   fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
+    const authHeader = request.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    // API token fast-path: dp_-prefixed tokens skip JWT verification
+    if (token?.startsWith('dp_')) {
+      const user = validateApiToken(token);
+      if (!user) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid or expired API token',
+        });
+      }
+      request.user = user;
+      return;
+    }
+
     try {
       await request.jwtVerify();
     } catch {

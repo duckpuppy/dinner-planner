@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { loginSchema } from '@dinner-planner/shared';
+import { z } from 'zod';
 import * as authService from '../services/auth.js';
+import * as apiTokenService from '../services/apiTokens.js';
 import { config } from '../config.js';
 
 // Cookie options for refresh token
@@ -137,6 +139,66 @@ export async function authRoutes(fastify: FastifyInstance) {
           homeView: user.homeView,
         },
       });
+    }
+  );
+
+  const createTokenSchema = z.object({
+    name: z.string().min(1).max(100),
+    expiresAt: z.string().datetime().optional(),
+  });
+
+  /**
+   * GET /api/auth/tokens
+   * List API tokens for the current admin user
+   */
+  fastify.get(
+    '/api/auth/tokens',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (request.user.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Admin access required' });
+      }
+      return reply.send({ tokens: apiTokenService.listApiTokens(request.user.userId) });
+    }
+  );
+
+  /**
+   * POST /api/auth/tokens
+   * Create a new API token (admin only). Returns the plaintext token once.
+   */
+  fastify.post(
+    '/api/auth/tokens',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (request.user.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Admin access required' });
+      }
+      const parseResult = createTokenSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+      const { name, expiresAt } = parseResult.data;
+      const { token, id } = apiTokenService.generateApiToken(request.user.userId, name, expiresAt);
+      return reply.status(201).send({ id, name, token, expiresAt: expiresAt ?? null });
+    }
+  );
+
+  /**
+   * DELETE /api/auth/tokens/:id
+   * Revoke an API token (owner only)
+   */
+  fastify.delete<{ Params: { id: string } }>(
+    '/api/auth/tokens/:id',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const deleted = apiTokenService.revokeApiToken(request.params.id, request.user.userId);
+      if (!deleted) {
+        return reply.status(404).send({ error: 'Token not found' });
+      }
+      return reply.send({ success: true });
     }
   );
 }
