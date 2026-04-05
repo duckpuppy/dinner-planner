@@ -31,7 +31,7 @@ export function ApiTokensSection() {
   const [showCreate, setShowCreate] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiTokenRow | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['apiTokens'],
     queryFn: () => apiTokens.list(),
   });
@@ -71,6 +71,16 @@ export function ApiTokensSection() {
           <div className="h-8 bg-muted rounded" />
           <div className="h-8 bg-muted rounded" />
         </div>
+      ) : isError ? (
+        <div className="py-4 text-center">
+          <p className="text-sm text-destructive mb-2">Failed to load API tokens.</p>
+          <button
+            onClick={() => void refetch()}
+            className="text-sm text-primary underline hover:no-underline"
+          >
+            Try again
+          </button>
+        </div>
       ) : tokens.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">No API tokens yet.</p>
       ) : (
@@ -109,6 +119,7 @@ export function ApiTokensSection() {
                       disabled={revokeMutation.isPending && revokeMutation.variables === token.id}
                       className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                       title="Revoke token"
+                      aria-label={`Revoke token ${token.name}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

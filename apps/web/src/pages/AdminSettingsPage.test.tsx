@@ -8,10 +8,17 @@ vi.mock('@/lib/api', () => ({
     get: vi.fn(),
     update: vi.fn(),
   },
+  apiTokens: {
+    list: vi.fn(),
+  },
 }));
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock('@/components/ApiTokensSection', () => ({
+  ApiTokensSection: () => <div data-testid="api-tokens-section" />,
 }));
 
 import { settings } from '@/lib/api';

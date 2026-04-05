@@ -29,7 +29,9 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
     mutationFn: () =>
       apiTokens.create({
         name: name.trim(),
-        ...(expiresAt ? { expiresAt } : {}),
+        ...(expiresAt
+          ? { expiresAt: new Date(`${expiresAt}T23:59:59.999`).toISOString() }
+          : {}),
       }),
     onSuccess: (data) => {
       setCreatedToken(data.token);
@@ -46,10 +48,15 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
 
   const handleCopy = () => {
     if (!createdToken) return;
-    void navigator.clipboard.writeText(createdToken).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(createdToken).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => {
+        toast.error('Failed to copy API token');
+      }
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -66,7 +73,11 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
             {createdToken ? 'Token Created' : 'Create API Token'}
           </h2>
           {!createdToken && (
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="text-muted-foreground hover:text-foreground"
+            >
               <X className="h-4 w-4" />
             </button>
           )}
@@ -86,6 +97,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
                 onClick={handleCopy}
                 className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
                 title="Copy token"
+                aria-label="Copy token"
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-green-500" />
