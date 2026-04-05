@@ -55,7 +55,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
       },
       () => {
         toast.error('Failed to copy API token');
-      }
+      },
     );
   };
 
