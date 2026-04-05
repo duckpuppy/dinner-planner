@@ -116,6 +116,15 @@ async function refreshToken(): Promise<boolean> {
   }
 }
 
+// API Token types
+export interface ApiTokenRow {
+  id: string;
+  name: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 // Auth API
 export const auth = {
   login: (username: string, password: string) =>
@@ -135,6 +144,18 @@ export const auth = {
     }),
 
   me: () => request<{ user: User }>('/auth/me'),
+};
+
+// API Tokens API
+export const apiTokens = {
+  list: () => request<{ tokens: ApiTokenRow[] }>('/auth/tokens'),
+  create: (body: { name: string; expiresAt?: string }) =>
+    request<{ id: string; name: string; token: string; expiresAt: string | null }>('/auth/tokens', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  revoke: (id: string) =>
+    request<{ success: boolean }>(`/auth/tokens/${id}`, { method: 'DELETE' }),
 };
 
 // Users API

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settings } from '@/lib/api';
 import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { ApiTokensSection } from '@/components/ApiTokensSection';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -106,6 +107,10 @@ export function AdminSettingsPage() {
           </div>
         </form>
       )}
+
+      <div className="mt-6">
+        <ApiTokensSection />
+      </div>
     </div>
   );
 }
