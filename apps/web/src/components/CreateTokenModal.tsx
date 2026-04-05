@@ -29,9 +29,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
     mutationFn: () =>
       apiTokens.create({
         name: name.trim(),
-        ...(expiresAt
-          ? { expiresAt: new Date(`${expiresAt}T23:59:59.999`).toISOString() }
-          : {}),
+        ...(expiresAt ? { expiresAt: new Date(`${expiresAt}T23:59:59.999`).toISOString() } : {}),
       }),
     onSuccess: (data) => {
       setCreatedToken(data.token);
@@ -55,7 +53,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
       },
       () => {
         toast.error('Failed to copy API token');
-      },
+      }
     );
   };
 

@@ -97,6 +97,73 @@ describe('CreateTokenModal', () => {
     });
   });
 
+  it('calls onClose when Done is clicked after token creation', async () => {
+    vi.mocked(apiTokens.create).mockResolvedValueOnce({
+      id: 'tok-1',
+      name: 'My Token',
+      token: 'dp_abc123',
+      expiresAt: null,
+    });
+    render(<CreateTokenModal onClose={onClose} />, { wrapper });
+    fireEvent.change(screen.getByPlaceholderText(/Home Assistant/i), {
+      target: { value: 'My Token' },
+    });
+    fireEvent.click(screen.getByText('Create Token'));
+    await waitFor(() => screen.getByText('Token Created'));
+    fireEvent.click(screen.getByText('Done'));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('sets expiry date when date input changes', () => {
+    render(<CreateTokenModal onClose={onClose} />, { wrapper });
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: '2026-12-31' } });
+    expect(dateInput.value).toBe('2026-12-31');
+  });
+
+  it('copies token to clipboard when Copy is clicked', async () => {
+    const mockWriteText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: mockWriteText } });
+
+    vi.mocked(apiTokens.create).mockResolvedValueOnce({
+      id: 'tok-1',
+      name: 'My Token',
+      token: 'dp_abc123',
+      expiresAt: null,
+    });
+    render(<CreateTokenModal onClose={onClose} />, { wrapper });
+    fireEvent.change(screen.getByPlaceholderText(/Home Assistant/i), {
+      target: { value: 'My Token' },
+    });
+    fireEvent.click(screen.getByText('Create Token'));
+    await waitFor(() => screen.getByText('Token Created'));
+    fireEvent.click(screen.getByLabelText('Copy token'));
+    expect(mockWriteText).toHaveBeenCalledWith('dp_abc123');
+  });
+
+  it('shows error toast when clipboard write fails', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+
+    vi.mocked(apiTokens.create).mockResolvedValueOnce({
+      id: 'tok-1',
+      name: 'My Token',
+      token: 'dp_abc123',
+      expiresAt: null,
+    });
+    render(<CreateTokenModal onClose={onClose} />, { wrapper });
+    fireEvent.change(screen.getByPlaceholderText(/Home Assistant/i), {
+      target: { value: 'My Token' },
+    });
+    fireEvent.click(screen.getByText('Create Token'));
+    await waitFor(() => screen.getByText('Token Created'));
+    fireEvent.click(screen.getByLabelText('Copy token'));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Failed to copy API token');
+    });
+  });
+
   it('calls onClose on Escape key in phase 1', () => {
     render(<CreateTokenModal onClose={onClose} />, { wrapper });
     fireEvent.keyDown(document, { key: 'Escape' });

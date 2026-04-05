@@ -123,6 +123,27 @@ describe('ApiTokensSection', () => {
     });
   });
 
+  it('shows error message and retry button when list fails', async () => {
+    vi.mocked(apiTokens.list).mockRejectedValueOnce(new Error('Network error'));
+    render(<ApiTokensSection />, { wrapper });
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load API tokens.')).toBeTruthy();
+      expect(screen.getByText('Try again')).toBeTruthy();
+    });
+  });
+
+  it('closes revoke dialog when Cancel is clicked', async () => {
+    vi.mocked(apiTokens.list).mockResolvedValueOnce({ tokens: mockTokens });
+    render(<ApiTokensSection />, { wrapper });
+    await waitFor(() => screen.getByText('Home Assistant'));
+    fireEvent.click(screen.getAllByTitle('Revoke token')[0]);
+    expect(screen.getByText(/Revoke "Home Assistant"/i)).toBeTruthy();
+    fireEvent.click(screen.getByText('Cancel'));
+    await waitFor(() => {
+      expect(screen.queryByText(/Revoke "Home Assistant"/i)).toBeNull();
+    });
+  });
+
   it('shows error toast when revoke fails', async () => {
     vi.mocked(apiTokens.list).mockResolvedValue({ tokens: mockTokens });
     vi.mocked(apiTokens.revoke).mockRejectedValueOnce(new Error('Server error'));
