@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { X, Copy, Check, AlertTriangle } from "lucide-react";
-import { apiTokens } from "@/lib/api";
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { X, Copy, Check, AlertTriangle } from 'lucide-react';
+import { apiTokens } from '@/lib/api';
 
 interface CreateTokenModalProps {
   onClose: () => void;
@@ -11,18 +11,18 @@ interface CreateTokenModalProps {
 
 export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
+  const [name, setName] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (createdToken) return;
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === 'Escape') onClose();
     };
-    document.addEventListener("keydown", handle);
-    return () => document.removeEventListener("keydown", handle);
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
   }, [onClose, createdToken]);
 
   const createMutation = useMutation({
@@ -35,12 +35,12 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
       setCreatedToken(data.token);
     },
     onError: () => {
-      toast.error("Failed to create API token");
+      toast.error('Failed to create API token');
     },
   });
 
   const handleDone = () => {
-    void queryClient.invalidateQueries({ queryKey: ["apiTokens"] });
+    void queryClient.invalidateQueries({ queryKey: ['apiTokens'] });
     onClose();
   };
 
@@ -59,20 +59,14 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={createdToken ? undefined : onClose}
-      />
+      <div className="fixed inset-0 bg-black/50" onClick={createdToken ? undefined : onClose} />
       <div className="relative bg-card border rounded-lg shadow-lg mx-4 w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-base font-semibold">
-            {createdToken ? "Token Created" : "Create API Token"}
+            {createdToken ? 'Token Created' : 'Create API Token'}
           </h2>
           {!createdToken && (
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           )}
@@ -126,7 +120,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
-                Expires{" "}
+                Expires{' '}
                 <span className="text-muted-foreground font-normal">
                   (optional — leave blank for never)
                 </span>
@@ -135,7 +129,7 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
                 type="date"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
+                min={new Date().toISOString().split('T')[0]}
                 className="w-full px-3 py-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -152,13 +146,13 @@ export function CreateTokenModal({ onClose }: CreateTokenModalProps) {
                 disabled={createMutation.isPending || !name.trim()}
                 className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50"
               >
-                {createMutation.isPending ? "Creating..." : "Create Token"}
+                {createMutation.isPending ? 'Creating...' : 'Create Token'}
               </button>
             </div>
           </form>
         )}
       </div>
     </div>,
-    document.body,
+    document.body
   );
 }

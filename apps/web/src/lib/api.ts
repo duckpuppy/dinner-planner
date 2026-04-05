@@ -154,8 +154,7 @@ export const apiTokens = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  revoke: (id: string) =>
-    request<{ success: boolean }>(`/auth/tokens/${id}`, { method: 'DELETE' }),
+  revoke: (id: string) => request<{ success: boolean }>(`/auth/tokens/${id}`, { method: 'DELETE' }),
 };
 
 // Users API
