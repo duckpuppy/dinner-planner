@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# .githooks/post-merge — re-import beads issues.jsonl after git pull/merge
+#
+# Ensures local SQLite stays in sync after pulling new issues from remote.
+# Installed automatically via simple-git-hooks on pnpm install.
+
+command -v bd >/dev/null 2>&1 || exit 0
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+JSONL="$REPO_ROOT/.beads/issues.jsonl"
+
+git ls-files --error-unmatch "$JSONL" >/dev/null 2>&1 || exit 0
+
+# Clear assume-unchanged/skip-worktree bits if set by older beads versions
+git update-index --no-assume-unchanged "$JSONL" 2>/dev/null || true
+git update-index --no-skip-worktree "$JSONL" 2>/dev/null || true
+
+[ -f "$JSONL" ] || exit 0
+
+# Rebuild SQLite from JSONL (removes orphaned entries + adds new ones)
+bd sync --rebuild || {
+  echo "[beads] WARNING: bd sync --rebuild failed" >&2
+  exit 0
+}
+
+exit 0

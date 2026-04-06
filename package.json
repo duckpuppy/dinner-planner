@@ -21,7 +21,8 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm type-check && pnpm lint && pnpm format:check",
-    "pre-push": "sh .githooks/pre-push"
+    "pre-push": "sh .githooks/pre-push",
+    "post-merge": "sh .githooks/post-merge"
   },
   "pnpm": {
     "overrides": {
