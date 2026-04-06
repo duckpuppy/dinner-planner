@@ -56,6 +56,18 @@ const PRIVATE_HOST_PATTERNS = [
   /^0\.0\.0\.0$/,
 ];
 
+// Domains known to block server-side scraping or lack structured recipe data
+const UNSUPPORTED_DOMAINS = [
+  'facebook.com',
+  'fb.com',
+  'fb.watch',
+  'instagram.com',
+  'tiktok.com',
+  'twitter.com',
+  'x.com',
+  'pinterest.com',
+];
+
 /**
  * Validate the URL before any network activity:
  * - Must be https only
@@ -77,6 +89,13 @@ export function validateRecipeUrl(rawUrl: string): URL {
   const host = parsed.hostname.toLowerCase();
   if (host === 'localhost' || PRIVATE_HOST_PATTERNS.some((p) => p.test(host))) {
     throw new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked');
+  }
+
+  const isSocialMedia = UNSUPPORTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+  if (isSocialMedia) {
+    throw new Error(
+      'This site cannot be imported directly. Please copy the recipe details and add them manually.'
+    );
   }
 
   return parsed;
