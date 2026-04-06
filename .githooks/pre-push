@@ -11,7 +11,7 @@ set -e
 [ "${SKIP_BEADS_SYNC:-0}" = "1" ] && exit 0
 
 # If bd is not installed, skip gracefully (CI, fresh environments, etc.)
-command -v bd >/dev/null 2>&1 || exit 0
+command -v br >/dev/null 2>&1 || exit 0
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 JSONL="$REPO_ROOT/.beads/issues.jsonl"
@@ -20,8 +20,8 @@ JSONL="$REPO_ROOT/.beads/issues.jsonl"
 git ls-files --error-unmatch "$JSONL" >/dev/null 2>&1 || exit 0
 
 # Flush SQLite → issues.jsonl (no git operations)
-bd sync --flush-only || {
-  echo "[beads] WARNING: bd sync --flush-only failed, skipping auto-commit" >&2
+br sync --flush-only || {
+  echo "[beads] WARNING: br sync --flush-only failed, skipping auto-commit" >&2
   exit 0
 }
 
