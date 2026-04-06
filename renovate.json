@@ -5,15 +5,15 @@
     {
       "groupName": "Safe Minor & Patch Updates",
       "matchUpdateTypes": ["minor", "patch"],
-      "excludePackagePatterns": ["react", "typescript"], // Exclude these
-      "labels": ["dependencies"]
+      "labels": ["dependencies"],
+      "matchPackageNames": ["!/react/", "!/typescript/"]
     },
     // Handle excluded packages with separate PRs
     {
       "groupName": "Critical Minor & Patch (react/typescript)",
-      "matchPackagePatterns": ["react", "typescript"],
       "matchUpdateTypes": ["minor", "patch"],
-      "labels": ["critical-dependencies"]
+      "labels": ["critical-dependencies"],
+      "matchPackageNames": ["/react/", "/typescript/"]
     }
   ]
 }
