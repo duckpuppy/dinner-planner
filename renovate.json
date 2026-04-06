@@ -1,4 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"]
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "groupName": "Safe Minor & Patch Updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "excludePackagePatterns": ["react", "typescript"], // Exclude these
+      "labels": ["dependencies"]
+    },
+    // Handle excluded packages with separate PRs
+    {
+      "groupName": "Critical Minor & Patch (react/typescript)",
+      "matchPackagePatterns": ["react", "typescript"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "labels": ["critical-dependencies"]
+    }
+  ]
 }
