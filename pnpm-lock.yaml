@@ -14,7 +14,7 @@ overrides:
   rollup@^2: 4.60.1
   serialize-javascript: '>=7.0.3'
   flatted: '>=3.4.0'
-  undici: '>=7.24.0'
+  undici: ^7.24.0
   picomatch: '>=4.0.4'
   '@xmldom/xmldom': '>=0.8.12'
   lodash: '>=4.18.0'
@@ -4285,10 +4285,6 @@ packages:
     resolution: {integrity: sha512-BM/JzwwaRXxrLdElV2Uo6cTLEjhSb3WXboncJamZ15NgUURmvlXvxa6xkwIOILIjPNo9i8ku136ZvWV0Uly8+w==}
     engines: {node: '>=20.18.1'}
 
-  undici@8.0.2:
-    resolution: {integrity: sha512-B9MeU5wuFhkFAuNeA19K2GDFcQXZxq33fL0nRy2Aq30wdufZbyyvxW3/ChaeipXVfy/wUweZyzovQGk39+9k2w==}
-    engines: {node: '>=22.19.0'}
-
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
     engines: {node: '>=4'}
@@ -7675,7 +7671,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 8.0.2
+      undici: 7.24.4
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -8770,8 +8766,6 @@ snapshots:
   undici-types@7.18.2: {}
 
   undici@7.24.4: {}
-
-  undici@8.0.2: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
