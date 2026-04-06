@@ -431,6 +431,18 @@ describe('validateRecipeUrl', () => {
   it('throws SsrfBlockedError for private addresses', () => {
     expect(() => validateRecipeUrl('https://192.168.1.1/recipe')).toThrow(SsrfBlockedError);
   });
+
+  it('rejects facebook.com URLs', () => {
+    expect(() => validateRecipeUrl('https://www.facebook.com/groups/123/posts/456')).toThrow(
+      'This site cannot be imported directly'
+    );
+  });
+
+  it('rejects instagram.com URLs', () => {
+    expect(() => validateRecipeUrl('https://www.instagram.com/p/abc123/')).toThrow(
+      'This site cannot be imported directly'
+    );
+  });
 });
 
 // ------------------------------------------------------------------
