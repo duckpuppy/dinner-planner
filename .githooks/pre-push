@@ -31,13 +31,13 @@ if git diff --quiet HEAD -- "$JSONL" && git diff --cached --quiet -- "$JSONL"; t
 fi
 
 echo "[beads] Auto-committing .beads/issues.jsonl..." >&2
-git add "$JSONL"
+git add -f "$JSONL"
 
 # Also stage interactions.jsonl if tracked and dirty
 INTERACTIONS="$REPO_ROOT/.beads/interactions.jsonl"
 if git ls-files --error-unmatch "$INTERACTIONS" >/dev/null 2>&1; then
   if ! git diff --quiet HEAD -- "$INTERACTIONS" || ! git diff --cached --quiet -- "$INTERACTIONS"; then
-    git add "$INTERACTIONS"
+    git add -f "$INTERACTIONS"
   fi
 fi
 
