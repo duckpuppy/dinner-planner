@@ -19,6 +19,12 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
       - TZ=${TZ:-}
+      - OLLAMA_URL=${OLLAMA_URL:-}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4-e4b}
+      - LLM_MODE=${LLM_MODE:-disabled}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+      - VIDEO_STORAGE_LIMIT_MB=${VIDEO_STORAGE_LIMIT_MB:-10240}
+      - YTDLP_PATH=${YTDLP_PATH:-yt-dlp}
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/health']
       interval: 30s

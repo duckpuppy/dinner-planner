@@ -56,8 +56,13 @@ COPY --from=builder /app/apps/api/drizzle ./apps/api/drizzle
 # Copy pre-built frontend at the path the API expects
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
+# Install yt-dlp and ffmpeg for video download support
+RUN apk add --no-cache ffmpeg python3 \
+  && wget -q -O /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp
+
 # Create data directory and fix permissions
-RUN mkdir -p /app/data && \
+RUN mkdir -p /app/data /app/data/videos && \
     chown -R dinner-planner:nodejs /app && \
     chmod -R go+rX /app && \
     chmod -R u+w /app/data

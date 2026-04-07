@@ -11,4 +11,5 @@ export const productionCspDirectives = {
   formAction: ["'self'"],
   workerSrc: ["'self'"],
   manifestSrc: ["'self'"],
+  mediaSrc: ["'self'"],
 } as const;
