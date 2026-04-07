@@ -388,7 +388,9 @@ export const videoJobs = sqliteTable('video_jobs', {
   id: text('id').primaryKey(),
   dishId: text('dish_id').references(() => dishes.id, { onDelete: 'set null' }),
   sourceUrl: text('source_url').notNull(),
-  status: text('status', { enum: ['pending', 'downloading', 'extracting', 'complete', 'failed'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'downloading', 'extracting', 'complete', 'failed'] })
+    .notNull()
+    .default('pending'),
   progress: integer('progress').default(0),
   resultVideoFilename: text('result_video_filename'),
   resultMetadata: text('result_metadata'),

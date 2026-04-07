@@ -255,7 +255,13 @@ export const importVideoUrlSchema = z.object({
   url: z.string().url('Must be a valid URL'),
 });
 
-export const videoJobStatusSchema = z.enum(['pending', 'downloading', 'extracting', 'complete', 'failed']);
+export const videoJobStatusSchema = z.enum([
+  'pending',
+  'downloading',
+  'extracting',
+  'complete',
+  'failed',
+]);
 
 export const videoJobSchema = z.object({
   id: z.string(),
@@ -264,7 +270,7 @@ export const videoJobSchema = z.object({
   status: videoJobStatusSchema,
   progress: z.number().int().min(0).max(100),
   resultVideoFilename: z.string().nullable(),
-  resultMetadata: z.record(z.unknown()).nullable(),
+  resultMetadata: z.record(z.string(), z.unknown()).nullable(),
   extractedRecipe: importedRecipeSchema.nullable(),
   error: z.string().nullable(),
   createdAt: z.string(),
@@ -376,6 +382,3 @@ export type DishNote = z.infer<typeof dishNoteSchema>;
 export type CreatePantryItemInput = z.infer<typeof createPantryItemSchema>;
 export type UpdatePantryItemInput = z.infer<typeof updatePantryItemSchema>;
 export type ImportVideoUrlInput = z.infer<typeof importVideoUrlSchema>;
-export type VideoJobStatus = z.infer<typeof videoJobStatusSchema>;
-export type VideoJob = z.infer<typeof videoJobSchema>;
-export type LlmMode = z.infer<typeof llmModeSchema>;

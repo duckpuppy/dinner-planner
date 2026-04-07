@@ -157,6 +157,30 @@ export type VideoJobStatus = 'pending' | 'downloading' | 'extracting' | 'complet
 
 export type LlmMode = 'disabled' | 'direct' | 'n8n';
 
+export interface ImportedRecipeData {
+  name: string;
+  description: string;
+  type: DishType;
+  ingredients: Array<{
+    quantity: number | null;
+    unit: string | null;
+    name: string;
+    notes: string | null;
+    category: string;
+  }>;
+  instructions: string;
+  prepTime: number | null;
+  cookTime: number | null;
+  servings: number | null;
+  calories: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  sourceUrl: string | null;
+  videoUrl: string | null;
+  tags: string[];
+}
+
 export interface VideoJob {
   id: string;
   dishId: string | null;
@@ -165,7 +189,7 @@ export interface VideoJob {
   progress: number;
   resultVideoFilename: string | null;
   resultMetadata: Record<string, unknown> | null;
-  extractedRecipe: Record<string, unknown> | null;
+  extractedRecipe: ImportedRecipeData | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;
