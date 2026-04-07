@@ -1,5 +1,6 @@
 import { db, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
+import type { UpdateSettingsInput } from '@dinner-planner/shared';
 
 export async function getSettings() {
   const [settings] = await db.select().from(schema.appSettings).limit(1);
@@ -9,7 +10,7 @@ export async function getSettings() {
   return settings;
 }
 
-export async function updateSettings(data: { weekStartDay?: number; recencyWindowDays?: number }) {
+export async function updateSettings(data: UpdateSettingsInput) {
   const settings = await getSettings();
   const [updated] = await db
     .update(schema.appSettings)
