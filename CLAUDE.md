@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Issues are tracked with [beads-rust](https://github.com/Dicklesworthstone/beads_rust), invoked as `br` (not `bd`).
+Issues are tracked with [beads](https://github.com/steveyegge/beads), invoked as `bd`.
 
 ## Tech Stack
 
@@ -35,7 +35,7 @@ Beads provide **traceability** (what changed, why, by whom) and worktrees provid
 
 1. **Stale beads in worktrees** — newly created issues from orchestrator aren't visible to worktree supervisors
 2. **Conflicting beads updates** — parallel agents in different worktrees may update beads independently, requiring merge
-3. **Supervisor commit failures** — pre-commit hooks may run `br sync` which fails in worktrees with stale beads state
+3. **Supervisor commit failures** — pre-commit hooks may run `bd sync` which fails in worktrees with stale beads state
 
 **Preferred approach: Sequential dispatch on feature branch** (no worktree isolation):
 
@@ -48,7 +48,7 @@ Beads provide **traceability** (what changed, why, by whom) and worktrees provid
 
 - Truly independent experiments that might be discarded
 - Work on separate branches that won't share beads state
-- When orchestrator explicitly syncs beads before worktree creation: `br sync --flush-only && git add .beads/ && git commit -m "chore: sync beads"`
+- When orchestrator explicitly syncs beads before worktree creation: `bd dolt push && git add .beads/ && git commit -m "chore: sync beads"`
 
 **Supervisor dispatch rules**:
 
@@ -82,7 +82,7 @@ For trivial changes (<10 lines) on a **feature branch**, you can bypass the full
 1. **Read the actual code** — Don't just grep for keywords. Open the file, understand the context.
 2. **Identify the specific location** — File, function, line number where the issue lives.
 3. **Understand why** — What's the root cause? Don't guess. Trace the logic.
-4. **Log your findings** — `br comments add {ID} "INVESTIGATION: ..."` so supervisors have full context.
+4. **Log your findings** — `bd comments adds add {ID} "INVESTIGATION: ..."` so supervisors have full context.
 
 **Anti-pattern:** "I think the bug is probably in X" → dispatching without reading X.
 **Good pattern:** "Read src/foo.ts:142-180. The bug is at line 156 — null check missing."
@@ -105,8 +105,8 @@ Every task goes through beads. No exceptions (unless user approves a quick fix).
 1. **Investigate deeply** — Read the relevant files (not just grep). Identify the specific line/function.
 2. **Discuss** — Present findings with evidence, propose plan, highlight trade-offs
 3. **User confirms** approach
-4. **Create bead** — `br create "Task" -d "Details"`
-5. **Log investigation** — `br comment {ID} "INVESTIGATION: root cause at file:line, fix is..."`
+4. **Create bead** — `bd create "Task" -d "Details"`
+5. **Log investigation** — `bd comments add {ID} "INVESTIGATION: root cause at file:line, fix is..."`
 6. **Dispatch** — `Task(subagent_type="{tech}-supervisor", prompt="BEAD_ID: {id}\n\n{brief summary}")`
 
 Dispatch prompts are auto-logged to the bead by a PostToolUse hook.
@@ -127,19 +127,19 @@ Use when: new feature, multiple approaches, multi-file changes, or unclear requi
 ## Beads Commands
 
 ```bash
-br create "Title" -d "Description"                    # Create task
-br create "Title" -d "..." --type epic                # Create epic
-br create "Title" -d "..." --parent {EPIC_ID}         # Child task
-br create "Title" -d "..." --parent {ID} --deps {ID}  # Child with dependency
-br list                                               # List beads
-br show ID                                            # Details
-br ready                                              # Unblocked tasks
-br update ID --status inreview                        # Mark done
-br close ID                                           # Close
-br dep relate {NEW_ID} {OLD_ID}                       # Link related beads
-br comments add ID "Comment text here"                # Add comment to issue
-br comments add ID -f /path/to/file                   # Comment from file
-br comments list ID                                   # List comments on issue
+bd create "Title" -d "Description"                    # Create task
+bd create "Title" -d "..." --type epic                # Create epic
+bd create "Title" -d "..." --parent {EPIC_ID}         # Child task
+bd create "Title" -d "..." --parent {ID} --deps {ID}  # Child with dependency
+bd list                                               # List beads
+bd show ID                                            # Details
+bd ready                                              # Unblocked tasks
+bd update ID --status inreview                        # Mark done
+bd close ID                                           # Close
+bd dep relate {NEW_ID} {OLD_ID}                       # Link related beads
+bd comments adds add ID "Comment text here"                # Add comment to issue
+bd comments adds add ID -f /path/to/file                   # Comment from file
+bd comments adds list ID                                   # List comments on issue
 ```
 
 ## When to Use Standalone or Epic
@@ -155,26 +155,26 @@ Cross-domain = Epic. No exceptions.
 
 ## Epic Workflow
 
-1. `br create "Feature" -d "..." --type epic` → {EPIC_ID}
+1. `bd create "Feature" -d "..." --type epic` → {EPIC_ID}
 2. Create children with `--parent {EPIC_ID}` and `--deps` for ordering
-3. `br ready` to find unblocked children → dispatch ALL ready in parallel
+3. `bd ready` to find unblocked children → dispatch ALL ready in parallel
 4. Repeat step 3 as children complete
-5. `br close {EPIC_ID}` when all children merged
+5. `bd close {EPIC_ID}` when all children merged
 
 ## Bug Fixes & Follow-Up
 
 **Closed beads stay closed.** For follow-up work:
 
 ```bash
-br create "Fix: [desc]" -d "Follow-up to {OLD_ID}: [details]"
-br dep relate {NEW_ID} {OLD_ID}  # Traceability link
+bd create "Fix: [desc]" -d "Follow-up to {OLD_ID}: [details]"
+bd dep relate {NEW_ID} {OLD_ID}  # Traceability link
 ```
 
 ## Knowledge Base
 
 Search before investigating unfamiliar code: `.beads/memory/recall.sh "keyword"`
 
-Log learnings: `br comment {ID} "LEARNED: [insight]"` — captured automatically to `.beads/memory/knowledge.jsonl`
+Log learnings: `bd comments add {ID} "LEARNED: [insight]"` — captured automatically to `.beads/memory/knowledge.jsonl`
 
 ## Supervisors
 
