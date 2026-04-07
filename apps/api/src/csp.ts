@@ -9,6 +9,7 @@ export const productionCspDirectives = {
   frameAncestors: ["'none'"],
   baseUri: ["'self'"],
   formAction: ["'self'"],
+  mediaSrc: ["'self'"],
   workerSrc: ["'self'"],
   manifestSrc: ["'self'"],
 } as const;

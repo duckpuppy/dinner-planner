@@ -239,6 +239,17 @@ export const dishes = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
+
+  importVideoUrl: (url: string) =>
+    request<{ jobId: string }>('/dishes/import-video-url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
+  getVideoJob: (jobId: string) => request<{ job: VideoJob }>(`/jobs/${jobId}`),
+
+  deleteVideo: (id: string) =>
+    request<{ success: boolean }>(`/dishes/${id}/video`, { method: 'DELETE' }),
 };
 
 // Menus API
@@ -399,11 +410,22 @@ export const history = {
 export const settings = {
   get: () => request<{ settings: AppSettings }>('/settings'),
 
-  update: (data: { weekStartDay?: number; recencyWindowDays?: number }) =>
+  update: (data: {
+    weekStartDay?: number;
+    recencyWindowDays?: number;
+    ollamaUrl?: string | null;
+    ollamaModel?: string;
+    llmMode?: 'disabled' | 'direct' | 'n8n';
+    n8nWebhookUrl?: string | null;
+    videoStorageLimitMb?: number;
+  }) =>
     request<{ settings: AppSettings }>('/settings', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  getOllamaStatus: () =>
+    request<{ available: boolean; url: string | null }>('/settings/ollama-status'),
 };
 
 // Stores API
@@ -513,6 +535,10 @@ export interface Dish {
   fatG: number | null;
   sourceUrl: string | null;
   videoUrl: string | null;
+  localVideoFilename: string | null;
+  videoThumbnailFilename: string | null;
+  videoSize: number | null;
+  videoDuration: number | null;
   archived: boolean;
   createdById: string;
   ingredients: Ingredient[];
@@ -670,6 +696,25 @@ export interface AppSettings {
   id: string;
   weekStartDay: number;
   recencyWindowDays: number;
+  ollamaUrl: string | null;
+  ollamaModel: string;
+  llmMode: 'disabled' | 'direct' | 'n8n';
+  n8nWebhookUrl: string | null;
+  videoStorageLimitMb: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoJob {
+  id: string;
+  dishId: string | null;
+  sourceUrl: string;
+  status: 'pending' | 'downloading' | 'extracting' | 'complete' | 'failed';
+  progress: number;
+  resultVideoFilename: string | null;
+  resultMetadata: Record<string, unknown> | null;
+  extractedRecipe: CreateDishData | null;
+  error: string | null;
   createdAt: string;
   updatedAt: string;
 }

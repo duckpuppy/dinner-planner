@@ -12,6 +12,13 @@ const envSchema = z.object({
   ADMIN_USERNAME: z.string().default('admin'),
   ADMIN_PASSWORD: z.string().optional(),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  OLLAMA_URL: z.string().url().optional(),
+  OLLAMA_MODEL: z.string().default('gemma4-e4b'),
+  LLM_MODE: z.enum(['disabled', 'direct', 'n8n']).default('disabled'),
+  N8N_WEBHOOK_URL: z.string().url().optional(),
+  VIDEO_STORAGE_LIMIT_MB: z.coerce.number().int().min(100).default(10240),
+  YTDLP_PATH: z.string().default('yt-dlp'),
+  VIDEOS_DIR: z.string().optional(),
 });
 
 function loadConfig() {

@@ -147,9 +147,16 @@ export const updateRatingSchema = z.object({
 });
 
 // Settings schemas
+export const llmModeSchema = z.enum(['disabled', 'direct', 'n8n']);
+
 export const updateSettingsSchema = z.object({
   weekStartDay: z.number().int().min(0).max(6).optional(),
   recencyWindowDays: z.number().int().min(1).max(365).optional(),
+  ollamaUrl: z.string().url().nullable().optional(),
+  ollamaModel: z.string().min(1).max(100).optional(),
+  llmMode: llmModeSchema.optional(),
+  n8nWebhookUrl: z.string().url().nullable().optional(),
+  videoStorageLimitMb: z.number().int().min(100).max(102400).optional(),
 });
 
 // Suggestion schemas
@@ -241,6 +248,33 @@ export const importedRecipeSchema = z.object({
   sourceUrl: z.string().url().nullable(),
   videoUrl: z.string().url().nullable(),
   tags: z.array(z.string()),
+});
+
+// Video import schemas
+export const importVideoUrlSchema = z.object({
+  url: z.string().url('Must be a valid URL'),
+});
+
+export const videoJobStatusSchema = z.enum([
+  'pending',
+  'downloading',
+  'extracting',
+  'complete',
+  'failed',
+]);
+
+export const videoJobSchema = z.object({
+  id: z.string(),
+  dishId: z.string().nullable(),
+  sourceUrl: z.string().url(),
+  status: videoJobStatusSchema,
+  progress: z.number().int().min(0).max(100),
+  resultVideoFilename: z.string().nullable(),
+  resultMetadata: z.record(z.string(), z.unknown()).nullable(),
+  extractedRecipe: importedRecipeSchema.nullable(),
+  error: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
 
 // Pantry schemas (M16: pantry tracking)
@@ -347,3 +381,4 @@ export type CreateDishNoteInput = z.infer<typeof createDishNoteSchema>;
 export type DishNote = z.infer<typeof dishNoteSchema>;
 export type CreatePantryItemInput = z.infer<typeof createPantryItemSchema>;
 export type UpdatePantryItemInput = z.infer<typeof updatePantryItemSchema>;
+export type ImportVideoUrlInput = z.infer<typeof importVideoUrlSchema>;

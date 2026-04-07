@@ -27,6 +27,7 @@ import { dishNotesRoutes } from './routes/dishNotes.js';
 import { pantryRoutes } from './routes/pantry.js';
 import { groceryRoutes } from './routes/grocery.js';
 import { setupRoutes } from './routes/setup.js';
+import { videoJobsRoutes } from './routes/videoJobs.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
@@ -108,6 +109,13 @@ await fastify.register(fastifyStatic, {
   decorateReply: false,
 });
 
+// Serve downloaded videos at /videos/
+await fastify.register(fastifyStatic, {
+  root: join(__dirname, '../../data/videos'),
+  prefix: '/videos/',
+  decorateReply: false,
+});
+
 // Register auth middleware (must be after jwt)
 await fastify.register(authPlugin);
 
@@ -128,6 +136,7 @@ await fastify.register(prepTasksRoutes);
 await fastify.register(dishNotesRoutes);
 await fastify.register(pantryRoutes);
 await fastify.register(groceryRoutes);
+await fastify.register(videoJobsRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {

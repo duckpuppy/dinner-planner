@@ -43,6 +43,11 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 dinner-planner
 
+# Video download tools
+RUN apk add --no-cache ffmpeg python3 \
+  && wget -q -O /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp
+
 # Copy prod deploy bundle into workspace-relative path so static file resolution works.
 # API server.ts uses: join(__dirname, '../../web/dist')
 # __dirname = /app/apps/api/dist → ../../web/dist = /app/apps/web/dist
@@ -57,7 +62,7 @@ COPY --from=builder /app/apps/api/drizzle ./apps/api/drizzle
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
 # Create data directory and fix permissions
-RUN mkdir -p /app/data && \
+RUN mkdir -p /app/data /app/data/videos /app/data/uploads && \
     chown -R dinner-planner:nodejs /app && \
     chmod -R go+rX /app && \
     chmod -R u+w /app/data

@@ -38,6 +38,7 @@ import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 import { RecipeImportModal } from '@/components/RecipeImportModal';
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -665,6 +666,15 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
               )}
             </div>
           </div>
+        )}
+
+        {/* Local Video Player */}
+        {currentDish.localVideoFilename && (
+          <VideoPlayer
+            dishId={currentDish.id}
+            thumbnailFilename={currentDish.videoThumbnailFilename}
+            className="w-full"
+          />
         )}
 
         {/* Source Links */}
