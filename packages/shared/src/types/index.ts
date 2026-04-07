@@ -40,6 +40,10 @@ export interface Dish {
   servings: number | null;
   sourceUrl: string | null;
   videoUrl: string | null;
+  localVideoFilename: string | null;
+  videoThumbnailFilename: string | null;
+  videoSize: number | null;
+  videoDuration: number | null;
   tags: string[];
   archived: boolean;
   aggregateRating: number | null;
@@ -108,6 +112,12 @@ export interface Rating {
 // Settings types
 export interface AppSettings {
   weekStartDay: number; // 0 = Sunday, 1 = Monday, etc.
+  recencyWindowDays: number;
+  ollamaUrl: string | null;
+  ollamaModel: string;
+  llmMode: 'disabled' | 'direct' | 'n8n';
+  n8nWebhookUrl: string | null;
+  videoStorageLimitMb: number;
 }
 
 // API Response types
@@ -140,4 +150,23 @@ export interface AuthTokens {
 
 export interface LoginResponse extends AuthTokens {
   user: User;
+}
+
+// Video job types
+export type VideoJobStatus = 'pending' | 'downloading' | 'extracting' | 'complete' | 'failed';
+
+export type LlmMode = 'disabled' | 'direct' | 'n8n';
+
+export interface VideoJob {
+  id: string;
+  dishId: string | null;
+  sourceUrl: string;
+  status: VideoJobStatus;
+  progress: number;
+  resultVideoFilename: string | null;
+  resultMetadata: Record<string, unknown> | null;
+  extractedRecipe: Record<string, unknown> | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

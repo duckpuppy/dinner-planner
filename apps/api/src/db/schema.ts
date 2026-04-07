@@ -57,6 +57,10 @@ export const dishes = sqliteTable('dishes', {
   fatG: real('fat_g'),
   sourceUrl: text('source_url'),
   videoUrl: text('video_url'),
+  localVideoFilename: text('local_video_filename'),
+  videoThumbnailFilename: text('video_thumbnail_filename'),
+  videoSize: integer('video_size'),
+  videoDuration: integer('video_duration'),
   archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   createdById: text('created_by_id')
     .notNull()
@@ -215,6 +219,11 @@ export const appSettings = sqliteTable('app_settings', {
   id: text('id').primaryKey().default('default'),
   weekStartDay: integer('week_start_day').notNull().default(0), // 0 = Sunday
   recencyWindowDays: integer('recency_window_days').notNull().default(30),
+  ollamaUrl: text('ollama_url'),
+  ollamaModel: text('ollama_model').default('gemma4-e4b'),
+  llmMode: text('llm_mode').default('disabled'),
+  n8nWebhookUrl: text('n8n_webhook_url'),
+  videoStorageLimitMb: integer('video_storage_limit_mb').default(10240),
   ...timestamps,
 });
 
@@ -372,4 +381,18 @@ export const apiTokens = sqliteTable('api_tokens', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`(datetime('now'))`),
+});
+
+// Video download job queue
+export const videoJobs = sqliteTable('video_jobs', {
+  id: text('id').primaryKey(),
+  dishId: text('dish_id').references(() => dishes.id, { onDelete: 'set null' }),
+  sourceUrl: text('source_url').notNull(),
+  status: text('status', { enum: ['pending', 'downloading', 'extracting', 'complete', 'failed'] }).notNull().default('pending'),
+  progress: integer('progress').default(0),
+  resultVideoFilename: text('result_video_filename'),
+  resultMetadata: text('result_metadata'),
+  extractedRecipe: text('extracted_recipe'),
+  error: text('error'),
+  ...timestamps,
 });
