@@ -29,6 +29,34 @@ Beads provide **traceability** (what changed, why, by whom) and worktrees provid
 - Every change has an audit trail back to a bead
 - User merges via UI after CI passes — no surprise commits
 
+## ⚠️ Worktree + Beads Known Issues
+
+**Problem**: Beads state (`.beads/*.db` and `.beads/issues.jsonl`) is tracked in git. Worktrees get a snapshot at creation time. This causes:
+
+1. **Stale beads in worktrees** — newly created issues from orchestrator aren't visible to worktree supervisors
+2. **Conflicting beads updates** — parallel agents in different worktrees may update beads independently, requiring merge
+3. **Supervisor commit failures** — pre-commit hooks may run `br sync` which fails in worktrees with stale beads state
+
+**Preferred approach: Sequential dispatch on feature branch** (no worktree isolation):
+
+1. Orchestrator switches to feature branch: `git checkout {branch}`
+2. Dispatch supervisors one at a time (or parallel without `isolation: "worktree"`)
+3. Each supervisor commits directly to the feature branch
+4. Beads operations run from the orchestrator only, not from supervisors
+
+**When worktrees ARE appropriate**:
+
+- Truly independent experiments that might be discarded
+- Work on separate branches that won't share beads state
+- When orchestrator explicitly syncs beads before worktree creation: `br sync --flush-only && git add .beads/ && git commit -m "chore: sync beads"`
+
+**Supervisor dispatch rules**:
+
+- Do NOT use `isolation: "worktree"` for epic child tasks
+- DO tell supervisors "DO NOT switch branches. Commit directly to this branch."
+- DO tell supervisors the exact branch name they're on
+- Orchestrator manages all beads operations (create, update, close)
+
 ## Quick Fix Escape Hatch
 
 For trivial changes (<10 lines) on a **feature branch**, you can bypass the full bead workflow:
@@ -54,7 +82,7 @@ For trivial changes (<10 lines) on a **feature branch**, you can bypass the full
 1. **Read the actual code** — Don't just grep for keywords. Open the file, understand the context.
 2. **Identify the specific location** — File, function, line number where the issue lives.
 3. **Understand why** — What's the root cause? Don't guess. Trace the logic.
-4. **Log your findings** — `br comment {ID} "INVESTIGATION: ..."` so supervisors have full context.
+4. **Log your findings** — `br comments add {ID} "INVESTIGATION: ..."` so supervisors have full context.
 
 **Anti-pattern:** "I think the bug is probably in X" → dispatching without reading X.
 **Good pattern:** "Read src/foo.ts:142-180. The bug is at line 156 — null check missing."
@@ -109,6 +137,9 @@ br ready                                              # Unblocked tasks
 br update ID --status inreview                        # Mark done
 br close ID                                           # Close
 br dep relate {NEW_ID} {OLD_ID}                       # Link related beads
+br comments add ID "Comment text here"                # Add comment to issue
+br comments add ID -f /path/to/file                   # Comment from file
+br comments list ID                                   # List comments on issue
 ```
 
 ## When to Use Standalone or Epic
@@ -185,3 +216,51 @@ When cleaning up branches (local or remote), **preserve**:
 
 - **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
 - **Automatic dietary tagging** — infer dietary tags from nutrition fields when saved. Configurable thresholds (e.g. <35g carbs → Low-Carb, <300 calories → Low-Calorie, 0g meat + dairy → Vegan). Should be opt-in per tag so manual overrides are respected.
+
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd dolt push
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+<!-- END BEADS INTEGRATION -->

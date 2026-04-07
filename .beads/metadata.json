@@ -1,4 +1,7 @@
 {
-  "database": "beads.db",
-  "jsonl_export": "issues.jsonl"
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "dinner_planner",
+  "project_id": "a4891f11-5c25-481e-a5d9-b8e1c6eb249f"
 }
