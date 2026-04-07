@@ -14,6 +14,11 @@
       "matchUpdateTypes": ["minor", "patch"],
       "labels": ["critical-dependencies"],
       "matchPackageNames": ["/react/", "/typescript/"]
+    },
+    {
+      "matchPackageNames": ["undici"],
+      "allowedVersions": "^7",
+      "description": "Pin undici to 7.x — jsdom@29.0.1 imports undici internals removed in v8"
     }
   ]
 }
