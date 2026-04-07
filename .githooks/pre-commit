@@ -1,32 +1,24 @@
 #!/usr/bin/env sh
-# .githooks/pre-commit — flush beads issues.jsonl into the current commit
+# .githooks/pre-commit — export beads issues.jsonl into the current commit
 #
-# Ensures .beads/issues.jsonl is always bundled with the code commit that
-# triggered the change. Installed automatically via simple-git-hooks on pnpm install.
+# Ensures .beads/issues.jsonl is always bundled with the code commit.
+# Installed automatically via simple-git-hooks on pnpm install.
 
-command -v br >/dev/null 2>&1 || exit 0
+command -v bd >/dev/null 2>&1 || exit 0
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 JSONL="$REPO_ROOT/.beads/issues.jsonl"
 
-git ls-files --error-unmatch "$JSONL" >/dev/null 2>&1 || exit 0
-
-# Flush SQLite → issues.jsonl (no git operations)
-br sync --flush-only || {
-  echo "[beads] WARNING: br sync --flush-only failed, skipping" >&2
+# Export Dolt → issues.jsonl
+bd export 2>/dev/null || {
+  echo "[beads] WARNING: bd export failed, skipping" >&2
   exit 0
 }
 
-# Stage issues.jsonl if it has unstaged changes
-if ! git diff --quiet -- "$JSONL" || ! git diff --cached --quiet -- "$JSONL"; then
-  git add "$JSONL"
-fi
-
-# Also stage interactions.jsonl if tracked and dirty
-INTERACTIONS="$REPO_ROOT/.beads/interactions.jsonl"
-if git ls-files --error-unmatch "$INTERACTIONS" >/dev/null 2>&1; then
-  if ! git diff --quiet -- "$INTERACTIONS" || ! git diff --cached --quiet -- "$INTERACTIONS"; then
-    git add "$INTERACTIONS"
+# Stage issues.jsonl if it changed
+if [ -f "$JSONL" ]; then
+  if ! git diff --quiet -- "$JSONL" 2>/dev/null || ! git diff --cached --quiet -- "$JSONL" 2>/dev/null; then
+    git add "$JSONL"
   fi
 fi
 
