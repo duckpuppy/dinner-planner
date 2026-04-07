@@ -17,15 +17,15 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 [[ -z "$COMMAND" ]] && exit 0
 
 # Only process bd comment commands containing knowledge markers
-echo "$COMMAND" | grep -qE 'bd\s+comment\s+' || exit 0
+echo "$COMMAND" | grep -qE 'bd\s+comments\s+add\s+' || exit 0
 echo "$COMMAND" | grep -qE 'LEARNED:' || exit 0
 
 # Extract BEAD_ID (argument after "bd comment")
-BEAD_ID=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comment[[:space:]]+([A-Za-z0-9._-]+)[[:space:]]+.*/\1/')
+BEAD_ID=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comments[[:space:]]+add[[:space:]]+([A-Za-z0-9._-]+)[[:space:]]+.*/\1/')
 [[ -z "$BEAD_ID" || "$BEAD_ID" == "$COMMAND" ]] && exit 0
 
 # Extract the comment body (content inside quotes after bead ID)
-COMMENT_BODY=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comment[[:space:]]+[A-Za-z0-9._-]+[[:space:]]+["'\'']//' | sed -E 's/["'\''][[:space:]]*$//' | head -c 4096)
+COMMENT_BODY=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comments[[:space:]]+add[[:space:]]+[A-Za-z0-9._-]+[[:space:]]+["'\'']//' | sed -E 's/["'\''][[:space:]]*$//' | head -c 4096)
 [[ -z "$COMMENT_BODY" ]] && exit 0
 
 # Determine type and extract content (voluntary LEARNED only)
