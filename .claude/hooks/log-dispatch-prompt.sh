@@ -32,7 +32,7 @@ TRUNCATED_PROMPT=$(echo "$PROMPT" | head -c 2048)
 
 # Log dispatch to bead (fail silently)
 # Prefix: DISPATCH_PROMPT — UI renders as collapsible "Prompt Used" entry
-bd comment "$BEAD_ID" "DISPATCH_PROMPT [$SUBAGENT_TYPE]:
+bd comments add "$BEAD_ID" "DISPATCH_PROMPT [$SUBAGENT_TYPE]:
 
 $TRUNCATED_PROMPT" 2>/dev/null || true
 
