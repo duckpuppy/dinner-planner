@@ -217,8 +217,8 @@ When cleaning up branches (local or remote), **preserve**:
 - **Pantry deduction** — "Use from pantry" removes item from shopping list and deducts pantry quantity. ⚠️ Design note: recipe quantity ≠ purchase quantity for proteins/produce (recipe says "2 lbs chicken", user buys "2 packs ≈ 2.5 lbs"). Recommended approach: pantry tracks shelf-stable items precisely; proteins/produce use a boolean "have it / don't have it" rather than measured quantity. Grocery → pantry auto-add needs quantity confirmation UI or the pantry will always be inaccurate for fresh items.
 - **Automatic dietary tagging** — infer dietary tags from nutrition fields when saved. Configurable thresholds (e.g. <35g carbs → Low-Carb, <300 calories → Low-Calorie, 0g meat + dairy → Vegan). Should be opt-in per tag so manual overrides are respected.
 
-
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -259,6 +259,7 @@ bd close <id>         # Complete work
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
