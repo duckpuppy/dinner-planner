@@ -10,7 +10,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 JSONL="$REPO_ROOT/.beads/issues.jsonl"
 
 # Export Dolt → issues.jsonl
-bd export 2>/dev/null || {
+bd export -o "$JSONL" 2>/dev/null || {
   echo "[beads] WARNING: bd export failed, skipping" >&2
   exit 0
 }
