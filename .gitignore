@@ -42,8 +42,7 @@ coverage/
 *.db-shm
 data/
 
-# Drizzle
-drizzle/meta/
+# Drizzle — meta snapshots ARE committed (drizzle-kit needs them for incremental diffs)
 
 # Vite
 *.local
