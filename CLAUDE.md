@@ -29,33 +29,39 @@ Beads provide **traceability** (what changed, why, by whom) and worktrees provid
 - Every change has an audit trail back to a bead
 - User merges via UI after CI passes — no surprise commits
 
-## ⚠️ Worktree + Beads Known Issues
+## Worktree & Dispatch Strategy
 
-**Problem**: Beads state (`.beads/*.db` and `.beads/issues.jsonl`) is tracked in git. Worktrees get a snapshot at creation time. This causes:
+Beads state (`issues.jsonl`) is git-tracked, so worktrees get a snapshot at creation time. Supervisors in worktrees won't see beads created after the worktree was made. **Mitigate this by having the orchestrator manage all beads operations — supervisors only write code.**
 
-1. **Stale beads in worktrees** — newly created issues from orchestrator aren't visible to worktree supervisors
-2. **Conflicting beads updates** — parallel agents in different worktrees may update beads independently, requiring merge
-3. **Supervisor commit failures** — pre-commit hooks may run `bd sync` which fails in worktrees with stale beads state
+### When to use each approach
 
-**Preferred approach: Sequential dispatch on feature branch** (no worktree isolation):
+| Scenario                                            | Approach                            |
+| --------------------------------------------------- | ----------------------------------- |
+| Single-domain task                                  | Feature branch, no worktree         |
+| Epic with dependent children (sequential)           | Feature branch, sequential dispatch |
+| Epic with independent children (separate file sets) | **Worktree parallel dispatch**      |
 
-1. Orchestrator switches to feature branch: `git checkout {branch}`
-2. Dispatch supervisors one at a time (or parallel without `isolation: "worktree"`)
+### Feature branch dispatch (default)
+
+1. Orchestrator creates feature branch: `git checkout -b {branch}`
+2. Dispatch supervisors sequentially (or parallel without `isolation: "worktree"`)
 3. Each supervisor commits directly to the feature branch
-4. Beads operations run from the orchestrator only, not from supervisors
+4. Orchestrator manages all beads operations (create, update, close)
 
-**When worktrees ARE appropriate**:
+### Worktree parallel dispatch
 
-- Truly independent experiments that might be discarded
-- Work on separate branches that won't share beads state
-- When orchestrator explicitly syncs beads before worktree creation: `bd dolt push && git add .beads/ && git commit -m "chore: sync beads"`
+Use when epic children touch **independent file sets** (e.g., API + frontend + infra).
 
-**Supervisor dispatch rules**:
+1. Orchestrator syncs beads before creating worktrees: `bd dolt push && git add .beads/ && git commit -m "chore: sync beads"`
+2. Dispatch supervisors with `isolation: "worktree"`
+3. Each worktree gets its own branch — orchestrator merges results
+4. Orchestrator manages all beads operations from main worktree
 
-- Do NOT use `isolation: "worktree"` for epic child tasks
-- DO tell supervisors "DO NOT switch branches. Commit directly to this branch."
+### Supervisor dispatch rules (both approaches)
+
 - DO tell supervisors the exact branch name they're on
-- Orchestrator manages all beads operations (create, update, close)
+- DO tell supervisors "DO NOT switch branches. Commit directly to this branch."
+- Orchestrator manages all beads operations (create, update, close) — supervisors never run `bd`
 
 ## Quick Fix Escape Hatch
 
