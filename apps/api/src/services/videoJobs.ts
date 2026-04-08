@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '../db/index.js';
 import { downloadVideo, getVideoStorageUsage } from './videoDownload.js';
+import { extractRecipeFromMetadata } from './recipeExtraction.js';
 
 export async function createVideoJob(sourceUrl: string, dishId?: string): Promise<string> {
   const id = randomUUID();
@@ -55,10 +56,23 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       .set({ status: 'downloading', progress: 0 })
       .where(eq(schema.videoJobs.id, jobId));
 
-    // 4. Download the video
-    const result = await downloadVideo(job.sourceUrl);
+    // 4. Download the video, writing progress to DB every ≥5% increase
+    let lastDbPct = 0;
+    const result = await downloadVideo(job.sourceUrl, (pct) => {
+      if (pct - lastDbPct >= 5) {
+        lastDbPct = pct;
+        void db
+          .update(schema.videoJobs)
+          .set({ progress: pct })
+          .where(eq(schema.videoJobs.id, jobId));
+      }
+    });
 
-    // 5. Update job with results → complete
+    // 5. Extract recipe from video metadata (title + description) via LLM if configured
+    const extraction = await extractRecipeFromMetadata(result.infoJson);
+    const extractedRecipe = extraction.recipe ? JSON.stringify(extraction.recipe) : null;
+
+    // 6. Update job with results → complete
     await db
       .update(schema.videoJobs)
       .set({
@@ -71,6 +85,7 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
           videoSize: result.videoSize,
           videoDuration: result.videoDuration,
         }),
+        extractedRecipe,
       })
       .where(eq(schema.videoJobs.id, jobId));
   } catch (err: unknown) {

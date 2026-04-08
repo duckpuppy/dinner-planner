@@ -39,11 +39,19 @@ vi.mock('../videoDownload.js', () => ({
   getVideoStorageUsage: vi.fn(),
 }));
 
+vi.mock('../recipeExtraction.js', () => ({
+  extractRecipeFromMetadata: vi
+    .fn()
+    .mockResolvedValue({ recipe: null, rawTitle: '', rawDescription: '', source: 'none' }),
+}));
+
 import * as videoDownload from '../videoDownload.js';
+import * as recipeExtraction from '../recipeExtraction.js';
 import { createVideoJob, getVideoJob, processVideoJob } from '../videoJobs.js';
 
 const mockDownloadVideo = vi.mocked(videoDownload.downloadVideo);
 const mockGetVideoStorageUsage = vi.mocked(videoDownload.getVideoStorageUsage);
+const mockExtractRecipeFromMetadata = vi.mocked(recipeExtraction.extractRecipeFromMetadata);
 
 // --- Chain helpers ---
 
@@ -162,7 +170,6 @@ describe('processVideoJob — download succeeds', () => {
       sourceUrl: 'https://www.youtube.com/watch?v=ok',
       status: 'pending',
     };
-    // First select returns the job for _runJob fetch, subsequent selects also return it
     mockDb.select.mockReturnValue(makeSelect([fakeJob]));
 
     const downloadResult = {
@@ -173,6 +180,12 @@ describe('processVideoJob — download succeeds', () => {
       videoDuration: 120,
     };
     mockDownloadVideo.mockResolvedValue(downloadResult);
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'Test',
+      rawDescription: '',
+      source: 'none',
+    });
 
     const updates: unknown[] = [];
     mockDb.update.mockImplementation(() => {
@@ -188,11 +201,65 @@ describe('processVideoJob — download succeeds', () => {
     await processVideoJob('job-1', 100_000_000);
     await new Promise((r) => setTimeout(r, 50));
 
-    // Should have called update at least twice: downloading + complete
+    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson);
     expect(updates.length).toBeGreaterThanOrEqual(2);
     const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
     expect(lastUpdate.set).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'complete', progress: 100 })
+      expect.objectContaining({ status: 'complete', progress: 100, extractedRecipe: null })
+    );
+  });
+
+  it('stores extractedRecipe JSON when LLM returns a recipe', async () => {
+    mockGetVideoStorageUsage.mockResolvedValue(0);
+
+    const fakeJob = {
+      id: 'job-2',
+      sourceUrl: 'https://www.youtube.com/watch?v=recipe',
+      status: 'pending',
+    };
+    mockDb.select.mockReturnValue(makeSelect([fakeJob]));
+
+    const downloadResult = {
+      videoFilename: 'xyz.mp4',
+      thumbnailFilename: null,
+      infoJson: { title: 'Pasta', description: 'Boil water, cook pasta' },
+      videoSize: 2_000_000,
+      videoDuration: 60,
+    };
+    mockDownloadVideo.mockResolvedValue(downloadResult);
+
+    const fakeRecipe = {
+      name: 'Pasta',
+      description: 'Simple pasta',
+      type: 'main',
+      ingredients: [],
+      instructions: '',
+      tags: [],
+    };
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: fakeRecipe as never,
+      rawTitle: 'Pasta',
+      rawDescription: 'Boil water, cook pasta',
+      source: 'llm',
+    });
+
+    const updates: unknown[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = {
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+      updates.push(u);
+      return u;
+    });
+
+    await processVideoJob('job-2', 100_000_000);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
+    expect(lastUpdate.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'complete', extractedRecipe: JSON.stringify(fakeRecipe) })
     );
   });
 });

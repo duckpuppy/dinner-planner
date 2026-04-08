@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -20,13 +20,20 @@ export async function ensureVideosDir(): Promise<void> {
   await mkdir(VIDEOS_DIR, { recursive: true });
 }
 
-export async function downloadVideo(url: string): Promise<DownloadResult> {
+const PROGRESS_RE = /\[download\]\s+([\d.]+)%/;
+
+export async function downloadVideo(
+  url: string,
+  onProgress?: (percent: number) => void
+): Promise<DownloadResult> {
   await ensureVideosDir();
 
   const uuid = randomUUID();
   const outputTemplate = join(VIDEOS_DIR, `${uuid}.%(ext)s`);
 
   const args = [
+    '--newline',
+    '--progress',
     '--merge-output-format',
     'mp4',
     '--write-info-json',
@@ -48,22 +55,47 @@ export async function downloadVideo(url: string): Promise<DownloadResult> {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const child = execFile(YTDLP_PATH, args, { signal: controller.signal }, (err) => {
-        if (err) {
-          if (controller.signal.aborted) {
-            reject(
-              Object.assign(new Error('Download timed out after 10 minutes'), { code: 'TIMEOUT' })
-            );
-          } else {
-            reject(err);
+      const child = spawn(YTDLP_PATH, args);
+
+      let lastPct = -1;
+      const parseLine = (line: string) => {
+        if (!onProgress) return;
+        const match = PROGRESS_RE.exec(line);
+        if (match) {
+          const pct = Math.min(99, Math.floor(parseFloat(match[1])));
+          if (pct > lastPct) {
+            lastPct = pct;
+            onProgress(pct);
           }
+        }
+      };
+
+      let stderrBuf = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderrBuf += chunk.toString();
+        const lines = stderrBuf.split('\n');
+        stderrBuf = lines.pop() ?? '';
+        lines.forEach(parseLine);
+      });
+
+      // Some yt-dlp versions write progress to stdout
+      child.stdout.on('data', (chunk: Buffer) => {
+        chunk.toString().split('\n').forEach(parseLine);
+      });
+
+      controller.signal.addEventListener('abort', () => child.kill('SIGTERM'));
+
+      child.on('error', reject);
+      child.on('close', (code) => {
+        if (controller.signal.aborted) {
+          reject(
+            Object.assign(new Error('Download timed out after 10 minutes'), { code: 'TIMEOUT' })
+          );
+        } else if (code !== 0) {
+          reject(new Error(`yt-dlp exited with code ${code}`));
         } else {
           resolve();
         }
-      });
-      // Propagate abort to child process
-      controller.signal.addEventListener('abort', () => {
-        child.kill('SIGTERM');
       });
     });
   } finally {
