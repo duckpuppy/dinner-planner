@@ -92,10 +92,10 @@ export function AdminSettingsPage() {
     setTestStatus('testing');
     setTestMessage('');
     try {
-      const result = await settings.getOllamaStatus();
+      const result = await settings.testOllamaConnection(ollamaUrl);
       if (result.available) {
         setTestStatus('ok');
-        setTestMessage(`Connected to ${result.url ?? ollamaUrl}`);
+        setTestMessage(`Connected to ${ollamaUrl}`);
       } else {
         setTestStatus('error');
         setTestMessage('Ollama is not reachable at the configured URL');

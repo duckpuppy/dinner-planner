@@ -674,7 +674,8 @@ describe('TodayPage TomorrowPrepSection', () => {
   it('renders prep tasks for tomorrow when entry and tasks exist', async () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    // Use local date parts to match localDateStr() used by the component
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
     vi.mocked(menus.getToday).mockResolvedValue({ entry: { ...baseEntry } });
     vi.mocked(menus.getWeek).mockResolvedValue({

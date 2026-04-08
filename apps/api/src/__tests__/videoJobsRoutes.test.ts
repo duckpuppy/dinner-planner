@@ -377,6 +377,95 @@ describe('GET /api/settings/ollama-status', () => {
 });
 
 // ===========================================================================
+// POST /api/settings/test-ollama
+// ===========================================================================
+
+describe('POST /api/settings/test-ollama', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns { available: true } when checkOllamaHealth returns true', async () => {
+    mockCheckOllamaHealth.mockResolvedValue(true);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'http://localhost:11434' }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ available: true });
+    expect(mockCheckOllamaHealth).toHaveBeenCalledWith('http://localhost:11434');
+  });
+
+  it('returns { available: false } when checkOllamaHealth returns false', async () => {
+    mockCheckOllamaHealth.mockResolvedValue(false);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'http://localhost:11434' }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ available: false });
+  });
+
+  it('returns 400 when url is missing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when url is not a valid URL', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'not-a-url' }),
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 403 for non-admin user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...bearerHeader(app, 'member'), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'http://localhost:11434' }),
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
 // DELETE /api/dishes/:id/video
 // ===========================================================================
 

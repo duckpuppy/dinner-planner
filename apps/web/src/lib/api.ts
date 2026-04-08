@@ -426,6 +426,12 @@ export const settings = {
 
   getOllamaStatus: () =>
     request<{ available: boolean; url: string | null }>('/settings/ollama-status'),
+
+  testOllamaConnection: (url: string) =>
+    request<{ available: boolean }>('/settings/test-ollama', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
 };
 
 // Stores API

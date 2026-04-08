@@ -8,6 +8,7 @@ vi.mock('@/lib/api', () => ({
     get: vi.fn(),
     update: vi.fn(),
     getOllamaStatus: vi.fn(),
+    testOllamaConnection: vi.fn(),
   },
   apiTokens: {
     list: vi.fn(),
@@ -320,10 +321,9 @@ describe('AdminSettingsPage', () => {
       });
     });
 
-    it('Test Connection button calls settings.getOllamaStatus on click', async () => {
-      vi.mocked(settings.getOllamaStatus).mockResolvedValueOnce({
+    it('Test Connection button calls settings.testOllamaConnection on click', async () => {
+      vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: true,
-        url: 'http://192.168.0.250:11434',
       });
 
       render(<AdminSettingsPage />, { wrapper });
@@ -343,14 +343,13 @@ describe('AdminSettingsPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
 
       await waitFor(() => {
-        expect(settings.getOllamaStatus).toHaveBeenCalledOnce();
+        expect(settings.testOllamaConnection).toHaveBeenCalledOnce();
       });
     });
 
     it('shows connected message when Ollama test succeeds', async () => {
-      vi.mocked(settings.getOllamaStatus).mockResolvedValueOnce({
+      vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: true,
-        url: 'http://192.168.0.250:11434',
       });
 
       render(<AdminSettingsPage />, { wrapper });
@@ -370,9 +369,8 @@ describe('AdminSettingsPage', () => {
     });
 
     it('shows error message when Ollama test returns unavailable', async () => {
-      vi.mocked(settings.getOllamaStatus).mockResolvedValueOnce({
+      vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: false,
-        url: null,
       });
 
       render(<AdminSettingsPage />, { wrapper });
@@ -392,7 +390,7 @@ describe('AdminSettingsPage', () => {
     });
 
     it('shows error message when Ollama test throws', async () => {
-      vi.mocked(settings.getOllamaStatus).mockRejectedValueOnce(new Error('Network error'));
+      vi.mocked(settings.testOllamaConnection).mockRejectedValueOnce(new Error('Network error'));
 
       render(<AdminSettingsPage />, { wrapper });
       await waitForLoad();
