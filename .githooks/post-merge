@@ -12,7 +12,7 @@ JSONL="$REPO_ROOT/.beads/issues.jsonl"
 [ -f "$JSONL" ] || exit 0
 
 # Import JSONL into local Dolt database
-# "nothing to commit" is normal when data is already up-to-date
-bd import "$JSONL" 2>&1 | grep -v "nothing to commit" || true
+# "nothing to commit" is normal when data is already up-to-date — suppress all output in that case
+out=$(bd import "$JSONL" 2>&1) || echo "$out" | grep -qF "nothing to commit" || printf '%s\n' "$out"
 
 exit 0
