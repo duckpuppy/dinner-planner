@@ -118,9 +118,9 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Delete old package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: dinner-planner
-          package-type: container
-          min-versions-to-keep: 3
-          delete-only-untagged-versions: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Keep the 3 most recent versions, delete the rest
+          gh api /user/packages/container/dinner-planner/versions --jq '.[3:][].id' | \
+            xargs -r -I{} gh api --method DELETE /user/packages/container/dinner-planner/versions/{}
