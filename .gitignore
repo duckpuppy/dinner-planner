@@ -61,6 +61,7 @@ apps/web/android/app/release/
 # Beads task tracking — runtime files excluded via .beads/.gitignore
 # Do NOT add .beads/ here; the inner .gitignore handles beads.db, daemon.log, etc.
 .mcp.json
+.claude/settings.local.json
 
 # Dolt database files (added by bd init)
 .dolt/
