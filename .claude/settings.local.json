@@ -43,7 +43,18 @@
       "Bash(pnpm --filter @dinner-planner/web build)",
       "Bash(pnpm --filter @dinner-planner/web test --run)",
       "Bash(pnpm --filter @dinner-planner/shared build)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(pnpm build:*)",
+      "Bash(gh pr:*)",
+      "Bash(pnpm vitest:*)",
+      "Bash(npx vitest:*)",
+      "Bash(sort -t'|' -k2 -n)",
+      "Bash(npx prettier:*)",
+      "Bash(bash .claude/hooks/block-orchestrator-tools.sh)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(bash /Users/patrick.aikens/src/personal/dinner-planner/.claude/hooks/block-orchestrator-tools.sh)",
+      "Bash(bash /Users/patrick.aikens/src/personal/dinner-planner/.claude/hooks/validate-epic-close.sh)",
+      "Bash(bash /Users/patrick.aikens/src/personal/dinner-planner/.claude/hooks/memory-capture.sh)"
     ]
   }
 }
