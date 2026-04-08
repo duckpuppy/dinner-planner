@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { importVideoUrlSchema } from '@dinner-planner/shared';
 import { createVideoJob, getVideoJob, processVideoJob } from '../services/videoJobs.js';
 import { deleteVideo, VIDEOS_DIR } from '../services/videoDownload.js';
@@ -229,6 +230,33 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
 
       const available = await checkOllamaHealth(url);
       return reply.send({ available, url });
+    }
+  );
+
+  const testOllamaBodySchema = z.object({
+    url: z.string().min(1).url(),
+  });
+
+  /**
+   * POST /api/settings/test-ollama
+   * Test connectivity to an arbitrary Ollama URL.
+   * Admin only.
+   * Body: { url: string }
+   * Returns { available: boolean }.
+   */
+  fastify.post(
+    '/api/settings/test-ollama',
+    { preHandler: [fastify.requireAdmin] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = testOllamaBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Invalid request body', details: parsed.error.flatten() });
+      }
+
+      const available = await checkOllamaHealth(parsed.data.url);
+      return reply.send({ available });
     }
   );
 }
