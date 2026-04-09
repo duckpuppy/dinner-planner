@@ -74,14 +74,14 @@ export function Layout({ children }: LayoutProps) {
         className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden"
         style={{ paddingBottom: 'var(--sab)' }}
       >
-        <div className="flex justify-around">
+        <div className="flex overflow-x-auto">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center py-2 px-3 text-xs',
+                  'flex flex-col items-center py-2 px-3 text-xs flex-shrink-0',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 )
               }
