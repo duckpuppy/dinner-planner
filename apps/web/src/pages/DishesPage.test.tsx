@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DishesPage } from './DishesPage';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { DishesPage, DishFormNewRoute, DishDetailRoute } from './DishesPage';
 
 const { mockCurrentUser } = vi.hoisted(() => ({
   mockCurrentUser: {
@@ -27,6 +28,8 @@ vi.mock('@/lib/api', () => ({
     delete: vi.fn(),
     archive: vi.fn(),
     unarchive: vi.fn(),
+    get: vi.fn(),
+    getPreparations: vi.fn().mockResolvedValue({ preparations: [] }),
   },
   ratings: {
     list: vi.fn(),
@@ -70,6 +73,10 @@ vi.mock('@/hooks/useSwipeActions', () => ({
   useSwipeActions: () => ({ activeItemId: null, openSwipe: vi.fn(), closeSwipe: vi.fn() }),
 }));
 
+vi.mock('@/components/DishNotes', () => ({
+  DishNotes: () => null,
+}));
+
 vi.mock('@/components/RecipeImportModal', () => ({
   RecipeImportModal: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="import-modal">
@@ -83,7 +90,17 @@ import { useAuthStore } from '@/stores/auth';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return (
+    <MemoryRouter initialEntries={['/dishes']}>
+      <QueryClientProvider client={qc}>
+        <Routes>
+          <Route path="/dishes" element={children} />
+          <Route path="/dishes/new" element={<DishFormNewRoute />} />
+          <Route path="/dishes/:dishId" element={<DishDetailRoute />} />
+        </Routes>
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 
 afterEach(() => {
@@ -109,7 +126,20 @@ const mockDish = {
   ingredients: [],
   createdById: 'user-1',
   createdAt: '2024-01-01T00:00:00Z',
+  updatedAt: '2024-01-01T00:00:00Z',
   lastPreparedAt: null,
+  instructions: null,
+  prepTime: null,
+  cookTime: null,
+  servings: null,
+  calories: null,
+  proteinG: null,
+  carbsG: null,
+  fatG: null,
+  sourceUrl: null,
+  videoUrl: null,
+  localVideoFilename: null,
+  videoThumbnailFilename: null,
 };
 
 const mockDish2 = {
@@ -227,11 +257,12 @@ describe('DishesPage', () => {
   describe('dish detail panel', () => {
     it('opens dish detail when dish clicked', async () => {
       vi.mocked(dishesApi.list).mockResolvedValue({ dishes: [mockDish], total: 1 });
+      vi.mocked(dishesApi.get).mockResolvedValue({ dish: mockDish });
       render(<DishesPage />, { wrapper });
       await screen.findByText('Spaghetti Bolognese');
-      // Click on the dish to expand/open detail
+      // Click on the dish to navigate to detail route
       fireEvent.click(screen.getByRole('button', { name: /Spaghetti Bolognese/i }));
-      // Detail panel should appear with description
+      // Detail page should appear with description
       expect(await screen.findByText('Classic Italian pasta')).toBeTruthy();
     });
   });

@@ -40,6 +40,9 @@ vi.mock('./pages/WeekPage', () => ({
 }));
 vi.mock('./pages/DishesPage', () => ({
   DishesPage: () => <div data-testid="dishes-page">Dishes Page</div>,
+  DishDetailRoute: () => <div data-testid="dish-detail-route">Dish Detail</div>,
+  DishFormNewRoute: () => <div data-testid="dish-form-new-route">New Dish</div>,
+  DishFormEditRoute: () => <div data-testid="dish-form-edit-route">Edit Dish</div>,
 }));
 vi.mock('./pages/HistoryPage', () => ({
   HistoryPage: () => <div data-testid="history-page">History Page</div>,
