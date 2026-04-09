@@ -7,9 +7,9 @@ This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get sta
 ```bash
 bd ready              # Find available work
 bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
+bd update <id> --claim  # Claim work
 bd close <id>         # Complete work
-bd sync               # Sync with git
+bd dolt push          # Sync beads to remote (replaces git-based sync)
 ```
 
 ## Landing the Plane (Session Completion)
@@ -25,7 +25,7 @@ bd sync               # Sync with git
 
    ```bash
    git pull --rebase
-   bd sync
+   bd dolt push
    git push
    git status  # MUST show "up to date with origin"
    ```

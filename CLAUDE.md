@@ -31,7 +31,7 @@ Beads provide **traceability** (what changed, why, by whom) and worktrees provid
 
 ## Worktree & Dispatch Strategy
 
-Beads state (`issues.jsonl`) is git-tracked, so worktrees get a snapshot at creation time. Supervisors in worktrees won't see beads created after the worktree was made. **Mitigate this by having the orchestrator manage all beads operations — supervisors only write code.**
+Beads state is synced via Dolt remote (`bd dolt push` / `bd dolt pull`) — `issues.jsonl` is **not** git-tracked. Worktrees will not automatically see new beads; the orchestrator must manage all beads operations. **Mitigate this by having the orchestrator manage all beads operations — supervisors only write code.**
 
 ### When to use each approach
 
@@ -52,7 +52,7 @@ Beads state (`issues.jsonl`) is git-tracked, so worktrees get a snapshot at crea
 
 Use when epic children touch **independent file sets** (e.g., API + frontend + infra).
 
-1. Orchestrator syncs beads before creating worktrees: `bd dolt push && git add .beads/ && git commit -m "chore: sync beads"`
+1. Orchestrator syncs beads before creating worktrees: `bd dolt push`
 2. Dispatch supervisors with `isolation: "worktree"`
 3. Each worktree gets its own branch — orchestrator merges results
 4. Orchestrator manages all beads operations from main worktree
