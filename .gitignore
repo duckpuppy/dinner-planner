@@ -58,8 +58,9 @@ apps/web/android/local.properties
 apps/web/android/app/release/
 # Keep: android/ project files, gradlew, gradle wrapper
 
-# Beads task tracking — runtime files excluded via .beads/.gitignore
-# Do NOT add .beads/ here; the inner .gitignore handles beads.db, daemon.log, etc.
+# Beads task tracking — synced via Dolt remote (bd dolt push/pull), not git
+.beads/issues.jsonl
+.beads/.br_history/
 .mcp.json
 .claude/settings.local.json
 
