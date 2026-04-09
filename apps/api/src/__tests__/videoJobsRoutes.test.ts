@@ -326,7 +326,7 @@ describe('GET /api/settings/ollama-status', () => {
     > extends Promise<infer T>
       ? T
       : never);
-    mockCheckOllamaHealth.mockResolvedValue(true);
+    mockCheckOllamaHealth.mockResolvedValue({ available: true, models: ['llama3'] });
 
     const res = await app.inject({
       method: 'GET',
@@ -344,7 +344,7 @@ describe('GET /api/settings/ollama-status', () => {
     > extends Promise<infer T>
       ? T
       : never);
-    mockCheckOllamaHealth.mockResolvedValue(false);
+    mockCheckOllamaHealth.mockResolvedValue({ available: false, models: [] });
 
     const res = await app.inject({
       method: 'GET',
@@ -393,8 +393,8 @@ describe('POST /api/settings/test-ollama', () => {
     vi.clearAllMocks();
   });
 
-  it('returns { available: true } when checkOllamaHealth returns true', async () => {
-    mockCheckOllamaHealth.mockResolvedValue(true);
+  it('returns { available: true, modelFound: null } when no model provided and ollama is healthy', async () => {
+    mockCheckOllamaHealth.mockResolvedValue({ available: true, models: ['llama3', 'gemma2'] });
 
     const res = await app.inject({
       method: 'POST',
@@ -404,12 +404,12 @@ describe('POST /api/settings/test-ollama', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ available: true });
+    expect(JSON.parse(res.body)).toEqual({ available: true, modelFound: null });
     expect(mockCheckOllamaHealth).toHaveBeenCalledWith('http://localhost:11434');
   });
 
-  it('returns { available: false } when checkOllamaHealth returns false', async () => {
-    mockCheckOllamaHealth.mockResolvedValue(false);
+  it('returns { available: false, modelFound: null } when ollama is not reachable', async () => {
+    mockCheckOllamaHealth.mockResolvedValue({ available: false, models: [] });
 
     const res = await app.inject({
       method: 'POST',
@@ -419,7 +419,35 @@ describe('POST /api/settings/test-ollama', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ available: false });
+    expect(JSON.parse(res.body)).toEqual({ available: false, modelFound: null });
+  });
+
+  it('returns { available: true, modelFound: true } when model is provided and found', async () => {
+    mockCheckOllamaHealth.mockResolvedValue({ available: true, models: ['llama3', 'gemma2'] });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'http://localhost:11434', model: 'llama3' }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ available: true, modelFound: true });
+  });
+
+  it('returns { available: true, modelFound: false } when model is provided but not found', async () => {
+    mockCheckOllamaHealth.mockResolvedValue({ available: true, models: ['llama3', 'gemma2'] });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/settings/test-ollama',
+      headers: { ...adminHeader(app), 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'http://localhost:11434', model: 'mistral' }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ available: true, modelFound: false });
   });
 
   it('returns 400 when url is missing', async () => {

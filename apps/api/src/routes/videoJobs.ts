@@ -228,21 +228,22 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
         return reply.send({ available: false, url: null });
       }
 
-      const available = await checkOllamaHealth(url);
-      return reply.send({ available, url });
+      const result = await checkOllamaHealth(url);
+      return reply.send({ available: result.available, url });
     }
   );
 
   const testOllamaBodySchema = z.object({
     url: z.string().min(1).url(),
+    model: z.string().optional(),
   });
 
   /**
    * POST /api/settings/test-ollama
-   * Test connectivity to an arbitrary Ollama URL.
+   * Test connectivity to an arbitrary Ollama URL and optionally check model availability.
    * Admin only.
-   * Body: { url: string }
-   * Returns { available: boolean }.
+   * Body: { url: string, model?: string }
+   * Returns { available: boolean, modelFound: boolean | null }.
    */
   fastify.post(
     '/api/settings/test-ollama',
@@ -255,8 +256,18 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
           .send({ error: 'Invalid request body', details: parsed.error.flatten() });
       }
 
-      const available = await checkOllamaHealth(parsed.data.url);
-      return reply.send({ available });
+      const { url, model } = parsed.data;
+      const { available, models } = await checkOllamaHealth(url);
+
+      if (!available) {
+        return reply.send({ available: false, modelFound: null });
+      }
+
+      if (!model) {
+        return reply.send({ available: true, modelFound: null });
+      }
+
+      return reply.send({ available: true, modelFound: models.includes(model) });
     }
   );
 }
