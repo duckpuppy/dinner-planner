@@ -18,18 +18,23 @@ Return a JSON object with these exact fields:
 If a field cannot be determined, use null or reasonable defaults.
 Respond with ONLY the JSON object, no other text.`;
 
-export async function checkOllamaHealth(ollamaUrl: string): Promise<boolean> {
+export async function checkOllamaHealth(
+  ollamaUrl: string
+): Promise<{ available: boolean; models: string[] }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       const response = await fetch(`${ollamaUrl}/api/tags`, { signal: controller.signal });
-      return response.ok;
+      if (!response.ok) return { available: false, models: [] };
+      const body = (await response.json()) as { models?: { name: string }[] };
+      const models = (body.models ?? []).map((m) => m.name);
+      return { available: true, models };
     } finally {
       clearTimeout(timeout);
     }
   } catch {
-    return false;
+    return { available: false, models: [] };
   }
 }
 
