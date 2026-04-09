@@ -25,6 +25,7 @@ import {
   Link,
   Minus,
   AlertTriangle,
+  Video,
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -37,8 +38,8 @@ import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
-import { RecipeImportModal } from '@/components/RecipeImportModal';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { RecipeImportModal } from '@/components/RecipeImportModal';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
 
@@ -936,6 +937,19 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
   );
   const [sourceUrl, setSourceUrl] = useState(dish?.sourceUrl ?? prefill?.sourceUrl ?? '');
   const [videoUrl, setVideoUrl] = useState(dish?.videoUrl ?? prefill?.videoUrl ?? '');
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const videoDialogCloseRef = useRef<HTMLButtonElement>(null);
+  const videoThumbnailRef = useRef<HTMLButtonElement>(null);
+  const wasVideoDialogOpen = useRef(false);
+  useEffect(() => {
+    if (videoDialogOpen) {
+      wasVideoDialogOpen.current = true;
+      videoDialogCloseRef.current?.focus();
+    } else if (wasVideoDialogOpen.current) {
+      wasVideoDialogOpen.current = false;
+      videoThumbnailRef.current?.focus();
+    }
+  }, [videoDialogOpen]);
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>(
     dish?.ingredients.map((i) => ({
       quantity: i.quantity?.toString() ?? '',
@@ -1311,6 +1325,66 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
             </div>
           </div>
         </div>
+
+        {/* Local video thumbnail */}
+        {isEditing && dish?.localVideoFilename && (
+          <div>
+            <label className="block text-sm font-medium mb-1">Video Preview</label>
+            <button
+              ref={videoThumbnailRef}
+              type="button"
+              onClick={() => setVideoDialogOpen(true)}
+              className="relative block w-32 h-20 rounded-md border overflow-hidden bg-muted hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Open video player"
+            >
+              {dish.videoThumbnailFilename ? (
+                <img
+                  src={`/videos/${dish.videoThumbnailFilename}`}
+                  alt="Video thumbnail"
+                  width={128}
+                  height={80}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span aria-hidden="true" className="flex h-full w-full items-center justify-center">
+                  <Video className="h-8 w-8 text-muted-foreground" />
+                </span>
+              )}
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 flex items-center justify-center bg-black/30"
+              >
+                <Video className="h-6 w-6 text-white" />
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* Video dialog */}
+        {videoDialogOpen && dish && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 overscroll-contain"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Video player"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setVideoDialogOpen(false);
+            }}
+          >
+            <div className="relative w-full max-w-2xl">
+              <button
+                ref={videoDialogCloseRef}
+                type="button"
+                onClick={() => setVideoDialogOpen(false)}
+                className="absolute -top-10 right-0 p-2 text-white hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
+                aria-label="Close video player"
+              >
+                <X className="h-6 w-6" />
+              </button>
+              <VideoPlayer dishId={dish.id} thumbnailFilename={dish.videoThumbnailFilename} />
+            </div>
+          </div>
+        )}
 
         {/* URLs */}
         <div className="space-y-3">
