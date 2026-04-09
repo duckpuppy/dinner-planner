@@ -324,6 +324,7 @@ describe('AdminSettingsPage', () => {
     it('Test Connection button calls settings.testOllamaConnection on click', async () => {
       vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: true,
+        modelFound: null,
       });
 
       render(<AdminSettingsPage />, { wrapper });
@@ -347,9 +348,32 @@ describe('AdminSettingsPage', () => {
       });
     });
 
-    it('shows connected message when Ollama test succeeds', async () => {
+    it('shows connected message (modelFound=true) with model name', async () => {
       vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: true,
+        modelFound: true,
+      });
+
+      render(<AdminSettingsPage />, { wrapper });
+      await waitForLoad();
+      fireEvent.click(screen.getByDisplayValue('direct'));
+
+      await waitFor(() => expect(screen.getByLabelText('Ollama URL')).toBeDefined());
+      fireEvent.change(screen.getByLabelText('Ollama URL'), {
+        target: { value: 'http://192.168.0.250:11434' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Connected — model .+ is ready/)).toBeDefined();
+      });
+    });
+
+    it('shows generic connected message when modelFound=null', async () => {
+      vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
+        available: true,
+        modelFound: null,
       });
 
       render(<AdminSettingsPage />, { wrapper });
@@ -368,9 +392,32 @@ describe('AdminSettingsPage', () => {
       });
     });
 
+    it('shows model not found error when available=true and modelFound=false', async () => {
+      vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
+        available: true,
+        modelFound: false,
+      });
+
+      render(<AdminSettingsPage />, { wrapper });
+      await waitForLoad();
+      fireEvent.click(screen.getByDisplayValue('direct'));
+
+      await waitFor(() => expect(screen.getByLabelText('Ollama URL')).toBeDefined());
+      fireEvent.change(screen.getByLabelText('Ollama URL'), {
+        target: { value: 'http://192.168.0.250:11434' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/not found — check the model name/i)).toBeDefined();
+      });
+    });
+
     it('shows error message when Ollama test returns unavailable', async () => {
       vi.mocked(settings.testOllamaConnection).mockResolvedValueOnce({
         available: false,
+        modelFound: null,
       });
 
       render(<AdminSettingsPage />, { wrapper });
