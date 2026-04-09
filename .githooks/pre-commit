@@ -1,25 +1,4 @@
 #!/usr/bin/env sh
-# .githooks/pre-commit — export beads issues.jsonl into the current commit
-#
-# Ensures .beads/issues.jsonl is always bundled with the code commit.
-# Installed automatically via simple-git-hooks on pnpm install.
-
-command -v bd >/dev/null 2>&1 || exit 0
-
-REPO_ROOT=$(git rev-parse --show-toplevel)
-JSONL="$REPO_ROOT/.beads/issues.jsonl"
-
-# Export Dolt → issues.jsonl
-bd export -o "$JSONL" 2>/dev/null || {
-  echo "[beads] WARNING: bd export failed, skipping" >&2
-  exit 0
-}
-
-# Stage issues.jsonl if it changed
-if [ -f "$JSONL" ]; then
-  if ! git diff --quiet -- "$JSONL" 2>/dev/null || ! git diff --cached --quiet -- "$JSONL" 2>/dev/null; then
-    git add "$JSONL"
-  fi
-fi
-
+# .githooks/pre-commit
+# Beads sync removed — use 'bd dolt push' after sessions to sync beads state.
 exit 0
