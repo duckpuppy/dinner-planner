@@ -13,30 +13,42 @@ beforeEach(() => {
 // checkOllamaHealth
 // ---------------------------------------------------------------------------
 describe('checkOllamaHealth', () => {
-  it('returns true when /api/tags responds ok', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true });
+  it('returns { available: true, models } when /api/tags responds ok', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ models: [{ name: 'llama3' }, { name: 'gemma2' }] }),
+    });
     const result = await checkOllamaHealth('http://localhost:11434');
-    expect(result).toBe(true);
+    expect(result).toEqual({ available: true, models: ['llama3', 'gemma2'] });
     expect(mockFetch).toHaveBeenCalledWith('http://localhost:11434/api/tags', expect.any(Object));
   });
 
-  it('returns false when /api/tags responds not ok', async () => {
+  it('returns { available: true, models: [] } when models field is absent', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+    const result = await checkOllamaHealth('http://localhost:11434');
+    expect(result).toEqual({ available: true, models: [] });
+  });
+
+  it('returns { available: false, models: [] } when /api/tags responds not ok', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false });
     const result = await checkOllamaHealth('http://localhost:11434');
-    expect(result).toBe(false);
+    expect(result).toEqual({ available: false, models: [] });
   });
 
-  it('returns false on network/connection error', async () => {
+  it('returns { available: false, models: [] } on network/connection error', async () => {
     mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     const result = await checkOllamaHealth('http://localhost:11434');
-    expect(result).toBe(false);
+    expect(result).toEqual({ available: false, models: [] });
   });
 
-  it('returns false on AbortError (timeout)', async () => {
+  it('returns { available: false, models: [] } on AbortError (timeout)', async () => {
     const abortErr = new DOMException('The operation was aborted', 'AbortError');
     mockFetch.mockRejectedValueOnce(abortErr);
     const result = await checkOllamaHealth('http://localhost:11434');
-    expect(result).toBe(false);
+    expect(result).toEqual({ available: false, models: [] });
   });
 });
 

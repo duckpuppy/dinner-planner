@@ -92,10 +92,19 @@ export function AdminSettingsPage() {
     setTestStatus('testing');
     setTestMessage('');
     try {
-      const result = await settings.testOllamaConnection(ollamaUrl);
-      if (result.available) {
+      const result = await settings.testOllamaConnection(ollamaUrl, ollamaModel || undefined);
+      if (result.available && result.modelFound !== false) {
         setTestStatus('ok');
-        setTestMessage(`Connected to ${ollamaUrl}`);
+        setTestMessage(
+          result.modelFound
+            ? `Connected — model ${ollamaModel} is ready`
+            : `Connected to ${ollamaUrl}`
+        );
+      } else if (result.available && result.modelFound === false) {
+        setTestStatus('error');
+        setTestMessage(
+          `Ollama reachable but model '${ollamaModel}' not found — check the model name`
+        );
       } else {
         setTestStatus('error');
         setTestMessage('Ollama is not reachable at the configured URL');
