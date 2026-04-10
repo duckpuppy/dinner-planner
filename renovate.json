@@ -19,6 +19,12 @@
       "matchPackageNames": ["undici"],
       "allowedVersions": "^7",
       "description": "Pin undici to 7.x — jsdom@29.0.1 imports undici internals removed in v8"
+    },
+    {
+      "matchFileNames": ["Dockerfile"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "22",
+      "description": "Pin Node.js to 22 LTS in Docker — better-sqlite3 native rebuild fails on Node 24 with node-gyp ENOENT bug"
     }
   ]
 }

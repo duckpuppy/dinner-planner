@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Build tools for native modules (bcrypt, better-sqlite3)
 RUN apk add --no-cache python3 make g++
@@ -35,7 +35,7 @@ RUN pnpm deploy --filter=@dinner-planner/api --prod --legacy /app/api-deploy
 RUN cd /app/api-deploy && npm rebuild better-sqlite3 bcrypt
 
 # Production stage
-FROM node:24-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
