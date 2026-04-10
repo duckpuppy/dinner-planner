@@ -28,7 +28,7 @@ import {
   Video,
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
@@ -57,12 +57,101 @@ const DIETARY_TAG_LABELS: Record<string, string> = {
 export function DishesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [showArchived, setShowArchived] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showImportModal, setShowImportModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedDietaryTag, setSelectedDietaryTag] = useState<string | null>(null);
+
+  // Filter/sort state derived from URL search params
+  const showArchived = searchParams.get('archived') === 'true';
+  const searchQuery = searchParams.get('q') ?? '';
+  const sortBy = (searchParams.get('sort') as SortOption) ?? 'name';
+  const selectedTag = searchParams.get('tag') ?? null;
+  const selectedDietaryTag = searchParams.get('dietary') ?? null;
+
+  function setShowArchived(val: boolean) {
+    setSearchParams(
+      (prev) => {
+        if (val) {
+          prev.set('archived', 'true');
+        } else {
+          prev.delete('archived');
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  }
+
+  function setSearchQuery(val: string) {
+    setSearchParams(
+      (prev) => {
+        if (val) {
+          prev.set('q', val);
+        } else {
+          prev.delete('q');
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  }
+
+  function setSortBy(val: SortOption) {
+    setSearchParams(
+      (prev) => {
+        if (val !== 'name') {
+          prev.set('sort', val);
+        } else {
+          prev.delete('sort');
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  }
+
+  function setSelectedTag(val: string | null) {
+    setSearchParams(
+      (prev) => {
+        if (val) {
+          prev.set('tag', val);
+        } else {
+          prev.delete('tag');
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  }
+
+  function setSelectedDietaryTag(val: string | null) {
+    setSearchParams(
+      (prev) => {
+        if (val) {
+          prev.set('dietary', val);
+        } else {
+          prev.delete('dietary');
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  }
+
+  // Save scroll position on unmount (navigating away)
+  useEffect(() => {
+    return () => {
+      sessionStorage.setItem('dishes-scroll-y', String(window.scrollY));
+    };
+  }, []);
+
+  // Restore scroll position on mount (navigating back)
+  useEffect(() => {
+    const saved = sessionStorage.getItem('dishes-scroll-y');
+    if (saved) {
+      window.scrollTo({ top: parseInt(saved, 10), behavior: 'instant' });
+      sessionStorage.removeItem('dishes-scroll-y');
+    }
+  }, []);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dishes', { archived: String(showArchived) }],
