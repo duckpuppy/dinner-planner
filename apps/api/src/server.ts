@@ -146,6 +146,13 @@ if (config.NODE_ENV === 'production') {
   await fastify.register(fastifyStatic, {
     root: webDistPath,
     prefix: '/',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
   });
 
   // SPA fallback - serve index.html for all non-API routes
@@ -153,6 +160,7 @@ if (config.NODE_ENV === 'production') {
     if (request.url.startsWith('/api/') || request.url.startsWith('/health')) {
       reply.code(404).send({ error: 'Not Found' });
     } else {
+      reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       reply.sendFile('index.html');
     }
   });
