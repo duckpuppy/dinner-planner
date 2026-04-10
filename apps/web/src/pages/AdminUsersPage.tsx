@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users, type User } from '@/lib/api';
 import { Users, Plus, Pencil, Trash2, KeyRound, X } from 'lucide-react';
@@ -408,6 +408,9 @@ function ResetPasswordForm({ user, onClose }: { user: User; onClose: () => void 
 function DeleteUserDialog({ user, onClose }: { user: User; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
 
   const deleteMutation = useMutation({
     mutationFn: () => users.delete(user.id),
@@ -428,7 +431,7 @@ function DeleteUserDialog({ user, onClose }: { user: User; onClose: () => void }
 
   const handleClose = () => {
     setIsOpen(false);
-    setTimeout(onClose, 100);
+    closeTimerRef.current = setTimeout(onClose, 100);
   };
 
   return (
