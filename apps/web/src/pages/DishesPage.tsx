@@ -28,6 +28,7 @@ import {
   Video,
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AverageRating } from '@/components/StarRating';
@@ -55,11 +56,9 @@ const DIETARY_TAG_LABELS: Record<string, string> = {
 
 export function DishesPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
-  const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importPrefill, setImportPrefill] = useState<Partial<CreateDishData> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -151,22 +150,6 @@ export function DishesPage() {
   const mainDishes = filteredDishes.filter((d) => d.type === 'main');
   const sideDishes = filteredDishes.filter((d) => d.type === 'side');
 
-  if (selectedDish) {
-    return <DishDetail dish={selectedDish} onBack={() => setSelectedDish(null)} />;
-  }
-
-  if (isCreating) {
-    return (
-      <DishForm
-        prefill={importPrefill ?? undefined}
-        onClose={() => {
-          setIsCreating(false);
-          setImportPrefill(null);
-        }}
-      />
-    );
-  }
-
   return (
     <PullToRefresh
       onRefresh={async () => {
@@ -192,7 +175,7 @@ export function DishesPage() {
               Import URL
             </button>
             <button
-              onClick={() => setIsCreating(true)}
+              onClick={() => navigate('/dishes/new')}
               className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
               aria-label="Add dish"
             >
@@ -204,9 +187,8 @@ export function DishesPage() {
         {showImportModal && (
           <RecipeImportModal
             onImported={(recipe) => {
-              setImportPrefill(recipe);
               setShowImportModal(false);
-              setIsCreating(true);
+              navigate('/dishes/new', { state: { prefill: recipe } });
             }}
             onClose={() => setShowImportModal(false)}
           />
@@ -314,7 +296,7 @@ export function DishesPage() {
             <p>{showArchived ? 'No archived dishes' : 'No dishes yet'}</p>
             {!showArchived && (
               <button
-                onClick={() => setIsCreating(true)}
+                onClick={() => navigate('/dishes/new')}
                 className="mt-4 text-primary hover:underline"
               >
                 Add your first dish
@@ -352,7 +334,7 @@ export function DishesPage() {
                         },
                       ]}
                     >
-                      <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                      <DishRow dish={dish} onClick={() => navigate('/dishes/' + dish.id)} />
                     </SwipeableListItem>
                   ))}
                 </div>
@@ -388,7 +370,7 @@ export function DishesPage() {
                         },
                       ]}
                     >
-                      <DishRow dish={dish} onClick={() => setSelectedDish(dish)} />
+                      <DishRow dish={dish} onClick={() => navigate('/dishes/' + dish.id)} />
                     </SwipeableListItem>
                   ))}
                 </div>
@@ -455,11 +437,68 @@ function scaleQuantity(quantity: number, scale: number): string {
   return parseFloat(scaled.toFixed(3)).toString();
 }
 
+/**
+ * Route wrapper: renders DishDetail from URL params (/dishes/:dishId).
+ * Fetches the dish by ID and handles loading/error states.
+ */
+export function DishDetailRoute() {
+  const { dishId } = useParams<{ dishId: string }>();
+  const navigate = useNavigate();
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['dish', dishId],
+    queryFn: () => dishesApi.get(dishId!),
+    enabled: !!dishId,
+  });
+
+  if (isLoading) return <SkeletonList count={3} />;
+  if (isError || !data?.dish)
+    return (
+      <ErrorState message="Failed to load dish." error={error as Error} onRetry={() => refetch()} />
+    );
+
+  return <DishDetail dish={data.dish} onBack={() => navigate(-1)} />;
+}
+
+/**
+ * Route wrapper: renders DishForm for creating a new dish (/dishes/new).
+ * Reads import prefill from router location state.
+ */
+export function DishFormNewRoute() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as { prefill?: Partial<CreateDishData> } | null)?.prefill;
+  return <DishForm prefill={prefill} onClose={() => navigate('/dishes')} />;
+}
+
+/**
+ * Route wrapper: renders DishForm for editing an existing dish (/dishes/:dishId/edit).
+ * Fetches the dish by ID then passes it to DishForm.
+ */
+export function DishFormEditRoute() {
+  const { dishId } = useParams<{ dishId: string }>();
+  const navigate = useNavigate();
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['dish', dishId],
+    queryFn: () => dishesApi.get(dishId!),
+    enabled: !!dishId,
+  });
+
+  if (isLoading) return <SkeletonList count={3} />;
+  if (isError || !data?.dish)
+    return (
+      <ErrorState message="Failed to load dish." error={error as Error} onRetry={() => refetch()} />
+    );
+
+  return <DishForm dish={data.dish} onClose={() => navigate(-1)} />;
+}
+
 export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
-  const [isEditing, setIsEditing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [scaledServings, setScaledServings] = useState<number | null>(dish.servings ?? null);
@@ -468,6 +507,8 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
     queryKey: ['dish', dish.id],
     queryFn: () => dishesApi.get(dish.id),
     initialData: { dish },
+    staleTime: 30_000,
+    refetchOnMount: false,
   });
 
   const currentDish = freshData?.dish || dish;
@@ -529,10 +570,6 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
       console.error('Error deleting dish:', error);
     },
   });
-
-  if (isEditing) {
-    return <DishForm dish={currentDish} onClose={() => setIsEditing(false)} />;
-  }
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
@@ -818,7 +855,7 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
         {/* Actions */}
         <div className="flex gap-2 pt-4 border-t">
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={() => navigate(`/dishes/${dish.id}/edit`)}
             className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-md
                        font-medium hover:bg-primary/90"
           >

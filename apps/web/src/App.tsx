@@ -10,7 +10,12 @@ import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { TodayPage } from './pages/TodayPage';
 import { WeekPage } from './pages/WeekPage';
-import { DishesPage } from './pages/DishesPage';
+import {
+  DishesPage,
+  DishDetailRoute,
+  DishFormNewRoute,
+  DishFormEditRoute,
+} from './pages/DishesPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -100,6 +105,9 @@ export default function App() {
             <Route path="/today" element={<TodayPage />} />
             <Route path="/week" element={<WeekPage />} />
             <Route path="/dishes" element={<DishesPage />} />
+            <Route path="/dishes/new" element={<DishFormNewRoute />} />
+            <Route path="/dishes/:dishId" element={<DishDetailRoute />} />
+            <Route path="/dishes/:dishId/edit" element={<DishFormEditRoute />} />
             <Route path="/grocery" element={<GroceryPage />} />
             <Route path="/pantry" element={<PantryPage />} />
             <Route path="/history" element={<HistoryPage />} />
