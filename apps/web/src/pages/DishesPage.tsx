@@ -507,6 +507,8 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
     queryKey: ['dish', dish.id],
     queryFn: () => dishesApi.get(dish.id),
     initialData: { dish },
+    staleTime: 30_000,
+    refetchOnMount: false,
   });
 
   const currentDish = freshData?.dish || dish;
