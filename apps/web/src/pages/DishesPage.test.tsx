@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { DishesPage, DishFormNewRoute, DishDetailRoute } from './DishesPage';
+import { DishesPage, DishFormNewRoute, DishDetailRoute, DishFormEditRoute } from './DishesPage';
 
 const { mockCurrentUser } = vi.hoisted(() => ({
   mockCurrentUser: {
@@ -97,6 +97,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
           <Route path="/dishes" element={children} />
           <Route path="/dishes/new" element={<DishFormNewRoute />} />
           <Route path="/dishes/:dishId" element={<DishDetailRoute />} />
+          <Route path="/dishes/:dishId/edit" element={<DishFormEditRoute />} />
         </Routes>
       </QueryClientProvider>
     </MemoryRouter>
@@ -453,5 +454,92 @@ describe('DishesPage', () => {
         expect((storeInput as HTMLInputElement).value).toBe('');
       });
     });
+  });
+
+  describe('filter URL param setters', () => {
+    it('updates sort param when sort select changes', async () => {
+      vi.mocked(dishesApi.list).mockResolvedValue({ dishes: [mockDish], total: 1 });
+      render(<DishesPage />, { wrapper });
+      await screen.findByText('Spaghetti Bolognese');
+      // Find the sort select by its distinctive options (Name/Rating/Recently Updated/Recently Created)
+      const selects = document.querySelectorAll('select');
+      const sortEl = Array.from(selects).find((s) =>
+        Array.from(s.options).some((o) => o.value === 'rating')
+      ) as HTMLSelectElement | undefined;
+      expect(sortEl).toBeTruthy();
+      fireEvent.change(sortEl!, { target: { value: 'rating' } });
+      expect(sortEl!.value).toBe('rating');
+    });
+
+    it('updates dietary tag param when dietary select changes', async () => {
+      vi.mocked(dishesApi.list).mockResolvedValue({ dishes: [mockDish2], total: 1 });
+      render(<DishesPage />, { wrapper });
+      await screen.findByText('Caesar Salad');
+      const dietarySelect = screen.getByRole('combobox', {
+        name: /filter by dietary tag/i,
+      }) as HTMLSelectElement;
+      fireEvent.change(dietarySelect, { target: { value: 'vegetarian' } });
+      expect(dietarySelect.value).toBe('vegetarian');
+    });
+
+    it('updates tag param when tag select changes', async () => {
+      vi.mocked(dishesApi.list).mockResolvedValue({
+        dishes: [mockDish, mockDish2],
+        total: 2,
+      });
+      render(<DishesPage />, { wrapper });
+      await screen.findByText('Spaghetti Bolognese');
+      // The tag select only appears when there are tags
+      const selects = document.querySelectorAll('select');
+      const tagEl = Array.from(selects).find((s) =>
+        Array.from(s.options).some((o) => o.value === 'italian')
+      ) as HTMLSelectElement | undefined;
+      expect(tagEl).toBeTruthy();
+      fireEvent.change(tagEl!, { target: { value: 'italian' } });
+      expect(tagEl!.value).toBe('italian');
+      // Clear the tag filter
+      fireEvent.change(tagEl!, { target: { value: '' } });
+      expect(tagEl!.value).toBe('');
+    });
+  });
+});
+
+function editWrapper({ children: _children }: { children: React.ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <MemoryRouter initialEntries={['/dishes/dish-1/edit']}>
+      <QueryClientProvider client={qc}>
+        <Routes>
+          <Route path="/dishes/:dishId/edit" element={<DishFormEditRoute />} />
+        </Routes>
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+}
+
+describe('DishFormEditRoute', () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it('shows skeleton while loading dish', () => {
+    vi.mocked(dishesApi.get).mockReturnValue(new Promise(() => {}));
+    const { container } = render(<DishFormEditRoute />, { wrapper: editWrapper });
+    expect(container.querySelector('.animate-pulse')).toBeTruthy();
+  });
+
+  it('shows error state when dish fails to load', async () => {
+    vi.mocked(dishesApi.get).mockRejectedValue(new Error('Not found'));
+    render(<DishFormEditRoute />, { wrapper: editWrapper });
+    expect(await screen.findByText(/failed to load dish/i)).toBeTruthy();
+  });
+
+  it('renders edit form when dish loads', async () => {
+    vi.mocked(dishesApi.get).mockResolvedValue({ dish: mockDish });
+    render(<DishFormEditRoute />, { wrapper: editWrapper });
+    // The name input has placeholder "Dish name" and is pre-filled with the dish name
+    const nameInput = (await screen.findByPlaceholderText('Dish name')) as HTMLInputElement;
+    expect(nameInput.value).toBe(mockDish.name);
   });
 });
