@@ -4,22 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DndContext, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { menus } from '@/lib/api';
+import { menus, settings } from '@/lib/api';
 import type { DinnerEntry, UpdateEntryData } from '@/lib/api';
-import { localDateStr } from '@/lib/utils';
+import { localDateStr, getWeekStartDate } from '@/lib/utils';
 import { PlanDayCard, isEntryPlanned } from '@/components/PlanDayCard';
 import { EntryEditor } from '@/components/EntryEditor';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 
-function getNextWeekDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return localDateStr(d);
-}
-
 function formatWeekRange(entries: DinnerEntry[]): string {
-  if (!entries.length) return 'Next Week';
+  if (!entries.length) return '';
   const first = new Date(entries[0].date + 'T00:00:00');
   const last = new Date(entries[entries.length - 1].date + 'T00:00:00');
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -30,11 +24,48 @@ export function PlanningBoardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const nextWeekDate = useMemo(() => getNextWeekDate(), []);
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settings.get(),
+  });
+  const weekStartDay = settingsData?.settings.weekStartDay ?? 0;
+
+  // Compute current week start using configurable weekStartDay
+  const currentWeekStart = useMemo(
+    () => getWeekStartDate(new Date(), weekStartDay),
+    [weekStartDay]
+  );
+  const currentWeekDate = localDateStr(currentWeekStart);
+
+  // Fetch the current week to determine if it still has unplanned entries
+  const {
+    data: currentWeekData,
+    isLoading: isCurrentWeekLoading,
+    isError: isCurrentWeekError,
+    error: currentWeekError,
+    refetch: refetchCurrentWeek,
+  } = useQuery({
+    queryKey: ['week', currentWeekDate],
+    queryFn: () => menus.getWeek(currentWeekDate),
+  });
+
+  // If current week has any unplanned entries, plan it; otherwise plan next week.
+  // Returns null while the current week is still loading.
+  const targetWeekDate = useMemo(() => {
+    if (!currentWeekData) return null;
+    const hasUnplanned = currentWeekData.menu.entries.some((e) => !isEntryPlanned(e));
+    if (hasUnplanned) return currentWeekDate;
+    const nextWeekStart = new Date(currentWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    return localDateStr(nextWeekStart);
+  }, [currentWeekData, currentWeekDate, currentWeekStart]);
+
+  const isPlanningCurrentWeek = targetWeekDate === currentWeekDate;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['week', nextWeekDate],
-    queryFn: () => menus.getWeek(nextWeekDate),
+    queryKey: ['week', targetWeekDate ?? ''],
+    queryFn: () => menus.getWeek(targetWeekDate!),
+    enabled: targetWeekDate !== null,
   });
 
   // Local optimistic entries for drag-swap
@@ -54,7 +85,7 @@ export function PlanningBoardPage() {
     mutationFn: ({ id, data }: { id: string; data: UpdateEntryData }) =>
       menus.updateEntry(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['week', nextWeekDate] });
+      queryClient.invalidateQueries({ queryKey: ['week', targetWeekDate] });
       setEditingEntryId(null);
     },
     onError: () => {
@@ -66,7 +97,7 @@ export function PlanningBoardPage() {
     mutationFn: ({ id, data }: { id: string; data: UpdateEntryData }) =>
       menus.updateEntry(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['week', nextWeekDate] });
+      queryClient.invalidateQueries({ queryKey: ['week', targetWeekDate] });
     },
     onError: () => {
       // Revert optimistic update
@@ -193,15 +224,17 @@ export function PlanningBoardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-balance">Plan Next Week</h1>
-          {!isLoading && !isError && (
+          <h1 className="text-xl font-bold text-balance">
+            {isPlanningCurrentWeek ? 'Plan This Week' : 'Plan Next Week'}
+          </h1>
+          {!isCurrentWeekLoading && !isLoading && !isCurrentWeekError && !isError && (
             <p className="text-sm text-muted-foreground">{formatWeekRange(entries)}</p>
           )}
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           {/* Progress chip */}
-          {!isLoading && !isError && (
+          {!isCurrentWeekLoading && !isLoading && !isCurrentWeekError && !isError && (
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium tabular-nums bg-muted text-muted-foreground"
               aria-label={`${plannedCount} of ${totalCount} days planned`}
@@ -225,13 +258,16 @@ export function PlanningBoardPage() {
       </div>
 
       {/* Board */}
-      {isLoading ? (
+      {isCurrentWeekLoading || isLoading ? (
         <SkeletonList count={7} />
-      ) : isError ? (
+      ) : isCurrentWeekError || isError ? (
         <ErrorState
-          message="Failed to load next week's menu. Please try again."
-          error={error as Error}
-          onRetry={() => refetch()}
+          message="Failed to load week's menu. Please try again."
+          error={(currentWeekError ?? error) as Error}
+          onRetry={() => {
+            void refetchCurrentWeek();
+            void refetch();
+          }}
         />
       ) : (
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
