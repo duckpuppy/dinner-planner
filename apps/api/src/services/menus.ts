@@ -71,6 +71,7 @@ export interface DinnerEntryResponse {
   dayOfWeek: number;
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
+  customSideText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
   completed: boolean;
@@ -189,6 +190,7 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     dayOfWeek: entryDate.getDay(),
     type: entry.type,
     customText: entry.customText,
+    customSideText: entry.customSideText ?? null,
     restaurantName: entry.restaurantName,
     restaurantNotes: entry.restaurantNotes,
     completed: entry.completed,
@@ -329,6 +331,7 @@ export async function updateDinnerEntry(
     .set({
       type: input.type,
       customText: input.customText,
+      customSideText: input.customSideText ?? null,
       restaurantName: input.restaurantName,
       restaurantNotes: input.restaurantNotes,
       mainDishId: input.mainDishId,

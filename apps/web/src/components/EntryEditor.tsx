@@ -28,12 +28,36 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
   const [mainDishId, setMainDishId] = useState(entry.mainDish?.id || '');
   const [sideDishIds, setSideDishIds] = useState<string[]>(entry.sideDishes.map((d) => d.id));
   const [customText, setCustomText] = useState(entry.customText || '');
+  const [customSideText, setCustomSideText] = useState(entry.customSideText || '');
+  const [customSideInput, setCustomSideInput] = useState('');
   const [restaurantName, setRestaurantName] = useState(
     entry.restaurantName ?? (entry.type === 'dining_out' ? entry.customText : null) ?? ''
   );
   const [restaurantNotes, setRestaurantNotes] = useState(entry.restaurantNotes || '');
   const [sourceEntryId, setSourceEntryId] = useState(entry.sourceEntryId || '');
   const [showSuggest, setShowSuggest] = useState(false);
+
+  const customSideList = useMemo(
+    () =>
+      customSideText
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [customSideText]
+  );
+
+  const addCustomSide = () => {
+    const trimmed = customSideInput.trim();
+    if (!trimmed) return;
+    const next = [...customSideList, trimmed].join(', ');
+    setCustomSideText(next);
+    setCustomSideInput('');
+  };
+
+  const removeCustomSide = (index: number) => {
+    const next = customSideList.filter((_, i) => i !== index).join(', ');
+    setCustomSideText(next);
+  };
 
   const { data: recentCompletedData } = useQuery({
     queryKey: ['recentCompleted'],
@@ -63,10 +87,12 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const showSideDishes = type === 'assembled' || type === 'custom';
     onSave({
       type,
       mainDishId: type === 'assembled' ? mainDishId || null : null,
-      sideDishIds: type === 'assembled' ? sideDishIds : [],
+      sideDishIds: showSideDishes ? sideDishIds : [],
+      customSideText: showSideDishes ? customSideText || null : null,
       customText: type === 'custom' ? customText || null : null,
       restaurantName: type === 'dining_out' ? restaurantName || null : null,
       restaurantNotes: type === 'dining_out' ? restaurantNotes || null : null,
@@ -121,64 +147,114 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
 
       {/* Dish selector for assembled */}
       {type === 'assembled' && (
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="main-dish-select" className="text-sm font-medium">
-                Main Dish
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowSuggest(true)}
-                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Suggest
-              </button>
-            </div>
-            <select
-              id="main-dish-select"
-              value={mainDishId}
-              onChange={(e) => setMainDishId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md bg-background"
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="main-dish-select" className="text-sm font-medium">
+              Main Dish
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowSuggest(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
             >
-              <option value="">Select a main dish...</option>
-              {mainDishes.map((dish) => (
-                <option key={dish.id} value={dish.id}>
-                  {dish.name}
-                </option>
-              ))}
-            </select>
+              <Sparkles className="h-3.5 w-3.5" />
+              Suggest
+            </button>
           </div>
+          <select
+            id="main-dish-select"
+            value={mainDishId}
+            onChange={(e) => setMainDishId(e.target.value)}
+            className="w-full px-3 py-2 border rounded-md bg-background"
+          >
+            <option value="">Select a main dish...</option>
+            {mainDishes.map((dish) => (
+              <option key={dish.id} value={dish.id}>
+                {dish.name}
+              </option>
+            ))}
+          </select>
           <SuggestionModal
             open={showSuggest}
             availableTags={availableTags}
             onSelect={handleSuggestionSelect}
             onClose={() => setShowSuggest(false)}
           />
+        </div>
+      )}
 
+      {/* Side dishes section — shown for assembled and custom */}
+      {(type === 'assembled' || type === 'custom') && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Side Dishes</label>
+
+          {/* DB side dish pills */}
           {sideDishes.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium mb-1">Side Dishes</label>
-              <div className="flex flex-wrap gap-2">
-                {sideDishes.map((dish) => (
-                  <button
-                    key={dish.id}
-                    type="button"
-                    onClick={() => toggleSideDish(dish.id)}
-                    className={cn(
-                      'py-1 px-3 rounded-full text-sm border',
-                      sideDishIds.includes(dish.id)
-                        ? 'bg-secondary text-secondary-foreground border-secondary'
-                        : 'hover:bg-muted border-input'
-                    )}
-                  >
-                    {dish.name}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {sideDishes.map((dish) => (
+                <button
+                  key={dish.id}
+                  type="button"
+                  onClick={() => toggleSideDish(dish.id)}
+                  className={cn(
+                    'py-1 px-3 rounded-full text-sm border',
+                    sideDishIds.includes(dish.id)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'hover:bg-muted border-input'
+                  )}
+                >
+                  {dish.name}
+                </button>
+              ))}
             </div>
           )}
+
+          {/* Custom side pills */}
+          {customSideList.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {customSideList.map((side, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 py-1 pl-3 pr-1 rounded-full text-sm border bg-muted text-muted-foreground"
+                >
+                  {side}
+                  <button
+                    type="button"
+                    onClick={() => removeCustomSide(index)}
+                    className="p-0.5 rounded-full hover:bg-muted-foreground/20"
+                    aria-label={`Remove ${side}`}
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Add custom side input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={customSideInput}
+              onChange={(e) => setCustomSideInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCustomSide();
+                }
+              }}
+              placeholder="Add a custom side..."
+              className="flex-1 px-3 py-1.5 text-sm border rounded-md bg-background"
+            />
+            <button
+              type="button"
+              onClick={addCustomSide}
+              disabled={!customSideInput.trim()}
+              className="px-3 py-1.5 text-sm border rounded-md hover:bg-muted disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
         </div>
       )}
 

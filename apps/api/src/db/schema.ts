@@ -130,6 +130,7 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
     .notNull()
     .default('assembled'),
   customText: text('custom_text'),
+  customSideText: text('custom_side_text'),
   restaurantName: text('restaurant_name'),
   restaurantNotes: text('restaurant_notes'),
   mainDishId: text('main_dish_id').references(() => dishes.id),

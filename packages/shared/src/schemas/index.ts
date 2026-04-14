@@ -96,6 +96,7 @@ export const updateDishSchema = z.object({
 export const updateDinnerEntrySchema = z.object({
   type: z.enum(['assembled', 'fend_for_self', 'dining_out', 'custom', 'leftovers']),
   customText: z.string().max(500).nullable().default(null),
+  customSideText: z.string().max(500).nullable().default(null),
   restaurantName: z.string().max(200).nullable().default(null),
   restaurantNotes: z.string().max(500).nullable().default(null),
   mainDishId: z.string().uuid().nullable().default(null),
