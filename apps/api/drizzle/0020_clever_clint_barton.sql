@@ -1,0 +1,1 @@
+ALTER TABLE `dinner_entries` ADD `custom_side_text` text;
