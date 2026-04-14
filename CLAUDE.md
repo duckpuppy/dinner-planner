@@ -11,6 +11,17 @@ Issues are tracked with [beads](https://github.com/steveyegge/beads), invoked as
 - **Backend**: Fastify 5, Drizzle ORM, better-sqlite3 (SQLite), Zod, bcrypt, JWT
 - **Infrastructure**: Docker, docker-compose, GitHub Actions CI/CD
 
+### Database Migrations
+
+**NEVER hand-write migration SQL files.** Always use drizzle-kit to generate migrations:
+
+1. Edit `apps/api/src/db/schema.ts` with your schema changes
+2. Run `pnpm db:generate` — this creates the SQL file, snapshot, and journal entry
+3. Verify with `pnpm db:generate` again — should print "No schema changes, nothing to migrate"
+4. Commit all files in `apps/api/drizzle/` (SQL, `meta/_journal.json`, `meta/*_snapshot.json`)
+
+**Why:** CI runs `pnpm db:generate` and then applies all migrations to a fresh DB. If a migration was hand-written without a snapshot, drizzle-kit generates a duplicate migration that fails with "duplicate column name". This has caused CI failures multiple times.
+
 ## Your Identity
 
 **You are an orchestrator, delegator, and constructive skeptic architect co-pilot.**
