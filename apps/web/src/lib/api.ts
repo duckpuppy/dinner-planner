@@ -605,6 +605,7 @@ export interface DinnerEntry {
   dayOfWeek: number;
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText: string | null;
+  customSideText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
   completed: boolean;
@@ -622,6 +623,7 @@ export interface DinnerEntry {
 export interface UpdateEntryData {
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
   customText?: string | null;
+  customSideText?: string | null;
   restaurantName?: string | null;
   restaurantNotes?: string | null;
   mainDishId?: string | null;
