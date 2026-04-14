@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { menus, patterns, prepTasks, type DinnerEntry, type UpdateEntryData } from '@/lib/api';
+import {
+  menus,
+  patterns,
+  prepTasks,
+  settings,
+  type DinnerEntry,
+  type UpdateEntryData,
+} from '@/lib/api';
 import { PrepTaskList } from '@/components/PrepTaskList';
 import {
   ChevronLeft,
@@ -16,7 +23,7 @@ import {
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn, localDateStr } from '@/lib/utils';
+import { cn, localDateStr, getWeekStartDate } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SwipeableListItem } from '@/components/mobile/SwipeableListItem';
 import { useSwipeActions } from '@/hooks/useSwipeActions';
@@ -25,14 +32,6 @@ import { ErrorState } from '@/components/ErrorState';
 import { EntryEditor } from '@/components/EntryEditor';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function getWeekStartDate(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 function formatMonthYear(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -43,12 +42,18 @@ export function WeekPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settings.get(),
+  });
+  const weekStartDay = settingsData?.settings.weekStartDay ?? 0;
+
   const currentWeekStart = useMemo(() => {
     const today = new Date();
-    const weekStart = getWeekStartDate(today);
+    const weekStart = getWeekStartDate(today, weekStartDay);
     weekStart.setDate(weekStart.getDate() + weekOffset * 7);
     return weekStart;
-  }, [weekOffset]);
+  }, [weekOffset, weekStartDay]);
 
   const dateStr = localDateStr(currentWeekStart);
 

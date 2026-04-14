@@ -24,6 +24,9 @@ vi.mock('@/lib/api', () => ({
   dishes: {
     list: vi.fn().mockResolvedValue({ dishes: [] }),
   },
+  settings: {
+    get: vi.fn().mockResolvedValue({ settings: { weekStartDay: 0 } }),
+  },
 }));
 
 vi.mock('sonner', () => ({
@@ -66,7 +69,7 @@ vi.mock('@dnd-kit/utilities', () => ({
   CSS: { Translate: { toString: vi.fn(() => '') } },
 }));
 
-import { menus } from '@/lib/api';
+import { menus, settings } from '@/lib/api';
 
 function makeEntry(overrides: Partial<DinnerEntry> = {}): DinnerEntry {
   return {
@@ -247,6 +250,78 @@ describe('PlanningBoardPage', () => {
         'entry-0',
         expect.objectContaining<Partial<UpdateEntryData>>({ type: 'assembled' })
       );
+    });
+  });
+
+  it('shows "Plan This Week" when current week has unplanned entries', async () => {
+    // All entries unplanned (assembled, no mainDish)
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: {
+        id: 'menu-1',
+        weekStartDate: '2024-06-16',
+        entries: makeWeekEntries(),
+        createdAt: '',
+        updatedAt: '',
+      },
+    });
+    render(<PlanningBoardPage />, { wrapper });
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /plan this week/i })).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Plan Next Week" when current week is fully planned', async () => {
+    const fullyPlannedEntries = makeWeekEntries().map((e) => ({
+      ...e,
+      mainDish: { id: 'd1', name: 'Pasta', type: 'main' },
+    }));
+    // First call (current week): fully planned; second call (next week): unplanned
+    vi.mocked(menus.getWeek)
+      .mockResolvedValueOnce({
+        menu: {
+          id: 'menu-current',
+          weekStartDate: '2024-06-16',
+          entries: fullyPlannedEntries,
+          createdAt: '',
+          updatedAt: '',
+        },
+      })
+      .mockResolvedValue({
+        menu: {
+          id: 'menu-next',
+          weekStartDate: '2024-06-23',
+          entries: makeWeekEntries(),
+          createdAt: '',
+          updatedAt: '',
+        },
+      });
+    render(<PlanningBoardPage />, { wrapper });
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /plan next week/i })).toBeInTheDocument();
+    });
+  });
+
+  it('uses weekStartDay from settings when computing week start', async () => {
+    // weekStartDay: 1 = Monday
+    vi.mocked(settings.get).mockResolvedValue({ settings: { weekStartDay: 1 } as never });
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: {
+        id: 'menu-1',
+        weekStartDate: '2024-06-17',
+        entries: makeWeekEntries(),
+        createdAt: '',
+        updatedAt: '',
+      },
+    });
+    render(<PlanningBoardPage />, { wrapper });
+    // After settings resolve, getWeek should be called with a Monday-anchored date.
+    await waitFor(() => {
+      const calls = vi.mocked(menus.getWeek).mock.calls;
+      const hasMondayCall = calls.some((call) => {
+        const d = new Date(call[0] + 'T00:00:00');
+        return d.getDay() === 1;
+      });
+      expect(hasMondayCall).toBe(true);
     });
   });
 });

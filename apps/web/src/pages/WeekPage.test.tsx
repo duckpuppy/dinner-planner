@@ -29,6 +29,9 @@ vi.mock('@/lib/api', () => ({
   prepTasks: {
     list: vi.fn().mockResolvedValue({ prepTasks: [] }),
   },
+  settings: {
+    get: vi.fn().mockResolvedValue({ settings: { weekStartDay: 0 } }),
+  },
 }));
 
 vi.mock('sonner', () => ({
@@ -67,7 +70,7 @@ vi.mock('@/components/SuggestionModal', () => ({
   SuggestionModal: () => <div data-testid="suggestion-modal" />,
 }));
 
-import { menus, patterns, dishes } from '@/lib/api';
+import { menus, patterns, dishes, settings } from '@/lib/api';
 
 function makeEntry(overrides = {}) {
   return {
@@ -422,6 +425,39 @@ describe('WeekPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /hide prep tasks/i }));
       await waitFor(() => {
         expect(screen.queryByTestId('prep-task-list')).toBeNull();
+      });
+    });
+  });
+
+  describe('weekStartDay setting', () => {
+    it('uses weekStartDay from settings to compute week start (Monday)', async () => {
+      vi.mocked(settings.get).mockResolvedValue({ settings: { weekStartDay: 1 } as never });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      // After settings resolve, getWeek should be called with a Monday-anchored date.
+      // Multiple calls may occur (initial Sunday-anchored, then Monday-anchored after settings load).
+      await waitFor(() => {
+        const calls = vi.mocked(menus.getWeek).mock.calls;
+        const hasMondayCall = calls.some((call) => {
+          const d = new Date(call[0] + 'T00:00:00');
+          return d.getDay() === 1;
+        });
+        expect(hasMondayCall).toBe(true);
+      });
+    });
+
+    it('uses Sunday (day 0) as week start when weekStartDay is 0', async () => {
+      vi.mocked(settings.get).mockResolvedValue({ settings: { weekStartDay: 0 } as never });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
+      render(<WeekPage />, { wrapper });
+      await waitFor(() => {
+        expect(menus.getWeek).toHaveBeenCalled();
+        // All calls should be for a Sunday-anchored date
+        const calls = vi.mocked(menus.getWeek).mock.calls;
+        calls.forEach((call) => {
+          const d = new Date(call[0] + 'T00:00:00');
+          expect(d.getDay()).toBe(0);
+        });
       });
     });
   });
