@@ -5,6 +5,7 @@ import { menus, dishes } from '@/lib/api';
 import type { DinnerEntry, UpdateEntryData, SuggestedDish } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { SuggestionModal } from '@/components/SuggestionModal';
+import { DishPicker } from '@/components/DishPicker';
 
 const DAY_NAMES_FULL = [
   'Sunday',
@@ -100,10 +101,6 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
     });
   };
 
-  const toggleSideDish = (id: string) => {
-    setSideDishIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
-  };
-
   return (
     <form onSubmit={handleSubmit} className="border rounded-lg p-4 bg-card space-y-4">
       <div className="flex items-center justify-between">
@@ -148,32 +145,26 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
       {/* Dish selector for assembled */}
       {type === 'assembled' && (
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="main-dish-select" className="text-sm font-medium">
-              Main Dish
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowSuggest(true)}
-              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Suggest
-            </button>
-          </div>
-          <select
-            id="main-dish-select"
+          <label className="block text-sm font-medium mb-1">Main Dish</label>
+          <DishPicker
+            mode="single"
+            dishType="main"
+            dishes={mainDishes}
             value={mainDishId}
-            onChange={(e) => setMainDishId(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md bg-background"
-          >
-            <option value="">Select a main dish...</option>
-            {mainDishes.map((dish) => (
-              <option key={dish.id} value={dish.id}>
-                {dish.name}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => setMainDishId(id as string)}
+            placeholder="Select a main dish..."
+            label="Main Dish"
+            trailingAction={
+              <button
+                type="button"
+                onClick={() => setShowSuggest(true)}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 shrink-0"
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Suggest
+              </button>
+            }
+          />
           <SuggestionModal
             open={showSuggest}
             availableTags={availableTags}
@@ -188,26 +179,16 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
         <div className="space-y-2">
           <label className="block text-sm font-medium">Side Dishes</label>
 
-          {/* DB side dish pills */}
-          {sideDishes.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {sideDishes.map((dish) => (
-                <button
-                  key={dish.id}
-                  type="button"
-                  onClick={() => toggleSideDish(dish.id)}
-                  className={cn(
-                    'py-1 px-3 rounded-full text-sm border',
-                    sideDishIds.includes(dish.id)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'hover:bg-muted border-input'
-                  )}
-                >
-                  {dish.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* DB side dish picker */}
+          <DishPicker
+            mode="multi"
+            dishType="side"
+            dishes={sideDishes}
+            value={sideDishIds}
+            onChange={(ids) => setSideDishIds(ids as string[])}
+            placeholder="Add side dishes..."
+            label="Side Dishes"
+          />
 
           {/* Custom side pills */}
           {customSideList.length > 0 && (
