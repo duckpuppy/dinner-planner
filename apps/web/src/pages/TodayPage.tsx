@@ -369,80 +369,86 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
         )}
 
         {/* Log preparation */}
-        {!entry.completed && !entry.skipped && entry.type === 'assembled' && entry.mainDish && (
-          <div className="pt-4 border-t">
-            {showPrepForm ? (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium mb-2">Who cooked?</p>
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select preparers">
-                    {usersList.map((u) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => togglePreparer(u.id)}
-                        aria-pressed={selectedPreparerIds.includes(u.id)}
-                        className={cn(
-                          'px-3 py-2 rounded-full text-sm font-medium transition-colors',
-                          selectedPreparerIds.includes(u.id)
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        )}
-                      >
-                        {u.displayName}
-                      </button>
-                    ))}
+        {!entry.completed &&
+          !entry.skipped &&
+          ((entry.type === 'assembled' && entry.mainDish) || entry.type === 'custom') && (
+            <div className="pt-4 border-t">
+              {showPrepForm ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Who cooked?</p>
+                    <div
+                      className="flex flex-wrap gap-2"
+                      role="group"
+                      aria-label="Select preparers"
+                    >
+                      {usersList.map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => togglePreparer(u.id)}
+                          aria-pressed={selectedPreparerIds.includes(u.id)}
+                          className={cn(
+                            'px-3 py-2 rounded-full text-sm font-medium transition-colors',
+                            selectedPreparerIds.includes(u.id)
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          )}
+                        >
+                          {u.displayName}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedPreparerIds.length === 0 && (
+                      <p className="text-sm text-destructive mt-1">
+                        At least one preparer is required.
+                      </p>
+                    )}
                   </div>
-                  {selectedPreparerIds.length === 0 && (
-                    <p className="text-sm text-destructive mt-1">
-                      At least one preparer is required.
-                    </p>
-                  )}
-                </div>
-                <label htmlFor="prep-notes" className="sr-only">
-                  Preparation notes
-                </label>
-                <textarea
-                  id="prep-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add notes (optional)"
-                  className="w-full px-3 py-2 border rounded-md bg-background text-sm
+                  <label htmlFor="prep-notes" className="sr-only">
+                    Preparation notes
+                  </label>
+                  <textarea
+                    id="prep-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add notes (optional)"
+                    className="w-full px-3 py-2 border rounded-md bg-background text-sm
                              focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                  rows={2}
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleLogPrep}
-                    disabled={logPrepMutation.isPending || selectedPreparerIds.length === 0}
-                    className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-md
+                    rows={2}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleLogPrep}
+                      disabled={logPrepMutation.isPending || selectedPreparerIds.length === 0}
+                      className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-md
                                text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {logPrepMutation.isPending ? 'Logging...' : 'Log Preparation'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowPrepForm(false);
-                      setSelectedPreparerIds([]);
-                      setNotes('');
-                    }}
-                    className="py-2 px-4 border rounded-md text-sm hover:bg-muted"
-                  >
-                    Cancel
-                  </button>
+                    >
+                      {logPrepMutation.isPending ? 'Logging...' : 'Log Preparation'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPrepForm(false);
+                        setSelectedPreparerIds([]);
+                        setNotes('');
+                      }}
+                      className="py-2 px-4 border rounded-md text-sm hover:bg-muted"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowPrepForm(true)}
-                className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md
+              ) : (
+                <button
+                  onClick={() => setShowPrepForm(true)}
+                  className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md
                            font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
-              >
-                <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
-              </button>
-            )}
-          </div>
-        )}
+                >
+                  <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
+                </button>
+              )}
+            </div>
+          )}
 
         {/* Skip button */}
         {!entry.completed && !entry.skipped && (
