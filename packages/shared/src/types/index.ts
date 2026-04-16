@@ -16,7 +16,7 @@ export interface UserPreferences {
 }
 
 // Dish types
-export type DishType = 'main' | 'side';
+export type DishType = 'main' | 'side' | 'both';
 
 export interface Ingredient {
   id: string;

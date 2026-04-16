@@ -57,7 +57,7 @@ export const ingredientSchema = z.object({
 export const createDishSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   description: z.string().max(2000).default(''),
-  type: z.enum(['main', 'side']),
+  type: z.enum(['main', 'side', 'both']),
   ingredients: z.array(ingredientSchema).default([]),
   instructions: z.string().max(10000).default(''),
   prepTime: z.number().int().positive().nullable().default(null),
@@ -76,7 +76,7 @@ export const createDishSchema = z.object({
 export const updateDishSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200).optional(),
   description: z.string().max(2000).optional(),
-  type: z.enum(['main', 'side']).optional(),
+  type: z.enum(['main', 'side', 'both']).optional(),
   ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().max(10000).optional(),
   prepTime: z.number().int().positive().nullable().optional(),
@@ -173,7 +173,7 @@ export const suggestionsQuerySchema = z.object({
 export const suggestedDishSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['main', 'side']),
+  type: z.enum(['main', 'side', 'both']),
   description: z.string(),
   tags: z.array(z.string()),
   avgRating: z.number().nullable(),
@@ -194,7 +194,7 @@ export const paginationSchema = z.object({
 });
 
 export const dishQuerySchema = paginationSchema.extend({
-  type: z.enum(['main', 'side']).optional(),
+  type: z.enum(['main', 'side', 'both']).optional(),
   tag: z.string().optional(),
   archived: z
     .preprocess((v) => (typeof v === 'string' ? v === 'true' : v), z.boolean())
@@ -236,7 +236,7 @@ export const importRecipeUrlSchema = z.object({
 export const importedRecipeSchema = z.object({
   name: z.string(),
   description: z.string(),
-  type: z.enum(['main', 'side']),
+  type: z.enum(['main', 'side', 'both']),
   ingredients: z.array(ingredientSchema),
   instructions: z.string(),
   prepTime: z.number().int().positive().nullable(),

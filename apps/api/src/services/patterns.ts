@@ -9,9 +9,9 @@ export interface PatternResponse {
   dayOfWeek: number;
   type: 'assembled' | 'fend_for_self' | 'dining_out' | 'custom';
   mainDishId: string | null;
-  mainDish: { id: string; name: string; type: 'main' | 'side' } | null;
+  mainDish: { id: string; name: string; type: 'main' | 'side' | 'both' } | null;
   sideDishIds: string[];
-  sideDishes: { id: string; name: string; type: 'main' | 'side' }[];
+  sideDishes: { id: string; name: string; type: 'main' | 'side' | 'both' }[];
   customText: string | null;
   createdById: string;
   createdAt: string;

@@ -236,8 +236,8 @@ export function DishesPage() {
     return result;
   }, [dishes, searchQuery, selectedTag, selectedDietaryTag, sortBy]);
 
-  const mainDishes = filteredDishes.filter((d) => d.type === 'main');
-  const sideDishes = filteredDishes.filter((d) => d.type === 'side');
+  const mainDishes = filteredDishes.filter((d) => d.type === 'main' || d.type === 'both');
+  const sideDishes = filteredDishes.filter((d) => d.type === 'side' || d.type === 'both');
 
   return (
     <PullToRefresh
@@ -674,7 +674,11 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
         {/* Type badge + dietary tags */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-block px-3 py-1 text-sm rounded-full bg-secondary text-secondary-foreground">
-            {currentDish.type === 'main' ? 'Main Dish' : 'Side Dish'}
+            {currentDish.type === 'main'
+              ? 'Main Dish'
+              : currentDish.type === 'side'
+                ? 'Side Dish'
+                : 'Main & Side Dish'}
           </span>
           {currentDish.dietaryTags.map((tag) => (
             <span
@@ -1036,7 +1040,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
 
   const [name, setName] = useState(dish?.name ?? prefill?.name ?? '');
   const [description, setDescription] = useState(dish?.description ?? prefill?.description ?? '');
-  const [type, setType] = useState<'main' | 'side'>(dish?.type ?? prefill?.type ?? 'main');
+  const [type, setType] = useState<'main' | 'side' | 'both'>(dish?.type ?? prefill?.type ?? 'main');
   const [instructions, setInstructions] = useState(
     dish?.instructions ?? prefill?.instructions ?? ''
   );
@@ -1303,6 +1307,18 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
               )}
             >
               Side Dish
+            </button>
+            <button
+              type="button"
+              onClick={() => setType('both')}
+              className={cn(
+                'flex-1 py-2 px-4 rounded-md border text-sm font-medium',
+                type === 'both'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'hover:bg-muted'
+              )}
+            >
+              Both
             </button>
           </div>
         </div>

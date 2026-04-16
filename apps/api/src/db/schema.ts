@@ -46,7 +46,7 @@ export const dishes = sqliteTable('dishes', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
-  type: text('type', { enum: ['main', 'side'] }).notNull(),
+  type: text('type', { enum: ['main', 'side', 'both'] }).notNull(),
   instructions: text('instructions').notNull().default(''),
   prepTime: integer('prep_time'),
   cookTime: integer('cook_time'),
