@@ -117,6 +117,45 @@ export const weeklyMenus = sqliteTable('weekly_menus', {
   ...timestamps,
 });
 
+// Restaurants table (M28: restaurant tracking)
+export const restaurants = sqliteTable('restaurants', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  cuisineType: text('cuisine_type'),
+  location: text('location'),
+  notes: text('notes'),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  createdById: text('created_by_id')
+    .notNull()
+    .references(() => users.id),
+  ...timestamps,
+});
+
+// Restaurant dishes (freeform, not linked to home recipes)
+export const restaurantDishes = sqliteTable('restaurant_dishes', {
+  id: text('id').primaryKey(),
+  restaurantId: text('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  notes: text('notes'),
+  ...timestamps,
+});
+
+// Per-dish rating at a restaurant (per user per dish)
+export const restaurantDishRatings = sqliteTable('restaurant_dish_ratings', {
+  id: text('id').primaryKey(),
+  restaurantDishId: text('restaurant_dish_id')
+    .notNull()
+    .references(() => restaurantDishes.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  stars: integer('stars').notNull(),
+  note: text('note'),
+  ...timestamps,
+});
+
 // Dinner entries table
 export const dinnerEntries = sqliteTable('dinner_entries', {
   id: text('id').primaryKey(),
@@ -133,6 +172,7 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
   customSideText: text('custom_side_text'),
   restaurantName: text('restaurant_name'),
   restaurantNotes: text('restaurant_notes'),
+  restaurantId: text('restaurant_id').references(() => restaurants.id),
   mainDishId: text('main_dish_id').references(() => dishes.id),
   sourceEntryId: text('source_entry_id').references((): AnySQLiteColumn => dinnerEntries.id),
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
@@ -154,9 +194,8 @@ export const entrySideDishes = sqliteTable('entry_side_dishes', {
 // Preparations table
 export const preparations = sqliteTable('preparations', {
   id: text('id').primaryKey(),
-  dishId: text('dish_id')
-    .notNull()
-    .references(() => dishes.id),
+  dishId: text('dish_id').references(() => dishes.id),
+  restaurantId: text('restaurant_id').references(() => restaurants.id),
   dinnerEntryId: text('dinner_entry_id')
     .notNull()
     .references(() => dinnerEntries.id),
