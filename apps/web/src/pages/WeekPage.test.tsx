@@ -518,10 +518,13 @@ describe('WeekPage', () => {
       const editBtns = await screen.findAllByRole('button', { name: /edit/i });
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
-      const saladBtn = await screen.findByRole('button', { name: 'Salad' });
-      fireEvent.click(saladBtn);
-      // Should now be selected (no error thrown)
-      expect(saladBtn).toBeTruthy();
+      // Open the side dish picker modal
+      const addSidesBtn = await screen.findByRole('button', { name: /side dishes/i });
+      fireEvent.click(addSidesBtn);
+      // Find and click the dish in the modal (rendered as role="option")
+      const saladOption = await screen.findByRole('option', { name: /Salad/ });
+      fireEvent.click(saladOption);
+      expect(saladOption).toBeTruthy();
     });
 
     it('shows Suggest button in editor', async () => {
@@ -586,7 +589,7 @@ describe('WeekPage', () => {
       expect((customInput as HTMLInputElement).value).toBe('Cooking class night');
     });
 
-    it('changes main dish selection when select changes', async () => {
+    it('changes main dish selection when dish picked from modal', async () => {
       vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
       vi.mocked(dishes.list).mockResolvedValue({
         dishes: [{ id: 'main-1', name: 'Pasta', type: 'main', tags: [], archived: false }],
@@ -595,9 +598,14 @@ describe('WeekPage', () => {
       const editBtns = await screen.findAllByRole('button', { name: /edit/i });
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
-      const select = await screen.findByRole('combobox');
-      fireEvent.change(select, { target: { value: 'main-1' } });
-      expect((select as HTMLSelectElement).value).toBe('main-1');
+      // Open the main dish picker modal
+      const mainDishTrigger = await screen.findByRole('button', { name: /main dish/i });
+      fireEvent.click(mainDishTrigger);
+      // Select dish from modal (rendered as role="option")
+      const pastaOption = await screen.findByRole('option', { name: /Pasta/ });
+      fireEvent.click(pastaOption);
+      // After selection, the trigger should show the dish name
+      expect(await screen.findByText('Pasta')).toBeTruthy();
     });
 
     it('opens SuggestionModal when Suggest button clicked', async () => {
