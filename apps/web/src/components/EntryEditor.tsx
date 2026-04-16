@@ -72,8 +72,8 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
   });
 
   const allDishes = dishesData?.dishes || [];
-  const mainDishes = allDishes.filter((d) => d.type === 'main');
-  const sideDishes = allDishes.filter((d) => d.type === 'side');
+  const mainDishes = allDishes.filter((d) => d.type === 'main' || d.type === 'both');
+  const sideDishes = allDishes.filter((d) => d.type === 'side' || d.type === 'both');
   const availableTags = useMemo(
     () => Array.from(new Set(mainDishes.flatMap((d) => d.tags))).sort(),
     [mainDishes]

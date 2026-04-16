@@ -89,7 +89,10 @@ export async function getSuggestions(query: SuggestionsQueryInput): Promise<Sugg
   const today = localDateStr();
 
   // Build exclude condition
-  const baseConditions = [eq(schema.dishes.archived, false), eq(schema.dishes.type, 'main')];
+  const baseConditions = [
+    eq(schema.dishes.archived, false),
+    inArray(schema.dishes.type, ['main', 'both']),
+  ];
   if (query.exclude.length > 0) {
     baseConditions.push(notInArray(schema.dishes.id, query.exclude));
   }

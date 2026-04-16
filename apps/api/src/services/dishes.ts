@@ -8,7 +8,7 @@ export interface DishResponse {
   id: string;
   name: string;
   description: string;
-  type: 'main' | 'side';
+  type: 'main' | 'side' | 'both';
   instructions: string;
   prepTime: number | null;
   cookTime: number | null;
@@ -152,9 +152,15 @@ export async function getDishes(
   // Filter by archived status
   conditions.push(eq(schema.dishes.archived, query.archived));
 
-  // Filter by type
+  // Filter by type — 'both' dishes appear in main and side queries
   if (query.type) {
-    conditions.push(eq(schema.dishes.type, query.type));
+    if (query.type === 'main') {
+      conditions.push(inArray(schema.dishes.type, ['main', 'both']));
+    } else if (query.type === 'side') {
+      conditions.push(inArray(schema.dishes.type, ['side', 'both']));
+    } else {
+      conditions.push(eq(schema.dishes.type, 'both'));
+    }
   }
 
   // Search by name or description

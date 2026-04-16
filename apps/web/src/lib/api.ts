@@ -530,7 +530,7 @@ export interface Dish {
   id: string;
   name: string;
   description: string;
-  type: 'main' | 'side';
+  type: 'main' | 'side' | 'both';
   instructions: string;
   prepTime: number | null;
   cookTime: number | null;
@@ -568,7 +568,7 @@ export interface Ingredient {
 export interface CreateDishData {
   name: string;
   description?: string;
-  type: 'main' | 'side';
+  type: 'main' | 'side' | 'both';
   instructions?: string;
   prepTime?: number | null;
   cookTime?: number | null;
@@ -776,7 +776,7 @@ export interface PantryItem {
 export interface SuggestedDish {
   id: string;
   name: string;
-  type: 'main' | 'side';
+  type: 'main' | 'side' | 'both';
   description: string;
   tags: string[];
   avgRating: number | null;

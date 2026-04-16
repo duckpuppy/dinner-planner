@@ -80,12 +80,12 @@ export interface DinnerEntryResponse {
   mainDish: {
     id: string;
     name: string;
-    type: 'main' | 'side';
+    type: 'main' | 'side' | 'both';
   } | null;
   sideDishes: {
     id: string;
     name: string;
-    type: 'main' | 'side';
+    type: 'main' | 'side' | 'both';
   }[];
   preparations: PreparationResponse[];
   sourceEntryId: string | null;
