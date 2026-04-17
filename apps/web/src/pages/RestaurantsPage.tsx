@@ -273,18 +273,17 @@ export function RestaurantsPage() {
     queryFn: () => restaurantsApi.list({ archived: String(showArchived), limit: '100' }),
   });
 
-  const allRestaurants = data?.restaurants ?? [];
-
   const filteredRestaurants = useMemo(() => {
-    if (!searchQuery) return allRestaurants;
+    const all = data?.restaurants ?? [];
+    if (!searchQuery) return all;
     const q = searchQuery.toLowerCase();
-    return allRestaurants.filter(
+    return all.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.cuisineType?.toLowerCase().includes(q) ||
         r.location?.toLowerCase().includes(q)
     );
-  }, [allRestaurants, searchQuery]);
+  }, [data?.restaurants, searchQuery]);
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; cuisineType: string; location: string; notes: string }) =>
