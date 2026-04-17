@@ -24,6 +24,8 @@ services:
       - LLM_MODE=${LLM_MODE:-disabled}
       - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
       - VIDEO_STORAGE_LIMIT_MB=${VIDEO_STORAGE_LIMIT_MB:-10240}
+      - VIDEO_CLEANUP_INTERVAL_HOURS=${VIDEO_CLEANUP_INTERVAL_HOURS:-24}
+      - VIDEO_CLEANUP_TIME=${VIDEO_CLEANUP_TIME:-03:00}
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/health']
       interval: 30s

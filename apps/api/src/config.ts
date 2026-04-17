@@ -19,6 +19,11 @@ const envSchema = z.object({
   VIDEO_STORAGE_LIMIT_MB: z.coerce.number().int().min(100).default(10240),
   YTDLP_PATH: z.string().default('yt-dlp'),
   VIDEOS_DIR: z.string().optional(),
+  VIDEO_CLEANUP_INTERVAL_HOURS: z.coerce.number().int().min(0).default(24),
+  VIDEO_CLEANUP_TIME: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .default('03:00'),
 });
 
 function loadConfig() {

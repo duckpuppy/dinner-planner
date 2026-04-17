@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockDeleteVideo = vi.hoisted(() => vi.fn<() => Promise<void>>().mockResolvedValue(undefined));
+
+vi.mock('../services/videoDownload.js', () => ({
+  deleteVideo: mockDeleteVideo,
+}));
+
 const mockDb = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
@@ -176,6 +182,31 @@ describe('deleteDish', () => {
     await deleteDish('dish-1');
     // Deletes: entrySideDishes + ratings(3x) + preparations + dishes = 6
     expect(mockDb.delete).toHaveBeenCalledTimes(6);
+  });
+
+  it('calls deleteVideo when dish has a localVideoFilename', async () => {
+    const dish = makeDish({ localVideoFilename: 'abc123.mp4' });
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.select.mockReturnValueOnce(selWhere([])); // no preparations
+    await deleteDish('dish-1');
+    expect(mockDeleteVideo).toHaveBeenCalledWith('abc123.mp4');
+  });
+
+  it('does not call deleteVideo when dish has no localVideoFilename', async () => {
+    const dish = makeDish({ localVideoFilename: null });
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.select.mockReturnValueOnce(selWhere([])); // no preparations
+    await deleteDish('dish-1');
+    expect(mockDeleteVideo).not.toHaveBeenCalled();
+  });
+
+  it('still succeeds if deleteVideo throws', async () => {
+    const dish = makeDish({ localVideoFilename: 'abc123.mp4' });
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(dish);
+    mockDb.select.mockReturnValueOnce(selWhere([]));
+    mockDeleteVideo.mockRejectedValueOnce(new Error('disk error'));
+    const result = await deleteDish('dish-1');
+    expect(result).toEqual({ success: true });
   });
 });
 

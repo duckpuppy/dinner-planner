@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { importVideoUrlSchema } from '@dinner-planner/shared';
 import { createVideoJob, getVideoJob, processVideoJob } from '../services/videoJobs.js';
 import { deleteVideo, VIDEOS_DIR } from '../services/videoDownload.js';
+import { cleanupOrphanedVideos } from '../services/videoCleanup.js';
 import { getSettings } from '../services/settings.js';
 import { checkOllamaHealth } from '../services/ollama.js';
 import { db, schema } from '../db/index.js';
@@ -268,6 +269,22 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
       }
 
       return reply.send({ available: true, modelFound: models.includes(model) });
+    }
+  );
+
+  /**
+   * POST /api/admin/cleanup-videos
+   * Manually trigger orphaned video cleanup (admin only)
+   */
+  fastify.post(
+    '/api/admin/cleanup-videos',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (request.user.role !== 'admin') {
+        return reply.status(403).send({ error: 'Admin access required' });
+      }
+      const result = await cleanupOrphanedVideos();
+      return reply.send(result);
     }
   );
 }
