@@ -19,8 +19,11 @@ vi.mock('../db/index.js', () => ({
     dishTags: { dishId: null, tagId: null },
     dishDietaryTags: { dishId: null, tag: null },
     tags: { name: null, id: null },
-    preparations: { dishId: null, id: null, preparedDate: null },
+    preparations: { dishId: null, id: null, preparedDate: null, restaurantId: null },
     ratings: { stars: null, id: null, preparationId: null },
+    restaurants: { archived: null, id: null, cuisineType: null },
+    restaurantDishes: { restaurantId: null, id: null },
+    restaurantDishRatings: { restaurantDishId: null, id: null, stars: null },
   },
 }));
 
@@ -30,7 +33,12 @@ vi.mock('../services/settings.js', () => ({
   getSettings: mockGetSettings,
 }));
 
-import { scoreDish, buildReasons, getSuggestions } from '../services/suggestions.js';
+import {
+  scoreDish,
+  buildReasons,
+  getSuggestions,
+  getRestaurantSuggestions,
+} from '../services/suggestions.js';
 
 const TODAY = '2024-06-15';
 
@@ -310,5 +318,153 @@ describe('getSuggestions', () => {
     });
 
     expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRestaurantSuggestions
+// ---------------------------------------------------------------------------
+
+function makeRestaurant(
+  id: string,
+  name = 'Taco Place',
+  cuisineType: string | null = 'Mexican',
+  archived = false
+) {
+  return { id, name, cuisineType, location: null, archived };
+}
+
+/**
+ * Set up the 3 DB calls for getRestaurantSuggestions:
+ * 1. select().from(restaurants).where() → allRestaurants
+ * 2. select({}).from(restaurantDishes).innerJoin(restaurantDishRatings).where().groupBy() → ratingStats
+ * 3. select({}).from(preparations).where().groupBy() → visitStats
+ */
+function setupRestaurantSuggestionsMocks(
+  restaurants: ReturnType<typeof makeRestaurant>[],
+  opts: {
+    ratingStats?: { restaurantId: string; avgRating: number; totalRatings: number }[];
+    visitStats?: { restaurantId: string; visitCount: number; lastVisitedDate: string }[];
+  } = {}
+) {
+  mockDb.select.mockReturnValueOnce(selFromWhere(restaurants)); // restaurants
+  mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereGroupBy(opts.ratingStats ?? [])); // ratingStats
+  mockDb.select.mockReturnValueOnce(selFromWhereGroupBy(opts.visitStats ?? [])); // visitStats
+}
+
+describe('getRestaurantSuggestions', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockGetSettings.mockResolvedValue({ recencyWindowDays: 30 });
+  });
+
+  it('returns empty array when no restaurants exist', async () => {
+    mockDb.select.mockReturnValueOnce(selFromWhere([]));
+
+    const result = await getRestaurantSuggestions({ limit: 5, exclude: [] });
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns scored restaurants sorted by score desc', async () => {
+    const rs = [makeRestaurant('r1', 'Sushi Bar'), makeRestaurant('r2', 'Burger Joint')];
+    setupRestaurantSuggestionsMocks(rs, {
+      ratingStats: [{ restaurantId: 'r1', avgRating: 5, totalRatings: 2 }],
+    });
+
+    const result = await getRestaurantSuggestions({ limit: 10 });
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('r1');
+    expect(result[0].averageRating).toBe(5);
+    expect(result[1].id).toBe('r2');
+    expect(result[1].averageRating).toBeNull();
+  });
+
+  it('respects limit', async () => {
+    const rs = [makeRestaurant('r1'), makeRestaurant('r2'), makeRestaurant('r3')];
+    setupRestaurantSuggestionsMocks(rs);
+
+    const result = await getRestaurantSuggestions({ limit: 2 });
+
+    expect(result).toHaveLength(2);
+  });
+
+  it('attaches visitCount and lastVisitedDate from visitStats', async () => {
+    const rs = [makeRestaurant('r1')];
+    setupRestaurantSuggestionsMocks(rs, {
+      visitStats: [{ restaurantId: 'r1', visitCount: 3, lastVisitedDate: '2024-05-01' }],
+    });
+
+    const result = await getRestaurantSuggestions({ limit: 5 });
+
+    expect(result[0].visitCount).toBe(3);
+    expect(result[0].lastVisitedDate).toBe('2024-05-01');
+  });
+
+  it('filters by cuisineType', async () => {
+    // cuisineType filter is applied in DB query (baseConditions), so the mock
+    // only returns matching restaurants when we control the mock data
+    const rs = [makeRestaurant('r1', 'Sushi Bar', 'Japanese')];
+    setupRestaurantSuggestionsMocks(rs);
+
+    const result = await getRestaurantSuggestions({ cuisineType: 'Japanese' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].cuisineType).toBe('Japanese');
+  });
+
+  it('includes "Never visited" reason when no visits', async () => {
+    const rs = [makeRestaurant('r1')];
+    setupRestaurantSuggestionsMocks(rs);
+
+    const result = await getRestaurantSuggestions({});
+
+    expect(result[0].reasons).toContain('Never visited');
+  });
+
+  it('includes "Highly rated" reason for avg >= 4', async () => {
+    const rs = [makeRestaurant('r1')];
+    setupRestaurantSuggestionsMocks(rs, {
+      ratingStats: [{ restaurantId: 'r1', avgRating: 4.5, totalRatings: 2 }],
+    });
+
+    const result = await getRestaurantSuggestions({});
+
+    expect(result[0].reasons.some((r) => r.startsWith('Highly rated'))).toBe(true);
+  });
+
+  it('includes "Family favorite" reason when >= 3 ratings and avg >= 4', async () => {
+    const rs = [makeRestaurant('r1')];
+    setupRestaurantSuggestionsMocks(rs, {
+      ratingStats: [{ restaurantId: 'r1', avgRating: 4.5, totalRatings: 3 }],
+    });
+
+    const result = await getRestaurantSuggestions({});
+
+    expect(result[0].reasons).toContain('Family favorite');
+  });
+
+  it('does not include "Family favorite" when fewer than 3 ratings', async () => {
+    const rs = [makeRestaurant('r1')];
+    setupRestaurantSuggestionsMocks(rs, {
+      ratingStats: [{ restaurantId: 'r1', avgRating: 5, totalRatings: 2 }],
+    });
+
+    const result = await getRestaurantSuggestions({});
+
+    expect(result[0].reasons).not.toContain('Family favorite');
+  });
+
+  it('excludes specified restaurant IDs via query (mock returns filtered list)', async () => {
+    // The exclude filter is pushed to DB (baseConditions), so the mock only
+    // returns the non-excluded set when we control the mock data
+    const rs = [makeRestaurant('r2', 'Burger Joint')];
+    setupRestaurantSuggestionsMocks(rs);
+
+    const result = await getRestaurantSuggestions({ exclude: ['r1'] });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('r2');
   });
 });

@@ -5,6 +5,7 @@ import { menus, dishes } from '@/lib/api';
 import type { DinnerEntry, UpdateEntryData, SuggestedDish, RestaurantSummary } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { SuggestionModal } from '@/components/SuggestionModal';
+import { RestaurantSuggestionModal } from '@/components/RestaurantSuggestionModal';
 import { DishPicker } from '@/components/DishPicker';
 import { RestaurantPicker } from '@/components/RestaurantPicker';
 
@@ -39,6 +40,7 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
   const [restaurantNotes, setRestaurantNotes] = useState(entry.restaurantNotes || '');
   const [sourceEntryId, setSourceEntryId] = useState(entry.sourceEntryId || '');
   const [showSuggest, setShowSuggest] = useState(false);
+  const [showRestaurantSuggest, setShowRestaurantSuggest] = useState(false);
 
   const customSideList = useMemo(
     () =>
@@ -246,13 +248,33 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
       {type === 'dining_out' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1">Restaurant</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium">Restaurant</label>
+              <button
+                type="button"
+                onClick={() => setShowRestaurantSuggest(true)}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Suggest
+              </button>
+            </div>
             <RestaurantPicker
               value={restaurantId}
               onChange={(id: string, restaurant: RestaurantSummary) => {
                 setRestaurantId(id);
                 setRestaurantName(restaurant.name);
               }}
+            />
+            <RestaurantSuggestionModal
+              open={showRestaurantSuggest}
+              onSelect={(r) => {
+                setRestaurantId(r.id);
+                setRestaurantName(r.name);
+                setShowRestaurantSuggest(false);
+              }}
+              onClose={() => setShowRestaurantSuggest(false)}
+              exclude={restaurantId ? [restaurantId] : []}
             />
           </div>
           <div>

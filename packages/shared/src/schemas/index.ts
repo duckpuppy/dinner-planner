@@ -397,6 +397,13 @@ export const updateRestaurantDishRatingSchema = z.object({
   note: z.string().max(1000).nullable().optional(),
 });
 
+// Restaurant suggestion schemas
+export const restaurantSuggestionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+  exclude: z.preprocess((v) => (typeof v === 'string' ? [v] : v), z.array(z.string())).default([]),
+  cuisineType: z.string().optional(),
+});
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -439,3 +446,4 @@ export type CreateRestaurantDishInput = z.infer<typeof createRestaurantDishSchem
 export type UpdateRestaurantDishInput = z.infer<typeof updateRestaurantDishSchema>;
 export type CreateRestaurantDishRatingInput = z.infer<typeof createRestaurantDishRatingSchema>;
 export type UpdateRestaurantDishRatingInput = z.infer<typeof updateRestaurantDishRatingSchema>;
+export type RestaurantSuggestionsQueryInput = z.infer<typeof restaurantSuggestionsQuerySchema>;

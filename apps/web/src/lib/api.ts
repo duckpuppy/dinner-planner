@@ -799,6 +799,19 @@ export interface SuggestedDish {
   reasons: string[];
 }
 
+export interface SuggestedRestaurant {
+  id: string;
+  name: string;
+  cuisineType: string | null;
+  location: string | null;
+  averageRating: number | null;
+  totalRatings: number;
+  visitCount: number;
+  lastVisitedDate: string | null;
+  score: number;
+  reasons: string[];
+}
+
 export interface Pattern {
   id: string;
   label: string;
@@ -984,6 +997,18 @@ export const restaurants = {
         body: JSON.stringify(data),
       }
     ),
+  suggestions: (params?: { limit?: number; exclude?: string[]; cuisineType?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.exclude?.length) {
+      params.exclude.forEach((id) => query.append('exclude', id));
+    }
+    if (params?.cuisineType) query.set('cuisineType', params.cuisineType);
+    const qs = query.toString();
+    return request<{ suggestions: SuggestedRestaurant[] }>(
+      `/restaurants/suggestions${qs ? `?${qs}` : ''}`
+    );
+  },
 };
 
 // Prep Tasks API
