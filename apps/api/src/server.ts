@@ -28,6 +28,7 @@ import { pantryRoutes } from './routes/pantry.js';
 import { groceryRoutes } from './routes/grocery.js';
 import { setupRoutes } from './routes/setup.js';
 import { videoJobsRoutes } from './routes/videoJobs.js';
+import { startVideoCleanupScheduler } from './services/videoCleanupScheduler.js';
 import { restaurantsRoutes } from './routes/restaurants.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
@@ -173,6 +174,7 @@ const start = async () => {
   try {
     // Seed admin user on first run
     await seedAdmin();
+    startVideoCleanupScheduler();
 
     await fastify.listen({ port: config.PORT, host: config.HOST });
     console.log(`Server running at http://${config.HOST}:${config.PORT}`);

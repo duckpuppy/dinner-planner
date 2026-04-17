@@ -20,6 +20,10 @@ vi.mock('../services/settings.js', () => ({
   getSettings: vi.fn(),
 }));
 
+vi.mock('../services/videoCleanup.js', () => ({
+  cleanupOrphanedVideos: vi.fn(),
+}));
+
 vi.mock('../services/ollama.js', () => ({
   checkOllamaHealth: vi.fn(),
 }));
@@ -656,5 +660,55 @@ describe('GET /api/dishes/:id/video', () => {
     });
 
     expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// POST /api/admin/cleanup-videos
+// ===========================================================================
+
+import * as videoCleanupService from '../services/videoCleanup.js';
+const mockCleanupOrphanedVideos = vi.mocked(videoCleanupService.cleanupOrphanedVideos);
+
+describe('POST /api/admin/cleanup-videos', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/admin/cleanup-videos' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 403 when called by a non-admin member', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/cleanup-videos',
+      headers: bearerHeader(app, 'member'),
+    });
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.body)).toMatchObject({ error: 'Admin access required' });
+  });
+
+  it('returns cleanup result for admin', async () => {
+    const fakeResult = { deletedFiles: ['abc.mp4'], freedBytes: 1024, errors: [] };
+    mockCleanupOrphanedVideos.mockResolvedValueOnce(fakeResult);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/cleanup-videos',
+      headers: adminHeader(app),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual(fakeResult);
+    expect(mockCleanupOrphanedVideos).toHaveBeenCalledOnce();
   });
 });

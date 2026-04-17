@@ -3,6 +3,7 @@ import { eq, and, like, desc, asc, sql, or, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreateDishInput, UpdateDishInput, DishQueryInput } from '@dinner-planner/shared';
 import { inferCategory } from './categoryHeuristics.js';
+import { deleteVideo } from './videoDownload.js';
 
 export interface DishResponse {
   id: string;
@@ -498,7 +499,17 @@ export async function deleteDish(id: string): Promise<{ success: boolean; error?
   // 5. Delete preparations for this dish
   await db.delete(schema.preparations).where(eq(schema.preparations.dishId, id));
 
-  // 6. Delete the dish (ingredients, dish_tags, and dish_dietary_tags cascade automatically)
+  // 6. Delete associated video files before removing the DB record
+  if (dish.localVideoFilename) {
+    try {
+      await deleteVideo(dish.localVideoFilename);
+    } catch {
+      // Log but don't fail the dish deletion
+      console.warn(`Failed to delete video file for dish ${id}: ${dish.localVideoFilename}`);
+    }
+  }
+
+  // 7. Delete the dish (ingredients, dish_tags, and dish_dietary_tags cascade automatically)
   await db.delete(schema.dishes).where(eq(schema.dishes.id, id));
 
   return { success: true };
