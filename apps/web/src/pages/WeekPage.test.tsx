@@ -23,6 +23,10 @@ vi.mock('@/lib/api', () => ({
   dishes: {
     list: vi.fn().mockResolvedValue({ dishes: [] }),
   },
+  restaurants: {
+    list: vi.fn().mockResolvedValue({ restaurants: [], total: 0 }),
+    create: vi.fn(),
+  },
   patterns: {
     applyToWeek: vi.fn(),
   },
@@ -358,7 +362,7 @@ describe('WeekPage', () => {
       fireEvent.click(editBtns[0]);
       await screen.findByText('Dining Out');
       fireEvent.click(screen.getByText('Dining Out'));
-      expect(await screen.findByText('Restaurant Name')).toBeTruthy();
+      expect(await screen.findByText('Restaurant')).toBeTruthy();
     });
 
     it('shows custom text field when Custom type selected', async () => {
@@ -552,17 +556,15 @@ describe('WeekPage', () => {
   });
 
   describe('EntryEditor - dining_out inputs', () => {
-    it('updates restaurant name input when typing', async () => {
+    it('shows restaurant picker when Dining Out selected', async () => {
       vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse());
       render(<WeekPage />, { wrapper });
       const editBtns = await screen.findAllByRole('button', { name: /edit/i });
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
-      // Switch to dining_out type
       fireEvent.click(screen.getByRole('button', { name: 'Dining Out' }));
-      const restaurantInput = screen.getByPlaceholderText('Where are you going?');
-      fireEvent.change(restaurantInput, { target: { value: 'Thai Garden' } });
-      expect((restaurantInput as HTMLInputElement).value).toBe('Thai Garden');
+      // RestaurantPicker renders a trigger button showing the placeholder when no restaurant selected
+      expect(await screen.findByText('Select a restaurant...')).toBeTruthy();
     });
 
     it('updates restaurant notes input when typing', async () => {
