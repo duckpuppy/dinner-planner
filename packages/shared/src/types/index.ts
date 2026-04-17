@@ -80,6 +80,19 @@ export type RestaurantSummary = Pick<
   'id' | 'name' | 'cuisineType' | 'location' | 'visitCount' | 'averageRating' | 'lastVisitedAt'
 >;
 
+export interface SuggestedRestaurant {
+  id: string;
+  name: string;
+  cuisineType: string | null;
+  location: string | null;
+  averageRating: number | null;
+  totalRatings: number;
+  visitCount: number;
+  lastVisitedDate: string | null;
+  score: number;
+  reasons: string[];
+}
+
 export interface RestaurantDish {
   id: string;
   restaurantId: string;

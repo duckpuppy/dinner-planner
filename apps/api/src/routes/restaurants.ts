@@ -3,6 +3,7 @@ import {
   createRestaurantSchema,
   updateRestaurantSchema,
   restaurantQuerySchema,
+  restaurantSuggestionsQuerySchema,
   createRestaurantDishSchema,
   updateRestaurantDishSchema,
   createRestaurantDishRatingSchema,
@@ -10,6 +11,7 @@ import {
 } from '@dinner-planner/shared';
 import * as restaurantsService from '../services/restaurants.js';
 import * as restaurantDishesService from '../services/restaurantDishes.js';
+import * as suggestionsService from '../services/suggestions.js';
 
 export async function restaurantsRoutes(fastify: FastifyInstance) {
   /**
@@ -52,6 +54,27 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
       const userId = (request.user as { userId: string }).userId;
       const restaurant = await restaurantsService.createRestaurant(parseResult.data, userId);
       return reply.status(201).send(restaurant);
+    }
+  );
+
+  /**
+   * GET /api/restaurants/suggestions
+   * Return ranked restaurant suggestions based on ratings and recency.
+   * Registered before /:id so the literal path matches first.
+   */
+  fastify.get(
+    '/api/restaurants/suggestions',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parseResult = restaurantSuggestionsQuerySchema.safeParse(request.query);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+      const suggestions = await suggestionsService.getRestaurantSuggestions(parseResult.data);
+      return reply.send({ suggestions });
     }
   );
 

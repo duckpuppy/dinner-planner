@@ -1,6 +1,10 @@
 import { eq, and, notInArray, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
-import type { SuggestionsQueryInput, SuggestedDish } from '@dinner-planner/shared';
+import type {
+  SuggestionsQueryInput,
+  SuggestedDish,
+  SuggestedRestaurant,
+} from '@dinner-planner/shared';
 import { getSettings } from './settings.js';
 
 // Returns YYYY-MM-DD using local date methods (respects TZ env var)
@@ -222,4 +226,129 @@ export async function getSuggestions(query: SuggestionsQueryInput): Promise<Sugg
 
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, query.limit);
+}
+
+/**
+ * Generate human-readable reasons for why a restaurant is suggested.
+ */
+function buildRestaurantReasons(
+  avgRating: number | null,
+  totalRatings: number,
+  lastVisitedDate: string | null,
+  today: string = localDateStr()
+): string[] {
+  const reasons: string[] = [];
+
+  if (avgRating !== null && avgRating >= 4) {
+    reasons.push(
+      `Highly rated (${avgRating.toFixed(1)} stars from ${totalRatings} rating${totalRatings !== 1 ? 's' : ''})`
+    );
+  }
+
+  if (totalRatings >= 3 && avgRating !== null && avgRating >= 4) {
+    reasons.push('Family favorite');
+  }
+
+  if (!lastVisitedDate) {
+    reasons.push('Never visited');
+  } else {
+    const msPerDay = 86_400_000;
+    const daysSince = Math.floor(
+      (new Date(today).getTime() - new Date(lastVisitedDate).getTime()) / msPerDay
+    );
+    if (daysSince > 14) {
+      reasons.push(`Haven't been in ${daysSince} days`);
+    }
+  }
+
+  return reasons;
+}
+
+export async function getRestaurantSuggestions(query: {
+  limit?: number;
+  exclude?: string[];
+  cuisineType?: string;
+}): Promise<SuggestedRestaurant[]> {
+  const settings = await getSettings();
+  const recencyWindowDays = settings.recencyWindowDays;
+  const today = localDateStr();
+  const limit = query.limit ?? 5;
+  const exclude = query.exclude ?? [];
+
+  // Build base conditions: non-archived restaurants
+  const baseConditions = [eq(schema.restaurants.archived, false)];
+  if (exclude.length > 0) {
+    baseConditions.push(notInArray(schema.restaurants.id, exclude));
+  }
+  if (query.cuisineType) {
+    baseConditions.push(eq(schema.restaurants.cuisineType, query.cuisineType));
+  }
+
+  const allRestaurants = await db
+    .select()
+    .from(schema.restaurants)
+    .where(and(...baseConditions));
+
+  if (allRestaurants.length === 0) return [];
+
+  const restaurantIds = allRestaurants.map((r) => r.id);
+
+  // Get avg rating across all restaurant_dish_ratings for dishes at each restaurant
+  const ratingStats = await db
+    .select({
+      restaurantId: schema.restaurantDishes.restaurantId,
+      avgRating: sql<number>`ROUND(AVG(${schema.restaurantDishRatings.stars}), 2)`,
+      totalRatings: sql<number>`COUNT(${schema.restaurantDishRatings.id})`,
+    })
+    .from(schema.restaurantDishes)
+    .innerJoin(
+      schema.restaurantDishRatings,
+      eq(schema.restaurantDishRatings.restaurantDishId, schema.restaurantDishes.id)
+    )
+    .where(inArray(schema.restaurantDishes.restaurantId, restaurantIds))
+    .groupBy(schema.restaurantDishes.restaurantId);
+
+  const ratingByRestaurantId = new Map(ratingStats.map((r) => [r.restaurantId, r]));
+
+  // Get visit count and last visit date (preparations with this restaurantId)
+  const visitStats = await db
+    .select({
+      restaurantId: schema.preparations.restaurantId,
+      visitCount: sql<number>`COUNT(${schema.preparations.id})`,
+      lastVisitedDate: sql<string>`MAX(${schema.preparations.preparedDate})`,
+    })
+    .from(schema.preparations)
+    .where(inArray(schema.preparations.restaurantId, restaurantIds))
+    .groupBy(schema.preparations.restaurantId);
+
+  const visitByRestaurantId = new Map(visitStats.map((v) => [v.restaurantId as string, v]));
+
+  // Score and sort
+  const scored = allRestaurants.map((restaurant) => {
+    const stats = ratingByRestaurantId.get(restaurant.id);
+    const avgRating = stats ? Number(stats.avgRating) : null;
+    const totalRatings = stats ? Number(stats.totalRatings) : 0;
+    const visits = visitByRestaurantId.get(restaurant.id);
+    const visitCount = visits ? Number(visits.visitCount) : 0;
+    const lastVisitedDate = visits?.lastVisitedDate ?? null;
+
+    const score = scoreDish(avgRating, lastVisitedDate, recencyWindowDays, today);
+    const reasons = buildRestaurantReasons(avgRating, totalRatings, lastVisitedDate, today);
+
+    return {
+      id: restaurant.id,
+      name: restaurant.name,
+      cuisineType: restaurant.cuisineType ?? null,
+      location: restaurant.location ?? null,
+      averageRating: avgRating,
+      totalRatings,
+      visitCount,
+      lastVisitedDate,
+      score,
+      reasons,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
 }
