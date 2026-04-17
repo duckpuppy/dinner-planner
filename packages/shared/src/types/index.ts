@@ -93,6 +93,22 @@ export interface SuggestedRestaurant {
   reasons: string[];
 }
 
+export interface SuggestedRestaurantDish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  notes: string | null;
+  averageRating: number | null;
+  ratingCount: number;
+  userRatings: Array<{
+    userId: string;
+    displayName: string;
+    stars: number;
+    note: string | null;
+  }>;
+  reasons: string[];
+}
+
 export interface RestaurantDish {
   id: string;
   restaurantId: string;

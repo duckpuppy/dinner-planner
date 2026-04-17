@@ -404,6 +404,12 @@ export const restaurantSuggestionsQuerySchema = z.object({
   cuisineType: z.string().optional(),
 });
 
+export const dishSuggestionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+});
+
+export type DishSuggestionsQueryInput = z.infer<typeof dishSuggestionsQuerySchema>;
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

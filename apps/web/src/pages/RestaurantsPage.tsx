@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Edit2,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -22,6 +23,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
+import { DishSuggestionModal } from '@/components/DishSuggestionModal';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -413,6 +415,7 @@ function RestaurantDetail({ id }: { id: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDishSuggestions, setShowDishSuggestions] = useState(false);
 
   const {
     data: restaurant,
@@ -550,6 +553,15 @@ function RestaurantDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* Dish suggestions */}
+      <button
+        onClick={() => setShowDishSuggestions(true)}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-6 border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+      >
+        <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+        What should I order?
+      </button>
+
       {/* Notes */}
       {restaurant.notes && (
         <div className="mb-6">
@@ -607,6 +619,12 @@ function RestaurantDetail({ id }: { id: string }) {
           isPending={updateMutation.isPending}
         />
       )}
+
+      <DishSuggestionModal
+        open={showDishSuggestions}
+        restaurantId={id}
+        onClose={() => setShowDishSuggestions(false)}
+      />
     </div>
   );
 }
