@@ -109,7 +109,8 @@ export interface DinnerEntryResponse {
 export interface PreparationResponse {
   id: string;
   dishId: string | null;
-  dishName: string;
+  dishName: string | null;
+  restaurantId: string | null;
   preparers: { id: string; name: string }[];
   preparedDate: string;
   notes: string | null;
@@ -175,7 +176,8 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
       return {
         id: prep.id,
         dishId: prep.dishId,
-        dishName: dish?.name ?? 'Unknown',
+        dishName: dish?.name ?? null,
+        restaurantId: prep.restaurantId,
         preparers: preparersMap.get(prep.id) ?? [],
         preparedDate: prep.preparedDate,
         notes: prep.notes,
@@ -477,6 +479,7 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
   await db.insert(schema.preparations).values({
     id,
     dishId: input.dishId,
+    restaurantId: input.restaurantId,
     dinnerEntryId: input.dinnerEntryId,
     preparedDate: today,
     notes: input.notes,
@@ -495,9 +498,11 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
     .set({ completed: true, updatedAt: now })
     .where(eq(schema.dinnerEntries.id, input.dinnerEntryId));
 
-  const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, input.dishId),
-  });
+  const dish = input.dishId
+    ? await db.query.dishes.findFirst({
+        where: eq(schema.dishes.id, input.dishId),
+      })
+    : null;
 
   const preparerUsers = await db
     .select()
@@ -509,7 +514,8 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
   return {
     id,
     dishId: input.dishId,
-    dishName: dish?.name ?? 'Unknown',
+    dishName: dish?.name ?? null,
+    restaurantId: input.restaurantId,
     preparers,
     preparedDate: today,
     notes: input.notes ?? null,
@@ -538,7 +544,8 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
       return {
         id: prep.id,
         dishId: prep.dishId,
-        dishName: dish?.name ?? 'Unknown',
+        dishName: dish?.name ?? null,
+        restaurantId: prep.restaurantId,
         preparers: preparersMap.get(prep.id) ?? [],
         preparedDate: prep.preparedDate,
         notes: prep.notes,

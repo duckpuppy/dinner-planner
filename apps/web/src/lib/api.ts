@@ -336,7 +336,8 @@ export const menus = {
 export const preparations = {
   create: (data: {
     dinnerEntryId: string;
-    dishId: string;
+    dishId: string | null;
+    restaurantId?: string | null;
     preparerIds: string[];
     notes?: string | null;
   }) =>
@@ -645,8 +646,9 @@ export interface UpdateEntryData {
 
 export interface Preparation {
   id: string;
-  dishId: string;
-  dishName: string;
+  dishId: string | null;
+  dishName: string | null;
+  restaurantId: string | null;
   preparers: { id: string; name: string }[];
   preparedDate: string;
   notes: string | null;

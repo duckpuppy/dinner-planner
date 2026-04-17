@@ -128,7 +128,7 @@ export interface WeeklyMenu {
 // Preparation types
 export interface Preparation {
   id: string;
-  dish: DishSummary;
+  dish: DishSummary | null;
   dinnerEntry: Pick<DinnerEntry, 'id' | 'date'>;
   preparedBy: Pick<User, 'id' | 'displayName'>;
   preparedDate: string;

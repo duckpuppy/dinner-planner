@@ -340,6 +340,7 @@ describe('logPreparation', () => {
 
     const result = await logPreparation({
       dishId: 'dish-1',
+      restaurantId: null,
       dinnerEntryId: 'entry-1',
       preparerIds: ['user-1'],
       notes: 'Great dinner',
@@ -354,19 +355,39 @@ describe('logPreparation', () => {
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
-  it('uses "Unknown" when dish not found', async () => {
+  it('returns null dishName when dish not found', async () => {
     mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined);
     mockDb.select.mockReturnValueOnce(selFromWhere([]));
 
     const result = await logPreparation({
       dishId: 'dish-x',
+      restaurantId: null,
       dinnerEntryId: 'entry-1',
       preparerIds: [],
       notes: null,
     });
 
-    expect(result.dishName).toBe('Unknown');
+    expect(result.dishName).toBeNull();
     expect(result.notes).toBeNull();
+  });
+
+  it('creates preparation with null dishId for restaurant visit', async () => {
+    mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'user-1', displayName: 'Alice' }]));
+
+    const result = await logPreparation({
+      dishId: null,
+      restaurantId: 'restaurant-1',
+      dinnerEntryId: 'entry-1',
+      preparerIds: ['user-1'],
+      notes: 'Great restaurant',
+    });
+
+    expect(result.dishId).toBeNull();
+    expect(result.dishName).toBeNull();
+    expect(result.restaurantId).toBe('restaurant-1');
+    expect(result.preparers[0].name).toBe('Alice');
+    // dish lookup should NOT have been called
+    expect(mockDb.query.dishes.findFirst).not.toHaveBeenCalled();
   });
 });
 

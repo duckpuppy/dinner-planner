@@ -244,6 +244,7 @@ const mockPreparation = {
   id: 'prep-1',
   dishId: 'dish-1',
   dishName: 'Pasta',
+  restaurantId: null,
   dinnerEntryId: 'entry-1',
   preparers: [{ id: 'user-1', name: 'Alice' }],
   preparedDate: '2024-01-15',
@@ -1026,6 +1027,31 @@ describe('Menus routes', () => {
       }),
     });
     expect(res.statusCode).toBe(201);
+  });
+
+  it('POST /api/preparations → 201 with null dishId for restaurant visit', async () => {
+    const restaurantPrep = {
+      ...mockPreparation,
+      dishId: null,
+      dishName: null,
+      restaurantId: '00000000-0000-4000-8000-000000000004',
+    };
+    vi.mocked(menusService.logPreparation).mockResolvedValueOnce(restaurantPrep);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/preparations',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        dishId: null,
+        restaurantId: '00000000-0000-4000-8000-000000000004',
+        dinnerEntryId: '00000000-0000-4000-8000-000000000002',
+        preparerIds: ['00000000-0000-4000-8000-000000000003'],
+      }),
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.preparation.dishId).toBeNull();
+    expect(body.preparation.restaurantId).toBe('00000000-0000-4000-8000-000000000004');
   });
 
   it('DELETE /api/preparations/:id → 404 when not found', async () => {
