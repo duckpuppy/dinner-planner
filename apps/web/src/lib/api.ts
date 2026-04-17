@@ -1,4 +1,12 @@
-import type { DishNote } from '@dinner-planner/shared';
+import type {
+  DishNote,
+  CreateRestaurantInput,
+  UpdateRestaurantInput,
+  CreateRestaurantDishInput,
+  UpdateRestaurantDishInput,
+  CreateRestaurantDishRatingInput,
+  UpdateRestaurantDishRatingInput,
+} from '@dinner-planner/shared';
 export { DIETARY_TAGS } from '@dinner-planner/shared';
 export type { DietaryTag } from '@dinner-planner/shared';
 
@@ -608,6 +616,8 @@ export interface DinnerEntry {
   customSideText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
+  restaurantId: string | null;
+  restaurant: RestaurantSummary | null;
   completed: boolean;
   skipped: boolean;
   scale: number;
@@ -626,6 +636,7 @@ export interface UpdateEntryData {
   customSideText?: string | null;
   restaurantName?: string | null;
   restaurantNotes?: string | null;
+  restaurantId?: string | null;
   mainDishId?: string | null;
   sideDishIds?: string[];
   sourceEntryId?: string | null;
@@ -802,6 +813,45 @@ export interface Pattern {
 
 export type { DishNote };
 
+export interface RestaurantSummary {
+  id: string;
+  name: string;
+  cuisineType: string | null;
+  location: string | null;
+  visitCount: number;
+  averageRating: number | null;
+  lastVisitedAt: string | null;
+}
+
+export interface RestaurantDetail extends RestaurantSummary {
+  notes: string | null;
+  archived: boolean;
+  createdBy: { id: string; displayName: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestaurantDish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  notes: string | null;
+  averageRating: number | null;
+  ratingCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestaurantDishRating {
+  id: string;
+  restaurantDishId: string;
+  user: { id: string; displayName: string };
+  stars: number;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PrepTask {
   id: string;
   entryId: string;
@@ -875,6 +925,64 @@ export async function postSetup(username: string, password: string): Promise<voi
     throw Object.assign(new Error('setup_failed'), { details: data });
   }
 }
+
+// Restaurants API
+export const restaurants = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ restaurants: RestaurantDetail[]; total: number }>(`/restaurants${query}`);
+  },
+  get: (id: string) => request<RestaurantDetail>(`/restaurants/${id}`),
+  create: (data: CreateRestaurantInput) =>
+    request<RestaurantDetail>('/restaurants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: UpdateRestaurantInput) =>
+    request<RestaurantDetail>(`/restaurants/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) => request<void>(`/restaurants/${id}`, { method: 'DELETE' }),
+  // Dishes
+  listDishes: (restaurantId: string) =>
+    request<{ dishes: RestaurantDish[] }>(`/restaurants/${restaurantId}/dishes`),
+  createDish: (restaurantId: string, data: CreateRestaurantDishInput) =>
+    request<RestaurantDish>(`/restaurants/${restaurantId}/dishes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateDish: (restaurantId: string, dishId: string, data: UpdateRestaurantDishInput) =>
+    request<RestaurantDish>(`/restaurants/${restaurantId}/dishes/${dishId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteDish: (restaurantId: string, dishId: string) =>
+    request<void>(`/restaurants/${restaurantId}/dishes/${dishId}`, { method: 'DELETE' }),
+  // Ratings
+  listRatings: (restaurantId: string, dishId: string) =>
+    request<{ ratings: RestaurantDishRating[] }>(
+      `/restaurants/${restaurantId}/dishes/${dishId}/ratings`
+    ),
+  addRating: (restaurantId: string, dishId: string, data: CreateRestaurantDishRatingInput) =>
+    request<RestaurantDishRating>(`/restaurants/${restaurantId}/dishes/${dishId}/ratings`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateRating: (
+    restaurantId: string,
+    dishId: string,
+    ratingId: string,
+    data: UpdateRestaurantDishRatingInput
+  ) =>
+    request<RestaurantDishRating>(
+      `/restaurants/${restaurantId}/dishes/${dishId}/ratings/${ratingId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    ),
+};
 
 // Prep Tasks API
 export const prepTasks = {

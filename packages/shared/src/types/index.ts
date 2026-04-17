@@ -59,6 +59,48 @@ export type DishSummary = Pick<
   'id' | 'name' | 'type' | 'tags' | 'aggregateRating' | 'preparationCount' | 'lastPreparedAt'
 >;
 
+// Restaurant types
+export interface Restaurant {
+  id: string;
+  name: string;
+  cuisineType: string | null;
+  location: string | null;
+  notes: string | null;
+  archived: boolean;
+  createdBy: Pick<User, 'id' | 'displayName'>;
+  visitCount: number;
+  averageRating: number | null;
+  lastVisitedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RestaurantSummary = Pick<
+  Restaurant,
+  'id' | 'name' | 'cuisineType' | 'location' | 'visitCount' | 'averageRating' | 'lastVisitedAt'
+>;
+
+export interface RestaurantDish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  notes: string | null;
+  averageRating: number | null;
+  ratingCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestaurantDishRating {
+  id: string;
+  restaurantDishId: string;
+  user: Pick<User, 'id' | 'displayName'>;
+  stars: number;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Menu types
 export type DinnerType = 'assembled' | 'fend_for_self' | 'dining_out' | 'custom' | 'leftovers';
 
@@ -71,6 +113,8 @@ export interface DinnerEntry {
   sideDishes: DishSummary[];
   completed: boolean;
   preparation: PreparationSummary | null;
+  restaurantId: string | null;
+  restaurant: RestaurantSummary | null;
   createdAt: string;
   updatedAt: string;
 }

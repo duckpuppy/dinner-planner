@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq, inArray, desc, and, gte, isNotNull } from 'drizzle-orm';
+import { eq, inArray, desc, and, gte, isNotNull, sql } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
@@ -65,6 +65,16 @@ async function fetchPreparersMap(
   return result;
 }
 
+export interface RestaurantSummaryResponse {
+  id: string;
+  name: string;
+  cuisineType: string | null;
+  location: string | null;
+  visitCount: number;
+  averageRating: number | null;
+  lastVisitedAt: string | null;
+}
+
 export interface DinnerEntryResponse {
   id: string;
   date: string;
@@ -74,6 +84,8 @@ export interface DinnerEntryResponse {
   customSideText: string | null;
   restaurantName: string | null;
   restaurantNotes: string | null;
+  restaurantId: string | null;
+  restaurant: RestaurantSummaryResponse | null;
   completed: boolean;
   skipped: boolean;
   scale: number;
@@ -96,7 +108,7 @@ export interface DinnerEntryResponse {
 
 export interface PreparationResponse {
   id: string;
-  dishId: string;
+  dishId: string | null;
   dishName: string;
   preparers: { id: string; name: string }[];
   preparedDate: string;
@@ -155,9 +167,11 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
 
   const preparations = await Promise.all(
     preps.map(async (prep) => {
-      const dish = await db.query.dishes.findFirst({
-        where: eq(schema.dishes.id, prep.dishId),
-      });
+      const dish = prep.dishId
+        ? await db.query.dishes.findFirst({
+            where: eq(schema.dishes.id, prep.dishId),
+          })
+        : null;
       return {
         id: prep.id,
         dishId: prep.dishId,
@@ -182,6 +196,53 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     sourceEntryDishName = rows[0]?.dishName ?? null;
   }
 
+  // Get linked restaurant summary
+  const restaurantId: string | null = entry.restaurantId;
+  let restaurant: RestaurantSummaryResponse | null = null;
+  if (entry.restaurantId) {
+    const restaurantRow = await db.query.restaurants.findFirst({
+      where: eq(schema.restaurants.id, entry.restaurantId),
+    });
+    if (restaurantRow) {
+      // Visit count for this restaurant
+      const visitRows = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.preparations)
+        .where(eq(schema.preparations.restaurantId, restaurantRow.id));
+      const visitCount = visitRows[0]?.count ?? 0;
+
+      // Average rating
+      const ratingRows = await db
+        .select({ avg: sql<number | null>`avg(${schema.restaurantDishRatings.stars})` })
+        .from(schema.restaurantDishRatings)
+        .innerJoin(
+          schema.restaurantDishes,
+          eq(schema.restaurantDishRatings.restaurantDishId, schema.restaurantDishes.id)
+        )
+        .where(eq(schema.restaurantDishes.restaurantId, restaurantRow.id));
+      const averageRating = ratingRows[0]?.avg ?? null;
+
+      // Last visited
+      const lastVisitRows = await db
+        .select({ preparedDate: schema.preparations.preparedDate })
+        .from(schema.preparations)
+        .where(eq(schema.preparations.restaurantId, restaurantRow.id))
+        .orderBy(desc(schema.preparations.preparedDate))
+        .limit(1);
+      const lastVisitedAt = lastVisitRows[0]?.preparedDate ?? null;
+
+      restaurant = {
+        id: restaurantRow.id,
+        name: restaurantRow.name,
+        cuisineType: restaurantRow.cuisineType,
+        location: restaurantRow.location,
+        visitCount,
+        averageRating,
+        lastVisitedAt,
+      };
+    }
+  }
+
   const entryDate = parseDate(entry.date);
 
   return {
@@ -193,6 +254,8 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
     customSideText: entry.customSideText ?? null,
     restaurantName: entry.restaurantName,
     restaurantNotes: entry.restaurantNotes,
+    restaurantId,
+    restaurant,
     completed: entry.completed,
     skipped: entry.skipped,
     scale: entry.scale,
@@ -334,6 +397,7 @@ export async function updateDinnerEntry(
       customSideText: input.customSideText ?? null,
       restaurantName: input.restaurantName,
       restaurantNotes: input.restaurantNotes,
+      restaurantId: input.restaurantId ?? null,
       mainDishId: input.mainDishId,
       sourceEntryId,
       scale: input.scale ?? 1,
@@ -466,9 +530,11 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
 
   const preparations = await Promise.all(
     preps.map(async (prep) => {
-      const dish = await db.query.dishes.findFirst({
-        where: eq(schema.dishes.id, prep.dishId),
-      });
+      const dish = prep.dishId
+        ? await db.query.dishes.findFirst({
+            where: eq(schema.dishes.id, prep.dishId),
+          })
+        : null;
       return {
         id: prep.id,
         dishId: prep.dishId,

@@ -103,6 +103,7 @@ export const updateDinnerEntrySchema = z.object({
   sideDishIds: z.array(z.string().uuid()).default([]),
   sourceEntryId: z.string().uuid().nullable().optional(),
   scale: z.number().int().min(1).max(4).default(1),
+  restaurantId: z.string().uuid().nullable().default(null),
 });
 
 // Recurring pattern schemas
@@ -348,6 +349,53 @@ export type Store = {
   createdAt: string;
 };
 
+// Restaurant schemas (M28)
+export const createRestaurantSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200),
+  cuisineType: z.string().max(100).nullable().default(null),
+  location: z.string().max(500).nullable().default(null),
+  notes: z.string().max(2000).nullable().default(null),
+});
+
+export const updateRestaurantSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  cuisineType: z.string().max(100).nullable().optional(),
+  location: z.string().max(500).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  archived: z.boolean().optional(),
+});
+
+export const restaurantQuerySchema = paginationSchema.extend({
+  search: z.string().optional(),
+  archived: z
+    .preprocess((v) => (typeof v === 'string' ? v === 'true' : v), z.boolean())
+    .default(false),
+  sort: z.enum(['name', 'rating', 'recent', 'created']).default('name'),
+  order: z.enum(['asc', 'desc']).default('asc'),
+});
+
+// Restaurant dish schemas
+export const createRestaurantDishSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200),
+  notes: z.string().max(2000).nullable().default(null),
+});
+
+export const updateRestaurantDishSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+// Restaurant dish rating schemas
+export const createRestaurantDishRatingSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  note: z.string().max(1000).nullable().default(null),
+});
+
+export const updateRestaurantDishRatingSchema = z.object({
+  stars: z.number().int().min(1).max(5).optional(),
+  note: z.string().max(1000).nullable().optional(),
+});
+
 // Export inferred types from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
@@ -383,3 +431,10 @@ export type DishNote = z.infer<typeof dishNoteSchema>;
 export type CreatePantryItemInput = z.infer<typeof createPantryItemSchema>;
 export type UpdatePantryItemInput = z.infer<typeof updatePantryItemSchema>;
 export type ImportVideoUrlInput = z.infer<typeof importVideoUrlSchema>;
+export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
+export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
+export type RestaurantQueryInput = z.infer<typeof restaurantQuerySchema>;
+export type CreateRestaurantDishInput = z.infer<typeof createRestaurantDishSchema>;
+export type UpdateRestaurantDishInput = z.infer<typeof updateRestaurantDishSchema>;
+export type CreateRestaurantDishRatingInput = z.infer<typeof createRestaurantDishRatingSchema>;
+export type UpdateRestaurantDishRatingInput = z.infer<typeof updateRestaurantDishRatingSchema>;
