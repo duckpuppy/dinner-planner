@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Sparkles, CalendarOff } from 'lucide-react';
 import { menus, dishes } from '@/lib/api';
-import type { DinnerEntry, UpdateEntryData, SuggestedDish } from '@/lib/api';
+import type { DinnerEntry, UpdateEntryData, SuggestedDish, RestaurantSummary } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { SuggestionModal } from '@/components/SuggestionModal';
 import { DishPicker } from '@/components/DishPicker';
+import { RestaurantPicker } from '@/components/RestaurantPicker';
 
 const DAY_NAMES_FULL = [
   'Sunday',
@@ -31,6 +32,7 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
   const [customText, setCustomText] = useState(entry.customText || '');
   const [customSideText, setCustomSideText] = useState(entry.customSideText || '');
   const [customSideInput, setCustomSideInput] = useState('');
+  const [restaurantId, setRestaurantId] = useState(entry.restaurantId || '');
   const [restaurantName, setRestaurantName] = useState(
     entry.restaurantName ?? (entry.type === 'dining_out' ? entry.customText : null) ?? ''
   );
@@ -95,6 +97,7 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
       sideDishIds: showSideDishes ? sideDishIds : [],
       customSideText: showSideDishes ? customSideText || null : null,
       customText: type === 'custom' ? customText || null : null,
+      restaurantId: type === 'dining_out' ? restaurantId || null : null,
       restaurantName: type === 'dining_out' ? restaurantName || null : null,
       restaurantNotes: type === 'dining_out' ? restaurantNotes || null : null,
       sourceEntryId: type === 'leftovers' ? sourceEntryId || null : null,
@@ -243,13 +246,13 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
       {type === 'dining_out' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1">Restaurant Name</label>
-            <input
-              type="text"
-              value={restaurantName}
-              onChange={(e) => setRestaurantName(e.target.value)}
-              placeholder="Where are you going?"
-              className="w-full px-3 py-2 border rounded-md bg-background"
+            <label className="block text-sm font-medium mb-1">Restaurant</label>
+            <RestaurantPicker
+              value={restaurantId}
+              onChange={(id: string, restaurant: RestaurantSummary) => {
+                setRestaurantId(id);
+                setRestaurantName(restaurant.name);
+              }}
             />
           </div>
           <div>
