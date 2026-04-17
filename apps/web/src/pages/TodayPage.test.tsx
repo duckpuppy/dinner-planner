@@ -78,6 +78,7 @@ const baseEntry = {
   customText: null,
   restaurantName: null,
   restaurantNotes: null,
+  restaurantId: null,
   completed: false,
   skipped: false,
   mainDish: { id: 'dish-1', name: 'Pasta', type: 'main' },
@@ -666,6 +667,80 @@ describe('TodayPage PreparationWithRating', () => {
     fireEvent.click(removeBtn);
     await waitFor(() => {
       expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Failed to delete rating');
+    });
+  });
+});
+
+describe('TodayPage dining_out completion', () => {
+  const diningOutEntry = {
+    ...baseEntry,
+    type: 'dining_out' as const,
+    mainDish: null,
+    restaurantName: 'The Grill',
+    restaurantId: 'rest-1',
+  };
+
+  const mockUsers = [
+    { id: 'user-1', username: 'alice', displayName: 'Alice', role: 'user' as const },
+    { id: 'user-2', username: 'bob', displayName: 'Bob', role: 'user' as const },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: { weekStartDate: '2024-06-10', entries: [] },
+    });
+  });
+
+  it('shows "We Ate Here!" button for uncompleted dining_out entry', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: diningOutEntry });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    expect(await screen.findByText('We Ate Here!')).toBeTruthy();
+  });
+
+  it('does NOT show "I Made This!" button for dining_out entry', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: diningOutEntry });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    await screen.findByText('We Ate Here!');
+    expect(screen.queryByText('I Made This!')).toBeNull();
+  });
+
+  it('shows "Who went?" label when We Ate Here! is clicked', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: diningOutEntry });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('We Ate Here!'));
+    expect(await screen.findByText('Who went?')).toBeTruthy();
+  });
+
+  it('does NOT show "Who cooked?" label for dining_out entry', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: diningOutEntry });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('We Ate Here!'));
+    await screen.findByText('Who went?');
+    expect(screen.queryByText('Who cooked?')).toBeNull();
+  });
+
+  it('calls preparations.create with null dishId and restaurantId for dining_out', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: diningOutEntry });
+    vi.mocked(usersApi.list).mockResolvedValue({ users: mockUsers });
+    vi.mocked(preparations.create).mockResolvedValue({ preparation: { id: 'prep-1' } } as never);
+    render(<TodayPage />, { wrapper });
+    fireEvent.click(await screen.findByText('We Ate Here!'));
+    await screen.findByText('Who went?');
+    fireEvent.click(screen.getByRole('button', { name: 'Alice' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log Preparation' }));
+    await waitFor(() => {
+      expect(preparations.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dinnerEntryId: 'entry-1',
+          dishId: null,
+          restaurantId: 'rest-1',
+          preparerIds: ['user-1'],
+        })
+      );
     });
   });
 });

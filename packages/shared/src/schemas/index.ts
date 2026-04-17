@@ -128,7 +128,8 @@ export const updatePatternSchema = z.object({
 // Preparation schemas
 export const createPreparationSchema = z.object({
   dinnerEntryId: z.string().uuid(),
-  dishId: z.string().uuid(),
+  dishId: z.string().uuid().nullable().default(null),
+  restaurantId: z.string().uuid().nullable().default(null),
   preparerIds: z.array(z.string().uuid()).min(1),
   notes: z.string().max(2000).nullable().default(null),
 });
