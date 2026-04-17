@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   User,
   Users,
+  UtensilsCrossed,
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ const navItems = [
   { to: '/today', icon: Home, label: 'Today' },
   { to: '/week', icon: Calendar, label: 'Week' },
   { to: '/dishes', icon: ChefHat, label: 'Dishes' },
+  { to: '/restaurants', icon: UtensilsCrossed, label: 'Restaurants' },
   { to: '/grocery', icon: ShoppingCart, label: 'Grocery' },
   { to: '/pantry', icon: Package, label: 'Pantry' },
   { to: '/history', icon: Clock, label: 'History' },

@@ -24,6 +24,7 @@ import { GroceryPage } from './pages/GroceryPage';
 import { PantryPage } from './pages/PantryPage';
 import { PatternsPage } from './pages/PatternsPage';
 import { PlanningBoardPage } from './pages/PlanningBoardPage';
+import { RestaurantsPage, RestaurantDetailRoute } from './pages/RestaurantsPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -113,6 +114,8 @@ export default function App() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/patterns" element={<PatternsPage />} />
             <Route path="/plan" element={<PlanningBoardPage />} />
+            <Route path="/restaurants" element={<RestaurantsPage />} />
+            <Route path="/restaurants/:id" element={<RestaurantDetailRoute />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route
               path="/admin/users"
