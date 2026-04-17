@@ -197,7 +197,8 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
   const logPrepMutation = useMutation({
     mutationFn: (data: {
       dinnerEntryId: string;
-      dishId: string;
+      dishId: string | null;
+      restaurantId?: string | null;
       preparerIds: string[];
       notes?: string | null;
     }) => preparations.create(data),
@@ -215,13 +216,23 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
   });
 
   const handleLogPrep = () => {
-    if (!entry.mainDish) return;
-    logPrepMutation.mutate({
-      dinnerEntryId: entry.id,
-      dishId: entry.mainDish.id,
-      preparerIds: selectedPreparerIds,
-      notes: notes || null,
-    });
+    if (entry.type === 'dining_out') {
+      logPrepMutation.mutate({
+        dinnerEntryId: entry.id,
+        dishId: null,
+        restaurantId: entry.restaurantId,
+        preparerIds: selectedPreparerIds,
+        notes: notes || null,
+      });
+    } else {
+      if (!entry.mainDish) return;
+      logPrepMutation.mutate({
+        dinnerEntryId: entry.id,
+        dishId: entry.mainDish.id,
+        preparerIds: selectedPreparerIds,
+        notes: notes || null,
+      });
+    }
   };
 
   return (
@@ -371,12 +382,16 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
         {/* Log preparation */}
         {!entry.completed &&
           !entry.skipped &&
-          ((entry.type === 'assembled' && entry.mainDish) || entry.type === 'custom') && (
+          ((entry.type === 'assembled' && entry.mainDish) ||
+            entry.type === 'custom' ||
+            entry.type === 'dining_out') && (
             <div className="pt-4 border-t">
               {showPrepForm ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-2">Who cooked?</p>
+                    <p className="text-sm font-medium mb-2">
+                      {entry.type === 'dining_out' ? 'Who went?' : 'Who cooked?'}
+                    </p>
                     <div
                       className="flex flex-wrap gap-2"
                       role="group"
@@ -444,7 +459,16 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
                   className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md
                            font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
                 >
-                  <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
+                  {entry.type === 'dining_out' ? (
+                    <>
+                      <UtensilsCrossed className="h-4 w-4" aria-hidden="true" />
+                      We Ate Here!
+                    </>
+                  ) : (
+                    <>
+                      <ChefHat className="h-4 w-4" aria-hidden="true" />I Made This!
+                    </>
+                  )}
                 </button>
               )}
             </div>
