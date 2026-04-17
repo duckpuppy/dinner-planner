@@ -48,7 +48,7 @@ CREATE TABLE `__new_preparations` (
 	FOREIGN KEY (`dinner_entry_id`) REFERENCES `dinner_entries`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_preparations`("id", "dish_id", "restaurant_id", "dinner_entry_id", "prepared_date", "notes", "created_at", "updated_at") SELECT "id", "dish_id", "restaurant_id", "dinner_entry_id", "prepared_date", "notes", "created_at", "updated_at" FROM `preparations`;--> statement-breakpoint
+INSERT INTO `__new_preparations`("id", "dish_id", "restaurant_id", "dinner_entry_id", "prepared_date", "notes", "created_at", "updated_at") SELECT "id", "dish_id", NULL, "dinner_entry_id", "prepared_date", "notes", "created_at", "updated_at" FROM `preparations`;--> statement-breakpoint
 DROP TABLE `preparations`;--> statement-breakpoint
 ALTER TABLE `__new_preparations` RENAME TO `preparations`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
