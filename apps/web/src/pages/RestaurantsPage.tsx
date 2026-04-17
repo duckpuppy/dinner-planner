@@ -20,7 +20,7 @@ import {
 import { useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, googleMapsUrl } from '@/lib/utils';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 import { DishSuggestionModal } from '@/components/DishSuggestionModal';
@@ -212,10 +212,16 @@ function RestaurantCard({ restaurant, onClick }: RestaurantCardProps) {
             <p className="text-sm text-muted-foreground truncate">{restaurant.cuisineType}</p>
           )}
           {restaurant.location && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 truncate">
+            <a
+              href={googleMapsUrl(restaurant.location)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 truncate hover:text-primary transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
               <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
               {restaurant.location}
-            </p>
+            </a>
           )}
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -502,10 +508,15 @@ function RestaurantDetail({ id }: { id: string }) {
             <p className="text-muted-foreground mt-0.5">{restaurant.cuisineType}</p>
           )}
           {restaurant.location && (
-            <p className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+            <a
+              href={googleMapsUrl(restaurant.location)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm text-muted-foreground mt-1 hover:text-primary transition-colors"
+            >
               <MapPin className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
               {restaurant.location}
-            </p>
+            </a>
           )}
         </div>
         <div className="flex gap-2 flex-shrink-0">

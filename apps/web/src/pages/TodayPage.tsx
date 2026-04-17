@@ -19,11 +19,12 @@ import {
   Star,
   CalendarX,
   ClipboardList,
+  MapPin,
   SkipForward,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { cn, localDateStr } from '@/lib/utils';
+import { cn, localDateStr, googleMapsUrl } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { StarRating } from '@/components/StarRating';
 import { SkeletonCard, Skeleton } from '@/components/Skeleton';
@@ -333,6 +334,17 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
             </p>
             {entry.restaurantNotes && (
               <p className="text-sm text-muted-foreground">{entry.restaurantNotes}</p>
+            )}
+            {entry.restaurant?.location && (
+              <a
+                href={googleMapsUrl(entry.restaurant.location)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-muted-foreground mt-1 hover:text-primary transition-colors"
+              >
+                <MapPin className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                {entry.restaurant.location}
+              </a>
             )}
           </div>
         )}
