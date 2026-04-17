@@ -62,13 +62,24 @@ import {
 
 // --- Chain helpers ---
 
-/** select().from().where() */
-function selFromWhere(result: unknown[]) {
-  return {
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(result),
-    }),
+/**
+ * Universal thenable chain — supports any combination of Drizzle query builder
+ * methods. When `await`ed at any point in the chain, resolves with `result`.
+ */
+function makeSelectChain(result: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chain: any = {};
+  chain.then = (onFulfilled?: (v: unknown[]) => void) => {
+    if (onFulfilled) onFulfilled(result);
+    return chain;
   };
+  chain.from = vi.fn().mockReturnValue(chain);
+  chain.where = vi.fn().mockReturnValue(chain);
+  chain.innerJoin = vi.fn().mockReturnValue(chain);
+  chain.orderBy = vi.fn().mockReturnValue(chain);
+  chain.limit = vi.fn().mockReturnValue(chain);
+  chain.offset = vi.fn().mockReturnValue(chain);
+  return chain;
 }
 
 function makeInsert() {
@@ -119,7 +130,7 @@ function makeRatingRow(overrides: Record<string, unknown> = {}) {
  * select({ avg, count }).from(restaurantDishRatings).where()
  */
 function mockDishStats(avg: number | null = null, count = 0) {
-  mockDb.select.mockReturnValueOnce(selFromWhere([{ avg, count }]));
+  mockDb.select.mockReturnValueOnce(makeSelectChain([{ avg, count }]));
 }
 
 beforeEach(() => {
@@ -135,14 +146,14 @@ beforeEach(() => {
 
 describe('listDishesByRestaurant', () => {
   it('returns empty array when no dishes exist', async () => {
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const result = await listDishesByRestaurant('rest-1');
     expect(result).toEqual([]);
   });
 
   it('returns dishes with rating stats', async () => {
     const dish = makeDishRow();
-    mockDb.select.mockReturnValueOnce(selFromWhere([dish]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([dish]));
     // buildDishResponse stats select
     mockDishStats(4.0, 3);
 
@@ -159,7 +170,7 @@ describe('listDishesByRestaurant', () => {
   it('returns multiple dishes each with their own stats', async () => {
     const dish1 = makeDishRow({ id: 'dish-1', name: 'Margherita Pizza' });
     const dish2 = makeDishRow({ id: 'dish-2', name: 'Tiramisu' });
-    mockDb.select.mockReturnValueOnce(selFromWhere([dish1, dish2]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([dish1, dish2]));
     mockDishStats(4.5, 2);
     mockDishStats(3.0, 1);
 
@@ -172,7 +183,7 @@ describe('listDishesByRestaurant', () => {
 
   it('returns null averageRating when no ratings', async () => {
     const dish = makeDishRow();
-    mockDb.select.mockReturnValueOnce(selFromWhere([dish]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([dish]));
     mockDishStats(null, 0);
 
     const result = await listDishesByRestaurant('rest-1');
@@ -289,7 +300,7 @@ describe('deleteRestaurantDish', () => {
 
 describe('getDishRatings', () => {
   it('returns empty array when no ratings exist', async () => {
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
     const result = await getDishRatings('dish-1');
     expect(result).toEqual([]);
   });
@@ -297,9 +308,9 @@ describe('getDishRatings', () => {
   it('returns single rating with user info', async () => {
     const rating = makeRatingRow();
     // select ratings
-    mockDb.select.mockReturnValueOnce(selFromWhere([rating]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([rating]));
     // select users (one userId)
-    mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'user-1', displayName: 'Alice' }]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: 'user-1', displayName: 'Alice' }]));
 
     const result = await getDishRatings('dish-1');
 
@@ -315,10 +326,10 @@ describe('getDishRatings', () => {
     const rating1 = makeRatingRow({ id: 'rating-1', userId: 'user-1', stars: 5 });
     const rating2 = makeRatingRow({ id: 'rating-2', userId: 'user-2', stars: 3, note: 'Good' });
     // select ratings
-    mockDb.select.mockReturnValueOnce(selFromWhere([rating1, rating2]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([rating1, rating2]));
     // select users (multiple userIds — uses sql`IN` path)
     mockDb.select.mockReturnValueOnce(
-      selFromWhere([
+      makeSelectChain([
         { id: 'user-1', displayName: 'Alice' },
         { id: 'user-2', displayName: 'Bob' },
       ])
@@ -334,9 +345,9 @@ describe('getDishRatings', () => {
 
   it('uses "Unknown" displayName when user not in user map', async () => {
     const rating = makeRatingRow({ userId: 'missing-user' });
-    mockDb.select.mockReturnValueOnce(selFromWhere([rating]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([rating]));
     // user lookup returns empty
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
 
     const result = await getDishRatings('dish-1');
 
