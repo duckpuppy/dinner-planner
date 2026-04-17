@@ -23,7 +23,14 @@ vi.mock('../db/index.js', () => ({
     ratings: { stars: null, id: null, preparationId: null },
     restaurants: { archived: null, id: null, cuisineType: null },
     restaurantDishes: { restaurantId: null, id: null },
-    restaurantDishRatings: { restaurantDishId: null, id: null, stars: null },
+    restaurantDishRatings: {
+      restaurantDishId: null,
+      id: null,
+      stars: null,
+      userId: null,
+      note: null,
+    },
+    users: { id: null, displayName: null },
   },
 }));
 
@@ -38,6 +45,7 @@ import {
   buildReasons,
   getSuggestions,
   getRestaurantSuggestions,
+  getDishSuggestions,
 } from '../services/suggestions.js';
 
 const TODAY = '2024-06-15';
@@ -466,5 +474,182 @@ describe('getRestaurantSuggestions', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('r2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDishSuggestions
+// ---------------------------------------------------------------------------
+
+function makeDishRow(id: string, restaurantId: string, name: string, notes: string | null = null) {
+  return { id, restaurantId, name, notes };
+}
+
+function makeRatingRow(
+  id: string,
+  restaurantDishId: string,
+  userId: string,
+  displayName: string,
+  stars: number,
+  note: string | null = null
+) {
+  return { id, restaurantDishId, userId, displayName, stars, note };
+}
+
+/**
+ * Set up the 2 DB calls for getDishSuggestions:
+ * 1. select().from(restaurantDishes).where() → dishes
+ * 2. select({}).from(restaurantDishRatings).innerJoin(users).where() → ratings
+ */
+function setupDishSuggestionsMocks(
+  dishes: ReturnType<typeof makeDishRow>[],
+  ratings: ReturnType<typeof makeRatingRow>[] = []
+) {
+  mockDb.select.mockReturnValueOnce(selFromWhere(dishes));
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(ratings) }),
+    }),
+  });
+}
+
+describe('getDishSuggestions', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns empty array for restaurant with no dishes', async () => {
+    mockDb.select.mockReturnValueOnce(selFromWhere([]));
+
+    const result = await getDishSuggestions('r1', { limit: 10 });
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns dishes sorted by rating highest first', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos'), makeDishRow('d2', 'r1', 'Burrito')];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5),
+      makeRatingRow('rat2', 'd2', 'u1', 'Alice', 3),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].id).toBe('d1');
+    expect(result[0].averageRating).toBe(5);
+    expect(result[1].id).toBe('d2');
+    expect(result[1].averageRating).toBe(3);
+  });
+
+  it('places unrated dishes at the end', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos'), makeDishRow('d2', 'r1', 'Mystery Dish')];
+    const ratings = [makeRatingRow('rat1', 'd1', 'u1', 'Alice', 4)];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].id).toBe('d1');
+    expect(result[1].id).toBe('d2');
+    expect(result[1].averageRating).toBeNull();
+  });
+
+  it('includes per-user rating breakdowns', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5, 'Amazing!'),
+      makeRatingRow('rat2', 'd1', 'u2', 'Bob', 4, null),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].userRatings).toHaveLength(2);
+    expect(result[0].userRatings[0]).toMatchObject({
+      userId: 'u1',
+      displayName: 'Alice',
+      stars: 5,
+      note: 'Amazing!',
+    });
+    expect(result[0].userRatings[1]).toMatchObject({ userId: 'u2', displayName: 'Bob', stars: 4 });
+  });
+
+  it('generates "Top pick" reason for avgRating >= 4.5', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    const ratings = [makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5)];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].reasons).toContain('Top pick');
+  });
+
+  it('generates "Highly rated" reason for avgRating >= 4.0 but < 4.5', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 4),
+      makeRatingRow('rat2', 'd1', 'u2', 'Bob', 4),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].reasons).toContain('Highly rated');
+    expect(result[0].reasons).not.toContain('Top pick');
+  });
+
+  it('generates "Family favorite" when >= 3 ratings and avgRating >= 4.0', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5),
+      makeRatingRow('rat2', 'd1', 'u2', 'Bob', 4),
+      makeRatingRow('rat3', 'd1', 'u3', 'Carol', 5),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].reasons).toContain('Family favorite');
+  });
+
+  it('does not generate "Family favorite" with fewer than 3 ratings', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5),
+      makeRatingRow('rat2', 'd1', 'u2', 'Bob', 5),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].reasons).not.toContain('Family favorite');
+  });
+
+  it('generates "Not yet rated — try it!" for unrated dishes', async () => {
+    const dishes = [makeDishRow('d1', 'r1', 'Tacos')];
+    setupDishSuggestionsMocks(dishes, []);
+
+    const result = await getDishSuggestions('r1', {});
+
+    expect(result[0].averageRating).toBeNull();
+    expect(result[0].reasons).toContain('Not yet rated — try it!');
+  });
+
+  it('respects limit parameter', async () => {
+    const dishes = [
+      makeDishRow('d1', 'r1', 'Tacos'),
+      makeDishRow('d2', 'r1', 'Burrito'),
+      makeDishRow('d3', 'r1', 'Quesadilla'),
+    ];
+    const ratings = [
+      makeRatingRow('rat1', 'd1', 'u1', 'Alice', 5),
+      makeRatingRow('rat2', 'd2', 'u1', 'Alice', 4),
+      makeRatingRow('rat3', 'd3', 'u1', 'Alice', 3),
+    ];
+    setupDishSuggestionsMocks(dishes, ratings);
+
+    const result = await getDishSuggestions('r1', { limit: 2 });
+
+    expect(result).toHaveLength(2);
   });
 });

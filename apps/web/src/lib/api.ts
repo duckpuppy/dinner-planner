@@ -799,6 +799,22 @@ export interface SuggestedDish {
   reasons: string[];
 }
 
+export interface SuggestedRestaurantDish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  notes: string | null;
+  averageRating: number | null;
+  ratingCount: number;
+  userRatings: Array<{
+    userId: string;
+    displayName: string;
+    stars: number;
+    note: string | null;
+  }>;
+  reasons: string[];
+}
+
 export interface SuggestedRestaurant {
   id: string;
   name: string;
@@ -997,6 +1013,14 @@ export const restaurants = {
         body: JSON.stringify(data),
       }
     ),
+  dishSuggestions: (restaurantId: string, params?: { limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return request<{ suggestions: SuggestedRestaurantDish[] }>(
+      `/restaurants/${restaurantId}/dish-suggestions${qs ? `?${qs}` : ''}`
+    );
+  },
   suggestions: (params?: { limit?: number; exclude?: string[]; cuisineType?: string }) => {
     const query = new URLSearchParams();
     if (params?.limit) query.set('limit', String(params.limit));

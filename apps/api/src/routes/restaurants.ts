@@ -4,6 +4,7 @@ import {
   updateRestaurantSchema,
   restaurantQuerySchema,
   restaurantSuggestionsQuerySchema,
+  dishSuggestionsQuerySchema,
   createRestaurantDishSchema,
   updateRestaurantDishSchema,
   createRestaurantDishRatingSchema,
@@ -134,6 +135,28 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: result.error ?? 'Restaurant not found' });
       }
       return reply.status(204).send();
+    }
+  );
+
+  /**
+   * GET /api/restaurants/:id/dish-suggestions
+   * Return top-rated dishes at a restaurant, ranked by average rating.
+   * Registered before /:id/dishes so the literal path segment matches first.
+   */
+  fastify.get(
+    '/api/restaurants/:id/dish-suggestions',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const parseResult = dishSuggestionsQuerySchema.safeParse(request.query);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+      const suggestions = await suggestionsService.getDishSuggestions(id, parseResult.data);
+      return reply.send({ suggestions });
     }
   );
 

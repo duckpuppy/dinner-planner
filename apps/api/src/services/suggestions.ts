@@ -4,6 +4,7 @@ import type {
   SuggestionsQueryInput,
   SuggestedDish,
   SuggestedRestaurant,
+  SuggestedRestaurantDish,
 } from '@dinner-planner/shared';
 import { getSettings } from './settings.js';
 
@@ -351,4 +352,129 @@ export async function getRestaurantSuggestions(query: {
 
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, limit);
+}
+
+/**
+ * Build human-readable reasons for a dish suggestion.
+ */
+function buildDishReasons(
+  avgRating: number | null,
+  ratingCount: number,
+  userRatings: Array<{ displayName: string; stars: number }>
+): string[] {
+  const reasons: string[] = [];
+
+  if (ratingCount === 0) {
+    reasons.push('Not yet rated — try it!');
+    return reasons;
+  }
+
+  if (avgRating !== null) {
+    if (avgRating >= 4.5) {
+      reasons.push('Top pick');
+    } else if (avgRating >= 4.0) {
+      reasons.push('Highly rated');
+    }
+  }
+
+  if (ratingCount >= 3 && avgRating !== null && avgRating >= 4.0) {
+    reasons.push('Family favorite');
+  }
+
+  // Individual user preferences for top raters
+  for (const ur of userRatings) {
+    if (ur.stars === 5) {
+      reasons.push(`${ur.displayName} loves this (5★)`);
+    } else if (ur.stars >= 4) {
+      reasons.push(`${ur.displayName} likes this (${ur.stars}★)`);
+    }
+  }
+
+  return reasons;
+}
+
+/**
+ * Return top-rated dishes at a specific restaurant, ranked by average rating.
+ * Unrated dishes appear last.
+ */
+export async function getDishSuggestions(
+  restaurantId: string,
+  query: { limit?: number }
+): Promise<SuggestedRestaurantDish[]> {
+  const limit = query.limit ?? 10;
+
+  // Fetch all dishes at the restaurant
+  const dishes = await db
+    .select()
+    .from(schema.restaurantDishes)
+    .where(eq(schema.restaurantDishes.restaurantId, restaurantId));
+
+  if (dishes.length === 0) return [];
+
+  const dishIds = dishes.map((d) => d.id);
+
+  // Fetch all ratings with user info for these dishes
+  const ratingsRows = await db
+    .select({
+      id: schema.restaurantDishRatings.id,
+      restaurantDishId: schema.restaurantDishRatings.restaurantDishId,
+      userId: schema.restaurantDishRatings.userId,
+      stars: schema.restaurantDishRatings.stars,
+      note: schema.restaurantDishRatings.note,
+      displayName: schema.users.displayName,
+    })
+    .from(schema.restaurantDishRatings)
+    .innerJoin(schema.users, eq(schema.users.id, schema.restaurantDishRatings.userId))
+    .where(
+      dishIds.length === 1
+        ? eq(schema.restaurantDishRatings.restaurantDishId, dishIds[0])
+        : inArray(schema.restaurantDishRatings.restaurantDishId, dishIds)
+    );
+
+  // Group ratings by dishId
+  const ratingsByDishId = new Map<string, typeof ratingsRows>();
+  for (const row of ratingsRows) {
+    const list = ratingsByDishId.get(row.restaurantDishId) ?? [];
+    list.push(row);
+    ratingsByDishId.set(row.restaurantDishId, list);
+  }
+
+  const result: SuggestedRestaurantDish[] = dishes.map((dish) => {
+    const dishRatings = ratingsByDishId.get(dish.id) ?? [];
+    const ratingCount = dishRatings.length;
+    const avgRating =
+      ratingCount > 0
+        ? Math.round((dishRatings.reduce((sum, r) => sum + r.stars, 0) / ratingCount) * 100) / 100
+        : null;
+
+    const userRatings = dishRatings.map((r) => ({
+      userId: r.userId,
+      displayName: r.displayName,
+      stars: r.stars,
+      note: r.note,
+    }));
+
+    const reasons = buildDishReasons(avgRating, ratingCount, userRatings);
+
+    return {
+      id: dish.id,
+      restaurantId: dish.restaurantId,
+      name: dish.name,
+      notes: dish.notes,
+      averageRating: avgRating,
+      ratingCount,
+      userRatings,
+      reasons,
+    };
+  });
+
+  // Sort: rated dishes by avgRating desc, unrated last
+  result.sort((a, b) => {
+    if (a.averageRating === null && b.averageRating === null) return 0;
+    if (a.averageRating === null) return 1;
+    if (b.averageRating === null) return -1;
+    return b.averageRating - a.averageRating;
+  });
+
+  return result.slice(0, limit);
 }
