@@ -18,3 +18,7 @@ export function getWeekStartDate(date: Date, weekStartDay: number): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+
+export function googleMapsUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
