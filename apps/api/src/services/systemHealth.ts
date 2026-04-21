@@ -89,9 +89,19 @@ export async function getSystemHealth(): Promise<SystemHealth> {
     if (row.details) {
       try {
         const parsed = JSON.parse(row.details) as Record<string, unknown>;
-        const deletedFiles = typeof parsed.deletedFiles === 'number' ? parsed.deletedFiles : 0;
+        const deletedFiles =
+          typeof parsed.deletedFiles === 'number'
+            ? parsed.deletedFiles
+            : Array.isArray(parsed.deletedFiles)
+              ? parsed.deletedFiles.length
+              : 0;
         const freedBytes = typeof parsed.freedBytes === 'number' ? parsed.freedBytes : 0;
-        const errors = typeof parsed.errors === 'number' ? parsed.errors : 0;
+        const errors =
+          typeof parsed.errors === 'number'
+            ? parsed.errors
+            : Array.isArray(parsed.errors)
+              ? parsed.errors.length
+              : 0;
         lastResult = { deletedFiles, freedBytes, errors };
       } catch {
         // Malformed details — leave lastResult null

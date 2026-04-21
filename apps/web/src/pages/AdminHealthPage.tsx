@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -271,8 +270,6 @@ function HealthPageSkeleton() {
 
 export function AdminHealthPage() {
   const queryClient = useQueryClient();
-  const [, setRefreshKey] = useState(0);
-
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'health'],
     queryFn: () => appEvents.health().then((r) => r.health),
@@ -290,7 +287,6 @@ export function AdminHealthPage() {
         toast.success(`Cleanup complete — deleted ${deletedFiles} files, freed ${freedMb} MB`);
       }
       void queryClient.invalidateQueries({ queryKey: ['admin', 'health'] });
-      setRefreshKey((k) => k + 1);
     },
     onError: (err: Error) => {
       toast.error(`Cleanup failed: ${err.message}`);

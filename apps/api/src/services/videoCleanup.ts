@@ -107,18 +107,18 @@ export async function cleanupOrphanedVideos(): Promise<CleanupResult> {
     `Video cleanup: deleted ${result.deletedFiles.length} orphaned files, freed ${mb} MB`
   );
 
-  if (result.deletedFiles.length > 0 || result.errors.length > 0) {
-    void logEvent({
-      level: result.errors.length > 0 ? 'warn' : 'info',
-      category: 'cleanup',
-      message: `Video cleanup: deleted ${result.deletedFiles.length} files, freed ${mb} MB`,
-      details: {
-        deletedFiles: result.deletedFiles,
-        freedBytes: result.freedBytes,
-        errors: result.errors,
-      },
-    });
-  }
+  void logEvent({
+    level: result.errors.length > 0 ? 'warn' : 'info',
+    category: 'cleanup',
+    message: `Video cleanup: deleted ${result.deletedFiles.length} files, freed ${mb} MB`,
+    details: {
+      deletedFilesCount: result.deletedFiles.length,
+      deletedFiles: result.deletedFiles,
+      freedBytes: result.freedBytes,
+      errorsCount: result.errors.length,
+      errors: result.errors,
+    },
+  });
 
   return result;
 }

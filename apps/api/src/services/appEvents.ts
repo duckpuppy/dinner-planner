@@ -132,7 +132,14 @@ export async function listEvents(
     level: row.level as EventLevel,
     category: row.category as EventCategory,
     message: row.message,
-    details: row.details ? (JSON.parse(row.details) as Record<string, unknown>) : null,
+    details: (() => {
+      if (!row.details) return null;
+      try {
+        return JSON.parse(row.details) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })(),
     userId: row.userId,
     user:
       row.userId && row.userDisplayName

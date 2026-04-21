@@ -1109,8 +1109,8 @@ export const appEvents = {
   list(params?: {
     limit?: number;
     offset?: number;
-    level?: string;
-    category?: string;
+    level?: AppEvent['level'];
+    category?: AppEvent['category'];
     search?: string;
     startDate?: string;
     endDate?: string;

@@ -184,8 +184,8 @@ describe('AdminLogsPage', () => {
       render(<AdminLogsPage />, { wrapper });
       const row = await screen.findByText('User logged in');
       fireEvent.click(row.closest('tr')!);
-      // No pre element with JSON should appear
-      expect(screen.queryByRole('cell', { name: /pre/i })).toBeNull();
+      // No details JSON should appear
+      expect(screen.queryByText(/"code":/)).toBeNull();
     });
   });
 
