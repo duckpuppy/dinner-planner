@@ -9,6 +9,7 @@ import {
   Home,
   LogOut,
   Package,
+  ScrollText,
   Settings,
   ShoppingCart,
   User,
@@ -34,6 +35,7 @@ const navItems = [
 const adminItems = [
   { to: '/admin/users', icon: Users, label: 'Users' },
   { to: '/admin/settings', icon: Settings, label: 'Settings' },
+  { to: '/admin/logs', icon: ScrollText, label: 'Logs' },
 ];
 
 interface LayoutProps {

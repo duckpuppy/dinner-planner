@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { appEventsQuerySchema } from '@dinner-planner/shared';
 import * as appEventsService from '../services/appEvents.js';
+import { getSystemHealth } from '../services/systemHealth.js';
 
 export async function appEventsRoutes(fastify: FastifyInstance) {
   /**
@@ -33,6 +34,19 @@ export async function appEventsRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const stats = await appEventsService.getEventStats();
       return reply.send({ stats });
+    }
+  );
+
+  /**
+   * GET /api/admin/health
+   * Get system health metrics (admin only)
+   */
+  fastify.get(
+    '/api/admin/health',
+    { preHandler: [fastify.requireAdmin] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const health = await getSystemHealth();
+      return reply.send({ health });
     }
   );
 }

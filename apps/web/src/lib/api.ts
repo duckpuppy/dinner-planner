@@ -1074,6 +1074,37 @@ export interface EventStats {
   last7d: number;
 }
 
+export interface SystemHealth {
+  videoStorage: {
+    usedBytes: number;
+    usedMb: number;
+    limitMb: number;
+    percentUsed: number;
+  };
+  videoJobs: {
+    pending: number;
+    downloading: number;
+    complete: number;
+    failed: number;
+    total: number;
+  };
+  cleanup: {
+    lastRun: string | null;
+    lastResult: {
+      deletedFiles: number;
+      freedBytes: number;
+      errors: number;
+    } | null;
+    schedulerEnabled: boolean;
+    schedulerConfig: string;
+  };
+  events: {
+    errorsLast24h: number;
+    warningsLast24h: number;
+    errorsLast7d: number;
+  };
+}
+
 export const appEvents = {
   list(params?: {
     limit?: number;
@@ -1095,5 +1126,8 @@ export const appEvents = {
   },
   stats(): Promise<{ stats: EventStats }> {
     return request<{ stats: EventStats }>('/admin/events/stats');
+  },
+  health(): Promise<{ health: SystemHealth }> {
+    return request<{ health: SystemHealth }>('/admin/health');
   },
 };
