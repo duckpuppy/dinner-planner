@@ -30,6 +30,7 @@ import { setupRoutes } from './routes/setup.js';
 import { videoJobsRoutes } from './routes/videoJobs.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupScheduler.js';
 import { restaurantsRoutes } from './routes/restaurants.js';
+import { appEventsRoutes } from './routes/appEvents.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
@@ -140,6 +141,7 @@ await fastify.register(pantryRoutes);
 await fastify.register(groceryRoutes);
 await fastify.register(videoJobsRoutes);
 await fastify.register(restaurantsRoutes);
+await fastify.register(appEventsRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {

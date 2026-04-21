@@ -423,6 +423,19 @@ export const apiTokens = sqliteTable('api_tokens', {
     .default(sql`(datetime('now'))`),
 });
 
+// App events table (admin audit log)
+export const appEvents = sqliteTable('app_events', {
+  id: text('id').primaryKey(),
+  level: text('level', { enum: ['info', 'warn', 'error'] })
+    .notNull()
+    .default('info'),
+  category: text('category', { enum: ['auth', 'admin', 'video', 'cleanup', 'system'] }).notNull(),
+  message: text('message').notNull(),
+  details: text('details'), // JSON string for structured data
+  userId: text('user_id'), // nullable — system events have no user
+  createdAt: text('created_at').notNull(),
+});
+
 // Video download job queue
 export const videoJobs = sqliteTable('video_jobs', {
   id: text('id').primaryKey(),
