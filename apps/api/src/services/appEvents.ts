@@ -44,26 +44,32 @@ export interface EventStats {
 
 export async function logEvent(input: LogEventInput): Promise<void> {
   const { level, category, message, details, userId } = input;
-  const id = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
 
-  await db.insert(schema.appEvents).values({
-    id,
-    level,
-    category,
-    message,
-    details: details !== undefined ? JSON.stringify(details) : null,
-    userId: userId ?? null,
-    createdAt,
-  });
-
-  // Mirror to Docker logs
+  // Mirror to Docker logs regardless of DB availability
   if (level === 'error') {
     console.error(`[${category}] ${message}`, details ?? '');
   } else if (level === 'warn') {
     console.warn(`[${category}] ${message}`, details ?? '');
   } else {
     console.log(`[${category}] ${message}`, details ?? '');
+  }
+
+  try {
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    await db.insert(schema.appEvents).values({
+      id,
+      level,
+      category,
+      message,
+      details: details !== undefined ? JSON.stringify(details) : null,
+      userId: userId ?? null,
+      createdAt,
+    });
+  } catch {
+    // DB insert may fail if table doesn't exist yet (e.g., during tests
+    // or before migrations run). Never let logging break the app.
   }
 }
 
