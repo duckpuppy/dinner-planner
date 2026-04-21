@@ -1053,3 +1053,87 @@ export const prepTasks = {
 
   delete: (id: string) => request<Record<string, never>>(`/prep-tasks/${id}`, { method: 'DELETE' }),
 };
+
+// App Events types
+export interface AppEvent {
+  id: string;
+  level: 'info' | 'warn' | 'error';
+  category: 'auth' | 'admin' | 'video' | 'cleanup' | 'system';
+  message: string;
+  details: Record<string, unknown> | null;
+  userId: string | null;
+  user: { id: string; displayName: string } | null;
+  createdAt: string;
+}
+
+export interface EventStats {
+  total: number;
+  byLevel: Record<string, number>;
+  byCategory: Record<string, number>;
+  last24h: number;
+  last7d: number;
+}
+
+export interface SystemHealth {
+  videoStorage: {
+    usedBytes: number;
+    usedMb: number;
+    limitMb: number;
+    percentUsed: number;
+  };
+  videoJobs: {
+    pending: number;
+    downloading: number;
+    complete: number;
+    failed: number;
+    total: number;
+  };
+  cleanup: {
+    lastRun: string | null;
+    lastResult: {
+      deletedFiles: number;
+      freedBytes: number;
+      errors: number;
+    } | null;
+    schedulerEnabled: boolean;
+    schedulerConfig: string;
+  };
+  events: {
+    errorsLast24h: number;
+    warningsLast24h: number;
+    errorsLast7d: number;
+  };
+}
+
+export const appEvents = {
+  list(params?: {
+    limit?: number;
+    offset?: number;
+    level?: AppEvent['level'];
+    category?: AppEvent['category'];
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ events: AppEvent[]; total: number }> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.set(key, String(value));
+      });
+    }
+    const qs = searchParams.toString();
+    return request<{ events: AppEvent[]; total: number }>(`/admin/events${qs ? `?${qs}` : ''}`);
+  },
+  stats(): Promise<{ stats: EventStats }> {
+    return request<{ stats: EventStats }>('/admin/events/stats');
+  },
+  health(): Promise<{ health: SystemHealth }> {
+    return request<{ health: SystemHealth }>('/admin/health');
+  },
+  triggerCleanup(): Promise<{
+    message: string;
+    result: { deletedFiles: number; freedBytes: number; errors: number };
+  }> {
+    return request('/admin/cleanup-videos', { method: 'POST' });
+  },
+};

@@ -2,6 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { VIDEOS_DIR, deleteVideo } from './videoDownload.js';
 import { db, schema } from '../db/index.js';
+import { logEvent } from './appEvents.js';
 
 export interface CleanupResult {
   deletedFiles: string[];
@@ -105,6 +106,19 @@ export async function cleanupOrphanedVideos(): Promise<CleanupResult> {
   console.log(
     `Video cleanup: deleted ${result.deletedFiles.length} orphaned files, freed ${mb} MB`
   );
+
+  void logEvent({
+    level: result.errors.length > 0 ? 'warn' : 'info',
+    category: 'cleanup',
+    message: `Video cleanup: deleted ${result.deletedFiles.length} files, freed ${mb} MB`,
+    details: {
+      deletedFilesCount: result.deletedFiles.length,
+      deletedFiles: result.deletedFiles,
+      freedBytes: result.freedBytes,
+      errorsCount: result.errors.length,
+      errors: result.errors,
+    },
+  });
 
   return result;
 }

@@ -453,3 +453,14 @@ export type UpdateRestaurantDishInput = z.infer<typeof updateRestaurantDishSchem
 export type CreateRestaurantDishRatingInput = z.infer<typeof createRestaurantDishRatingSchema>;
 export type UpdateRestaurantDishRatingInput = z.infer<typeof updateRestaurantDishRatingSchema>;
 export type RestaurantSuggestionsQueryInput = z.infer<typeof restaurantSuggestionsQuerySchema>;
+
+// App events schemas
+export const appEventsQuerySchema = paginationSchema.extend({
+  level: z.enum(['info', 'warn', 'error']).optional(),
+  category: z.enum(['auth', 'admin', 'video', 'cleanup', 'system']).optional(),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+export type AppEventsQueryInput = z.infer<typeof appEventsQuerySchema>;

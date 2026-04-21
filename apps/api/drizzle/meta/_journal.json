@@ -155,6 +155,13 @@
       "when": 1776376179537,
       "tag": "0021_hard_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1776768550292,
+      "tag": "0022_ordinary_proemial_gods",
+      "breakpoints": true
     }
   ]
 }

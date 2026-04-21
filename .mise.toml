@@ -1,5 +1,6 @@
 [tools]
-node = "22"
+aws-cli = { version = "latest", symlink_bins = "true" }
+node = "24"
 pnpm = "10.33.0"
 sqlite = "latest"
 
