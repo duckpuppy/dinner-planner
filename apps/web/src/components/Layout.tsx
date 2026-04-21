@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
+  Activity,
   Calendar,
   ChefHat,
   ChevronLeft,
@@ -36,6 +37,7 @@ const adminItems = [
   { to: '/admin/users', icon: Users, label: 'Users' },
   { to: '/admin/settings', icon: Settings, label: 'Settings' },
   { to: '/admin/logs', icon: ScrollText, label: 'Logs' },
+  { to: '/admin/health', icon: Activity, label: 'Health' },
 ];
 
 interface LayoutProps {

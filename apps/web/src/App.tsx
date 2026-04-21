@@ -26,6 +26,7 @@ import { PatternsPage } from './pages/PatternsPage';
 import { PlanningBoardPage } from './pages/PlanningBoardPage';
 import { RestaurantsPage, RestaurantDetailRoute } from './pages/RestaurantsPage';
 import { AdminLogsPage } from './pages/AdminLogsPage';
+import { AdminHealthPage } from './pages/AdminHealthPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -139,6 +140,14 @@ export default function App() {
               element={
                 <AdminGuard>
                   <AdminLogsPage />
+                </AdminGuard>
+              }
+            />
+            <Route
+              path="/admin/health"
+              element={
+                <AdminGuard>
+                  <AdminHealthPage />
                 </AdminGuard>
               }
             />

@@ -1130,4 +1130,10 @@ export const appEvents = {
   health(): Promise<{ health: SystemHealth }> {
     return request<{ health: SystemHealth }>('/admin/health');
   },
+  triggerCleanup(): Promise<{
+    message: string;
+    result: { deletedFiles: number; freedBytes: number; errors: number };
+  }> {
+    return request('/admin/cleanup-videos', { method: 'POST' });
+  },
 };
