@@ -37,6 +37,10 @@ vi.mock('../db/index.js', () => ({
 
 vi.mock('drizzle-orm', () => ({}));
 
+vi.mock('../services/appEvents.js', () => ({
+  logEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------

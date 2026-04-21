@@ -1,5 +1,6 @@
 import { cleanupOrphanedVideos } from './videoCleanup.js';
 import { config } from '../config.js';
+import { logEvent } from './appEvents.js';
 
 let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -18,6 +19,12 @@ export function startVideoCleanupScheduler(): void {
     console.log('Video cleanup scheduler disabled (VIDEO_CLEANUP_INTERVAL_HOURS=0)');
     return;
   }
+
+  void logEvent({
+    level: 'info',
+    category: 'system',
+    message: `Video cleanup scheduler started: ${intervalHours === 24 ? `daily at ${config.VIDEO_CLEANUP_TIME}` : `every ${intervalHours}h`}`,
+  });
 
   if (intervalHours === 24) {
     scheduleDailyAt(config.VIDEO_CLEANUP_TIME);

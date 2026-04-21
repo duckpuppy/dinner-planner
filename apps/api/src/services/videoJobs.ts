@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { db, schema } from '../db/index.js';
 import { downloadVideo, getVideoStorageUsage } from './videoDownload.js';
 import { extractRecipeFromMetadata } from './recipeExtraction.js';
+import { logEvent } from './appEvents.js';
 
 export async function createVideoJob(sourceUrl: string, dishId?: string): Promise<string> {
   const id = randomUUID();
@@ -56,6 +57,13 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       .set({ status: 'downloading', progress: 0 })
       .where(eq(schema.videoJobs.id, jobId));
 
+    void logEvent({
+      level: 'info',
+      category: 'video',
+      message: `Video download started: ${job.sourceUrl}`,
+      details: { jobId: job.id, sourceUrl: job.sourceUrl },
+    });
+
     // 4. Download the video, writing progress to DB every ≥5% increase
     let lastDbPct = 0;
     const result = await downloadVideo(job.sourceUrl, (pct) => {
@@ -94,9 +102,22 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
         extractedRecipe,
       })
       .where(eq(schema.videoJobs.id, jobId));
+
+    void logEvent({
+      level: 'info',
+      category: 'video',
+      message: `Video download completed: ${job.sourceUrl}`,
+      details: { jobId: job.id, filename: result.videoFilename, videoSize: result.videoSize },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[videoJobs] Job ${jobId} failed:`, message);
+    void logEvent({
+      level: 'error',
+      category: 'video',
+      message: `Video download failed: job ${jobId}`,
+      details: { jobId, error: String(err) },
+    });
     try {
       await db
         .update(schema.videoJobs)

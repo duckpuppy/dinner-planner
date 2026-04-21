@@ -4,6 +4,7 @@ import { z } from 'zod';
 import * as authService from '../services/auth.js';
 import * as apiTokenService from '../services/apiTokens.js';
 import { config } from '../config.js';
+import { logEvent } from '../services/appEvents.js';
 
 // Cookie options for refresh token
 // Omit domain so the cookie binds to whatever host the browser is using
@@ -45,6 +46,11 @@ export async function authRoutes(fastify: FastifyInstance) {
       );
 
       if (!result) {
+        void logEvent({
+          level: 'warn',
+          category: 'auth',
+          message: `Failed login attempt for "${username}"`,
+        });
         return reply.status(401).send({
           error: 'Invalid username or password',
         });
@@ -52,6 +58,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Set refresh token as httpOnly cookie
       reply.setCookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+
+      void logEvent({
+        level: 'info',
+        category: 'auth',
+        message: `User "${username}" logged in`,
+        userId: result.user.id,
+      });
 
       return reply.send({
         user: result.user,

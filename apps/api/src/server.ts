@@ -31,6 +31,7 @@ import { videoJobsRoutes } from './routes/videoJobs.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupScheduler.js';
 import { restaurantsRoutes } from './routes/restaurants.js';
 import { appEventsRoutes } from './routes/appEvents.js';
+import { logEvent } from './services/appEvents.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
@@ -180,6 +181,11 @@ const start = async () => {
 
     await fastify.listen({ port: config.PORT, host: config.HOST });
     console.log(`Server running at http://${config.HOST}:${config.PORT}`);
+    void logEvent({
+      level: 'info',
+      category: 'system',
+      message: `Server started on port ${config.PORT}`,
+    });
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

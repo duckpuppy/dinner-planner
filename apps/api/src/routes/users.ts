@@ -7,6 +7,7 @@ import {
 } from '@dinner-planner/shared';
 import * as usersService from '../services/users.js';
 import { z } from 'zod';
+import { logEvent } from '../services/appEvents.js';
 
 const resetPasswordSchema = z.object({
   newPassword: z.string().min(8, 'Password must be at least 8 characters'),
@@ -70,6 +71,13 @@ export async function usersRoutes(fastify: FastifyInstance) {
 
       try {
         const user = await usersService.createUser(parseResult.data);
+        void logEvent({
+          level: 'info',
+          category: 'admin',
+          message: `User "${user.username}" created by admin`,
+          details: { createdUserId: user.id, role: parseResult.data.role ?? 'member' },
+          userId: request.user.userId,
+        });
         return reply.status(201).send({ user });
       } catch (error) {
         if (error instanceof Error && error.message === 'Username already exists') {
@@ -103,6 +111,14 @@ export async function usersRoutes(fastify: FastifyInstance) {
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
+
+      void logEvent({
+        level: 'info',
+        category: 'admin',
+        message: `User "${user.username}" updated by admin`,
+        details: { updatedUserId: id, changes: Object.keys(parseResult.data) },
+        userId: request.user.userId,
+      });
 
       return reply.send({ user });
     }
@@ -176,6 +192,13 @@ export async function usersRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: result.error });
       }
 
+      void logEvent({
+        level: 'info',
+        category: 'auth',
+        message: 'User changed their password',
+        userId: id,
+      });
+
       return reply.send({ success: true });
     }
   );
@@ -205,6 +228,14 @@ export async function usersRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: result.error });
       }
 
+      void logEvent({
+        level: 'info',
+        category: 'admin',
+        message: `Password reset for user ${id} by admin`,
+        details: { targetUserId: id },
+        userId: request.user.userId,
+      });
+
       return reply.send({ success: true });
     }
   );
@@ -225,6 +256,14 @@ export async function usersRoutes(fastify: FastifyInstance) {
         const status = result.error === 'User not found' ? 404 : 400;
         return reply.status(status).send({ error: result.error });
       }
+
+      void logEvent({
+        level: 'warn',
+        category: 'admin',
+        message: `User ${id} deleted by admin`,
+        details: { deletedUserId: id },
+        userId: request.user.userId,
+      });
 
       return reply.send({ success: true });
     }
