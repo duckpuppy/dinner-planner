@@ -1,6 +1,6 @@
 [tools]
 aws-cli = { version = "latest", symlink_bins = "true" }
-node = "22"
+node = "24"
 pnpm = "10.33.0"
 sqlite = "latest"
 
