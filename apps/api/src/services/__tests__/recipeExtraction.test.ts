@@ -167,4 +167,68 @@ describe('extractRecipeFromMetadata', () => {
       'gemma4-e4b'
     );
   });
+
+  it('appends transcript to text when provided', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+
+    await extractRecipeFromMetadata(
+      { title: 'Pasta', description: 'A delicious recipe' },
+      'today we are making pasta with garlic'
+    );
+
+    expect(mockExtractRecipeFromText).toHaveBeenCalledWith(
+      'Pasta\n\nA delicious recipe\n\nVideo transcript:\ntoday we are making pasta with garlic',
+      'http://localhost:11434',
+      'gemma4-e4b'
+    );
+  });
+
+  it('does not append transcript section when transcript is null', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+
+    await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, null);
+
+    expect(mockExtractRecipeFromText).toHaveBeenCalledWith(
+      'Pasta\n\nA recipe',
+      'http://localhost:11434',
+      'gemma4-e4b'
+    );
+  });
+
+  it('does not append transcript section when transcript is empty string', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+
+    await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, '');
+
+    expect(mockExtractRecipeFromText).toHaveBeenCalledWith(
+      'Pasta\n\nA recipe',
+      'http://localhost:11434',
+      'gemma4-e4b'
+    );
+  });
+
+  it('truncates very long transcripts to 8000 characters', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+
+    const longTranscript = 'x'.repeat(9000);
+    await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, longTranscript);
+
+    const callArg = mockExtractRecipeFromText.mock.calls[0][0];
+    expect(callArg).toContain('Video transcript:\n');
+    // Truncated portion: 8000 chars + '...' suffix
+    const transcriptSection = callArg.split('Video transcript:\n')[1];
+    expect(transcriptSection).toBe('x'.repeat(8000) + '...');
+  });
 });

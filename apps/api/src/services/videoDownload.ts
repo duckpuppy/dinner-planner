@@ -14,6 +14,7 @@ export interface DownloadResult {
   infoJson: Record<string, unknown>;
   videoSize: number;
   videoDuration: number | null;
+  transcript: string | null;
 }
 
 export async function ensureVideosDir(): Promise<void> {
@@ -45,6 +46,12 @@ export async function downloadVideo(
     '--no-playlist',
     '--socket-timeout',
     '30',
+    '--write-subs',
+    '--write-auto-subs',
+    '--sub-langs',
+    'en.*,en',
+    '--sub-format',
+    'vtt',
     '-o',
     outputTemplate,
     url,
@@ -138,12 +145,27 @@ export async function downloadVideo(
     hasThumbnail = false;
   }
 
+  // Locate subtitle file — yt-dlp names them as {uuid}.{lang}.vtt
+  let transcript: string | null = null;
+  try {
+    const dirFiles = await readdir(VIDEOS_DIR);
+    const vttFile = dirFiles.find((f) => f.startsWith(uuid) && f.endsWith('.vtt'));
+    if (vttFile) {
+      const { readFile } = await import('node:fs/promises');
+      const vttContent = await readFile(join(VIDEOS_DIR, vttFile), 'utf-8');
+      transcript = parseVtt(vttContent);
+    }
+  } catch {
+    // Subtitle file may not exist
+  }
+
   return {
     videoFilename,
     thumbnailFilename: hasThumbnail ? thumbnailFilename : null,
     infoJson,
     videoSize,
     videoDuration,
+    transcript,
   };
 }
 
@@ -169,7 +191,7 @@ export async function getVideoStorageUsage(): Promise<number> {
 
 export async function deleteVideo(filename: string): Promise<void> {
   const base = filename.replace(/\.[^.]+$/, '');
-  const extensions = ['.mp4', '.info.json', '.jpg', '.webm', '.mkv'];
+  const extensions = ['.mp4', '.info.json', '.jpg', '.webm', '.mkv', '.vtt', '.srt'];
   for (const ext of extensions) {
     try {
       await unlink(join(VIDEOS_DIR, `${base}${ext}`));
@@ -177,4 +199,64 @@ export async function deleteVideo(filename: string): Promise<void> {
       // Ignore missing files
     }
   }
+
+  // Also clean up subtitle files which have language codes in the name
+  // Pattern: {base}.{lang}.vtt or {base}.{lang}.srt
+  try {
+    const dirFiles = await readdir(VIDEOS_DIR);
+    for (const f of dirFiles) {
+      if (f.startsWith(base) && (f.endsWith('.vtt') || f.endsWith('.srt'))) {
+        try {
+          await unlink(join(VIDEOS_DIR, f));
+        } catch {
+          // Ignore
+        }
+      }
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Parse WebVTT content to plain text, stripping timestamps,
+ * formatting tags, and deduplicating lines (yt-dlp auto-subs
+ * often repeat lines across overlapping cue windows).
+ */
+export function parseVtt(vttContent: string): string {
+  const lines = vttContent.split('\n');
+  const textLines: string[] = [];
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    // Skip WEBVTT header, NOTE lines, cue timing lines, and blank lines
+    if (
+      line.startsWith('WEBVTT') ||
+      line.startsWith('NOTE') ||
+      line.startsWith('Kind:') ||
+      line.startsWith('Language:') ||
+      /^\d{2}:\d{2}/.test(line) ||
+      /^[\d]+$/.test(line.trim()) ||
+      line.trim() === ''
+    ) {
+      continue;
+    }
+
+    // Strip VTT formatting tags like <c>, </c>, <b>, etc.
+    const cleaned = line
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+
+    if (cleaned && !seen.has(cleaned)) {
+      seen.add(cleaned);
+      textLines.push(cleaned);
+    }
+  }
+
+  const result = textLines.join(' ').trim();
+  return result || '';
 }

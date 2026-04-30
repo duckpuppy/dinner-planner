@@ -76,8 +76,8 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       }
     });
 
-    // 5. Extract recipe from video metadata (title + description) via LLM if configured
-    const extraction = await extractRecipeFromMetadata(result.infoJson);
+    // 5. Extract recipe from video metadata (title + description + transcript) via LLM if configured
+    const extraction = await extractRecipeFromMetadata(result.infoJson, result.transcript);
     let extractedRecipe: string | null = null;
     if (extraction.recipe) {
       // Patch sourceUrl and videoUrl from job data — LLM always outputs these as null
