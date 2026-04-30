@@ -10,7 +10,8 @@ export interface ExtractionResult {
 }
 
 export async function extractRecipeFromMetadata(
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  transcript?: string | null
 ): Promise<ExtractionResult> {
   const rawTitle = typeof metadata['title'] === 'string' ? metadata['title'] : '';
   const rawDescription = typeof metadata['description'] === 'string' ? metadata['description'] : '';
@@ -39,7 +40,18 @@ export async function extractRecipeFromMetadata(
       return noneResult;
     }
 
-    const text = rawTitle ? `${rawTitle}\n\n${rawDescription}` : rawDescription;
+    let text = rawTitle ? `${rawTitle}\n\n${rawDescription}` : rawDescription;
+
+    if (transcript && transcript.length > 0) {
+      // Truncate very long transcripts to avoid overwhelming the LLM context
+      const maxTranscriptLength = 8000;
+      const truncated =
+        transcript.length > maxTranscriptLength
+          ? transcript.slice(0, maxTranscriptLength) + '...'
+          : transcript;
+      text += `\n\nVideo transcript:\n${truncated}`;
+    }
+
     const model = (settings.ollamaModel as string | null | undefined) ?? 'gemma4-e4b';
     const recipe = await extractRecipeFromText(text, ollamaUrl, model);
 

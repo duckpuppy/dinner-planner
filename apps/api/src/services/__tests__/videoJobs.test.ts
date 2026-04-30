@@ -178,6 +178,7 @@ describe('processVideoJob — download succeeds', () => {
       infoJson: { title: 'Test' },
       videoSize: 5_000_000,
       videoDuration: 120,
+      transcript: null,
     };
     mockDownloadVideo.mockResolvedValue(downloadResult);
     mockExtractRecipeFromMetadata.mockResolvedValue({
@@ -201,7 +202,7 @@ describe('processVideoJob — download succeeds', () => {
     await processVideoJob('job-1', 100_000_000);
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson);
+    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null);
     expect(updates.length).toBeGreaterThanOrEqual(2);
     const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
     expect(lastUpdate.set).toHaveBeenCalledWith(

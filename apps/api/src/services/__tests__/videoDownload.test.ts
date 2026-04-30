@@ -17,7 +17,12 @@ vi.mock('node:fs/promises', () => ({
 
 import { spawn } from 'node:child_process';
 import * as fsPromises from 'node:fs/promises';
-import { downloadVideo, getVideoStorageUsage, ensureVideosDir } from '../videoDownload.js';
+import {
+  downloadVideo,
+  getVideoStorageUsage,
+  ensureVideosDir,
+  parseVtt,
+} from '../videoDownload.js';
 
 const mockSpawn = vi.mocked(spawn);
 const mockStat = vi.mocked(fsPromises.stat);
@@ -216,5 +221,115 @@ describe('ensureVideosDir', () => {
     const mockMkdir = vi.mocked(fsPromises.mkdir);
     await ensureVideosDir();
     expect(mockMkdir).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseVtt
+// ---------------------------------------------------------------------------
+describe('parseVtt', () => {
+  it('parses standard VTT and returns deduplicated text joined by spaces', () => {
+    const vtt = `WEBVTT
+Kind: captions
+Language: en
+
+00:00:00.000 --> 00:00:03.000
+today we're making pasta
+
+00:00:03.000 --> 00:00:06.000
+today we're making pasta
+with a simple tomato sauce
+
+00:00:06.000 --> 00:00:09.000
+with a simple tomato sauce
+you'll need garlic and olive oil
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe(
+      "today we're making pasta with a simple tomato sauce you'll need garlic and olive oil"
+    );
+  });
+
+  it('strips HTML formatting tags from cue text', () => {
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+<c>Hello</c> <b>world</b>
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('Hello world');
+  });
+
+  it('decodes HTML entities', () => {
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+Pasta &amp; sauce &lt;hot&gt; with&nbsp;oil
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('Pasta & sauce <hot> with oil');
+  });
+
+  it('returns empty string for VTT with no text content', () => {
+    const vtt = `WEBVTT
+Kind: captions
+Language: en
+
+00:00:00.000 --> 00:00:03.000
+
+00:00:03.000 --> 00:00:06.000
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('');
+  });
+
+  it('returns empty string for a bare WEBVTT header only', () => {
+    const result = parseVtt('WEBVTT\n');
+    expect(result).toBe('');
+  });
+
+  it('skips NOTE blocks', () => {
+    const vtt = `WEBVTT
+
+NOTE This is a comment
+
+00:00:00.000 --> 00:00:03.000
+actual text
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('actual text');
+  });
+
+  it('deduplicates repeated lines from overlapping cue windows', () => {
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+line one
+
+00:00:02.000 --> 00:00:05.000
+line one
+line two
+
+00:00:04.000 --> 00:00:07.000
+line two
+line three
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('line one line two line three');
+  });
+
+  it('handles yt-dlp timestamp-prefixed cue identifiers (numeric lines)', () => {
+    const vtt = `WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.000
+first line
+
+2
+00:00:03.000 --> 00:00:06.000
+second line
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('first line second line');
   });
 });
