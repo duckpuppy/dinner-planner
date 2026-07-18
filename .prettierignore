@@ -8,6 +8,9 @@ build
 .turbo
 coverage
 
+# Capacitor-synced Android web assets (generated build output)
+apps/web/android/app/src/main/assets/public
+
 # Tool-managed directories
 .beads
 .worktrees
