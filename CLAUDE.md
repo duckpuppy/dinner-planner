@@ -211,10 +211,11 @@ Log learnings: `bd comments add {ID} "LEARNED: [insight]"` — captured automati
 - M25: Grocery organization — `stores` + `ingredientStores` tables; store filter UI; category grouping
 - M26: Standing/recurring items — `standingItems` table; full CRUD; `ManageStandingItemsDialog`
 - M27: Week planning board — `PlanningBoardPage` + `PlanDayCard`; 7-day card grid; `@dnd-kit/core` drag-to-swap; "Plan next week →" button on `WeekPage`; progress chip; `SuggestionModal` for dish picking
+- M28: Video transcript extraction for recipe extraction — yt-dlp `--write-subs`/`--write-auto-subs` (English only, manual preferred over auto-generated); `parseVtt()` + `downloadVideo()` in `apps/api/src/services/videoDownload.ts`; transcript appended (8000-char cap) to the title+description text fed to Ollama in `recipeExtraction.ts`; persisted on `videoJobs.transcript` (migration `0023_windy_rage.sql`). Released v1.17.0.
 
 ### Active / upcoming milestones
 
-✨ No open milestones — all planned work through M27 is shipped.
+✨ No open milestones — all planned work through M28 is shipped.
 
 ### Grocery system architecture notes
 
