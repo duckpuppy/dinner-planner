@@ -447,6 +447,7 @@ export const videoJobs = sqliteTable('video_jobs', {
   progress: integer('progress').default(0),
   resultVideoFilename: text('result_video_filename'),
   resultMetadata: text('result_metadata'),
+  transcript: text('transcript'),
   extractedRecipe: text('extracted_recipe'),
   error: text('error'),
   ...timestamps,

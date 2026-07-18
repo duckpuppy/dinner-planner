@@ -28,6 +28,7 @@ vi.mock('../../db/index.js', () => ({
       progress: null,
       resultVideoFilename: null,
       resultMetadata: null,
+      transcript: null,
       extractedRecipe: null,
       error: null,
     },
@@ -178,6 +179,7 @@ describe('processVideoJob — download succeeds', () => {
       infoJson: { title: 'Test' },
       videoSize: 5_000_000,
       videoDuration: 120,
+      transcript: null,
     };
     mockDownloadVideo.mockResolvedValue(downloadResult);
     mockExtractRecipeFromMetadata.mockResolvedValue({
@@ -201,11 +203,106 @@ describe('processVideoJob — download succeeds', () => {
     await processVideoJob('job-1', 100_000_000);
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson);
+    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null);
     expect(updates.length).toBeGreaterThanOrEqual(2);
     const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
     expect(lastUpdate.set).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'complete', progress: 100, extractedRecipe: null })
+    );
+  });
+
+  it('persists the parsed transcript onto the job row', async () => {
+    mockGetVideoStorageUsage.mockResolvedValue(0);
+
+    const fakeJob = {
+      id: 'job-3',
+      sourceUrl: 'https://www.youtube.com/watch?v=transcript',
+      status: 'pending',
+    };
+    mockDb.select.mockReturnValue(makeSelect([fakeJob]));
+
+    const downloadResult = {
+      videoFilename: 'trn.mp4',
+      thumbnailFilename: null,
+      infoJson: { title: 'Transcript Test' },
+      videoSize: 1_000_000,
+      videoDuration: 90,
+      transcript: 'today we are making pasta with garlic and olive oil',
+    };
+    mockDownloadVideo.mockResolvedValue(downloadResult);
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'Transcript Test',
+      rawDescription: '',
+      source: 'none',
+    });
+
+    const updates: unknown[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = {
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+      updates.push(u);
+      return u;
+    });
+
+    await processVideoJob('job-3', 100_000_000);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
+    expect(lastUpdate.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'complete',
+        transcript: 'today we are making pasta with garlic and olive oil',
+      })
+    );
+  });
+
+  it('persists null transcript when downloadVideo returns no transcript', async () => {
+    mockGetVideoStorageUsage.mockResolvedValue(0);
+
+    const fakeJob = {
+      id: 'job-4',
+      sourceUrl: 'https://www.youtube.com/watch?v=notranscript',
+      status: 'pending',
+    };
+    mockDb.select.mockReturnValue(makeSelect([fakeJob]));
+
+    const downloadResult = {
+      videoFilename: 'notrn.mp4',
+      thumbnailFilename: null,
+      infoJson: { title: 'No Transcript' },
+      videoSize: 1_000_000,
+      videoDuration: 30,
+      transcript: null,
+    };
+    mockDownloadVideo.mockResolvedValue(downloadResult);
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'No Transcript',
+      rawDescription: '',
+      source: 'none',
+    });
+
+    const updates: unknown[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = {
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      };
+      updates.push(u);
+      return u;
+    });
+
+    await processVideoJob('job-4', 100_000_000);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
+    expect(lastUpdate.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'complete', transcript: null })
     );
   });
 

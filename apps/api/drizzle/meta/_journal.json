@@ -162,6 +162,13 @@
       "when": 1776768550292,
       "tag": "0022_ordinary_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1784346110058,
+      "tag": "0023_windy_rage",
+      "breakpoints": true
     }
   ]
 }
