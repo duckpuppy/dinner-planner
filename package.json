@@ -3,7 +3,7 @@
   "version": "1.17.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.14.0",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
@@ -22,35 +22,6 @@
   "simple-git-hooks": {
     "pre-commit": "sh .githooks/pre-commit && pnpm type-check && pnpm lint && pnpm format:check",
     "post-merge": "sh .githooks/post-merge"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "^8.0.0",
-      "tar": ">=7.5.11",
-      "esbuild": ">=0.25.0",
-      "bn.js": ">=4.12.3",
-      "minimatch": ">=10.2.3",
-      "rollup@^4": "4.60.1",
-      "rollup@^2": "4.60.1",
-      "serialize-javascript": ">=7.0.3",
-      "flatted": ">=3.4.0",
-      "undici": "^7.24.0",
-      "picomatch": ">=4.0.4",
-      "@xmldom/xmldom": ">=0.8.12",
-      "lodash": ">=4.18.0"
-    },
-    "onlyBuiltDependencies": [
-      "bcrypt",
-      "better-sqlite3",
-      "sharp",
-      "simple-git-hooks"
-    ],
-    "auditConfig": {
-      "ignoreCves": [
-        "CVE-2026-34950",
-        "CVE-2026-35042"
-      ]
-    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
