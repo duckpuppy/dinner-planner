@@ -332,4 +332,89 @@ second line
     const result = parseVtt(vtt);
     expect(result).toBe('first line second line');
   });
+
+  it('preserves non-adjacent duplicate lines separated by distinct content', () => {
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+add that in
+
+00:00:03.000 --> 00:00:06.000
+now let it simmer for ten minutes
+
+00:00:06.000 --> 00:00:09.000
+stir occasionally
+
+00:01:00.000 --> 00:01:03.000
+add that in
+
+00:01:03.000 --> 00:01:06.000
+and serve immediately
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe(
+      'add that in now let it simmer for ten minutes stir occasionally add that in and serve immediately'
+    );
+  });
+
+  it('preserves a standalone numeric line not followed by a timestamp line', () => {
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+preheat the oven to
+
+00:00:03.000 --> 00:00:06.000
+350
+`;
+    const result = parseVtt(vtt);
+    expect(result).toBe('preheat the oven to 350');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// downloadVideo — subtitle file selection
+// ---------------------------------------------------------------------------
+describe('downloadVideo subtitle selection', () => {
+  it('prefers manual subtitles over auto-generated when both are present', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => child.emit('close', 0));
+
+    mockStat.mockImplementation(async (filePath) => {
+      const p = String(filePath);
+      if (p.endsWith('.mp4')) return { size: 1_000_000, isFile: () => true } as fsPromises.Stats;
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    });
+
+    let capturedUuid = '';
+    mockReaddir.mockImplementation(async () => {
+      // Grab the uuid from the most recent spawn call's output template arg
+      const args = mockSpawn.mock.calls[mockSpawn.mock.calls.length - 1]?.[1] as string[];
+      const outputArgIdx = args.indexOf('-o');
+      const outputTemplate = args[outputArgIdx + 1];
+      capturedUuid = outputTemplate.split('.%(ext)s')[0].split('/').pop() as string;
+      return [
+        `${capturedUuid}.en-orig.vtt`,
+        `${capturedUuid}.en.vtt`,
+        `${capturedUuid}.mp4`,
+      ] as unknown as fsPromises.Dirent[];
+    });
+
+    mockReadFile.mockImplementation(async (filePath) => {
+      const p = String(filePath);
+      if (p.endsWith('.info.json')) {
+        return JSON.stringify({}) as unknown as Buffer;
+      }
+      if (p.endsWith('.en.vtt')) {
+        return 'WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nmanual transcript\n' as unknown as Buffer;
+      }
+      if (p.endsWith('.en-orig.vtt')) {
+        return 'WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nauto transcript\n' as unknown as Buffer;
+      }
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    });
+
+    const result = await downloadVideo('https://www.youtube.com/watch?v=subtest');
+    expect(result.transcript).toBe('manual transcript');
+  });
 });

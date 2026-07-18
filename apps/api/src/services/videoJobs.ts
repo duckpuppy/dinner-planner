@@ -99,6 +99,7 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
           videoSize: result.videoSize,
           videoDuration: result.videoDuration,
         }),
+        transcript: result.transcript ?? null,
         extractedRecipe,
       })
       .where(eq(schema.videoJobs.id, jobId));

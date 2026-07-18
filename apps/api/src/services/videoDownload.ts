@@ -146,10 +146,15 @@ export async function downloadVideo(
   }
 
   // Locate subtitle file — yt-dlp names them as {uuid}.{lang}.vtt
+  // When both --write-subs and --write-auto-subs match, prefer the manual
+  // (non-auto-generated) subtitle file. yt-dlp marks auto-captions with an
+  // "-orig" (or similar) suffix in the language code, e.g. {uuid}.en-orig.vtt
+  // vs the manual {uuid}.en.vtt.
   let transcript: string | null = null;
   try {
     const dirFiles = await readdir(VIDEOS_DIR);
-    const vttFile = dirFiles.find((f) => f.startsWith(uuid) && f.endsWith('.vtt'));
+    const vttCandidates = dirFiles.filter((f) => f.startsWith(uuid) && f.endsWith('.vtt'));
+    const vttFile = vttCandidates.find((f) => !/-orig/.test(f)) ?? vttCandidates[0];
     if (vttFile) {
       const { readFile } = await import('node:fs/promises');
       const vttContent = await readFile(join(VIDEOS_DIR, vttFile), 'utf-8');
@@ -191,7 +196,11 @@ export async function getVideoStorageUsage(): Promise<number> {
 
 export async function deleteVideo(filename: string): Promise<void> {
   const base = filename.replace(/\.[^.]+$/, '');
-  const extensions = ['.mp4', '.info.json', '.jpg', '.webm', '.mkv', '.vtt', '.srt'];
+  // Note: .vtt/.srt are intentionally NOT in this list — actual subtitle
+  // filenames are {base}.{lang}.vtt (e.g. {uuid}.en.vtt), which never match
+  // a flat `${base}${ext}` join. The readdir-based loop below is the sole
+  // mechanism that actually cleans up subtitle files.
+  const extensions = ['.mp4', '.info.json', '.jpg', '.webm', '.mkv'];
   for (const ext of extensions) {
     try {
       await unlink(join(VIDEOS_DIR, `${base}${ext}`));
@@ -218,6 +227,8 @@ export async function deleteVideo(filename: string): Promise<void> {
   }
 }
 
+const VTT_TIMESTAMP_RE = /^\d{2}:\d{2}/;
+
 /**
  * Parse WebVTT content to plain text, stripping timestamps,
  * formatting tags, and deduplicating lines (yt-dlp auto-subs
@@ -226,19 +237,28 @@ export async function deleteVideo(filename: string): Promise<void> {
 export function parseVtt(vttContent: string): string {
   const lines = vttContent.split('\n');
   const textLines: string[] = [];
-  const seen = new Set<string>();
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
     // Skip WEBVTT header, NOTE lines, cue timing lines, and blank lines
     if (
       line.startsWith('WEBVTT') ||
       line.startsWith('NOTE') ||
       line.startsWith('Kind:') ||
       line.startsWith('Language:') ||
-      /^\d{2}:\d{2}/.test(line) ||
-      /^[\d]+$/.test(line.trim()) ||
+      VTT_TIMESTAMP_RE.test(line) ||
       line.trim() === ''
     ) {
+      continue;
+    }
+
+    // Cue identifier lines are numeric-only AND, in valid VTT, always
+    // immediately followed by a timestamp line. Content-shape-only
+    // matching (numeric text) would wrongly drop a legitimate standalone
+    // numeric caption (e.g. an oven temp like "350") that isn't actually
+    // a cue identifier.
+    if (/^[\d]+$/.test(line.trim()) && VTT_TIMESTAMP_RE.test(lines[i + 1] ?? '')) {
       continue;
     }
 
@@ -251,8 +271,12 @@ export function parseVtt(vttContent: string): string {
       .replace(/&gt;/g, '>')
       .trim();
 
-    if (cleaned && !seen.has(cleaned)) {
-      seen.add(cleaned);
+    // Only dedupe against the immediately preceding output line (a sliding
+    // window of 1) — yt-dlp auto-subs repeat lines across overlapping cue
+    // windows, but a global dedupe set would also collapse two genuinely
+    // distinct, non-adjacent occurrences of the same line elsewhere in the
+    // transcript (e.g. a repeated instruction used twice).
+    if (cleaned && cleaned !== textLines[textLines.length - 1]) {
       textLines.push(cleaned);
     }
   }
