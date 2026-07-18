@@ -26,6 +26,11 @@
       "matchPackageNames": ["node"],
       "allowedVersions": "22",
       "description": "Pin Node.js to 22 LTS — better-sqlite3 native rebuild fails on Node 24 with node-gyp ENOENT bug"
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7.0.0",
+      "description": "Hold TypeScript below v7 — typescript-eslint@8.64.0 (latest, incl. canary) declares peerDependency typescript: >=4.8.4 <6.1.0 and crashes under TS7's rewritten internals (TypeError reading 'Cjs' in typescript-estree). Remove this pin once typescript-eslint ships TS7 support."
     }
   ]
 }
