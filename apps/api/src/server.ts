@@ -152,11 +152,11 @@ if (config.NODE_ENV === 'production') {
   await fastify.register(fastifyStatic, {
     root: webDistPath,
     prefix: '/',
-    setHeaders: (res, filePath) => {
+    setHeaders: (reply, filePath) => {
       if (filePath.endsWith('index.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       } else {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
       }
     },
   });
