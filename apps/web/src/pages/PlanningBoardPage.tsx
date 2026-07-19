@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { menus, settings } from '@/lib/api';
 import type { DinnerEntry, UpdateEntryData } from '@/lib/api';
 import { localDateStr, getWeekStartDate } from '@/lib/utils';
-import { PlanDayCard, isEntryPlanned } from '@/components/PlanDayCard';
+import { PlanDayCard, isEntryPlanned, DAY_NAMES_FULL } from '@/components/PlanDayCard';
 import { EntryEditor } from '@/components/EntryEditor';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
@@ -186,6 +186,66 @@ export function PlanningBoardPage() {
     [entries, updateMutation]
   );
 
+  const handleMoveSide = useCallback(
+    (dishId: string, sourceEntryId: string, targetEntryId: string) => {
+      const sourceEntry = entries.find((e) => e.id === sourceEntryId);
+      const targetEntry = entries.find((e) => e.id === targetEntryId);
+      if (!sourceEntry || !targetEntry) return;
+
+      const dish = sourceEntry.sideDishes.find((d) => d.id === dishId);
+      if (!dish) return;
+
+      if (targetEntry.sideDishes.some((d) => d.id === dishId)) {
+        toast.error(
+          `${dish.name} is already planned for ${DAY_NAMES_FULL[targetEntry.dayOfWeek]}.`
+        );
+        return;
+      }
+
+      const newSourceSides = sourceEntry.sideDishes.filter((d) => d.id !== dishId);
+      const newTargetSides = [...targetEntry.sideDishes, dish];
+
+      // Optimistic move
+      const moved = entries.map((e) => {
+        if (e.id === sourceEntry.id) return { ...e, sideDishes: newSourceSides };
+        if (e.id === targetEntry.id) return { ...e, sideDishes: newTargetSides };
+        return e;
+      });
+      setLocalEntries(moved);
+
+      const sourceUpdate: UpdateEntryData = {
+        type: sourceEntry.type,
+        mainDishId: sourceEntry.mainDish?.id ?? null,
+        sideDishIds: newSourceSides.map((d) => d.id),
+        customText: sourceEntry.customText,
+        restaurantName: sourceEntry.restaurantName,
+        restaurantNotes: sourceEntry.restaurantNotes,
+        sourceEntryId: sourceEntry.sourceEntryId,
+      };
+      const targetUpdate: UpdateEntryData = {
+        type: targetEntry.type,
+        mainDishId: targetEntry.mainDish?.id ?? null,
+        sideDishIds: newTargetSides.map((d) => d.id),
+        customText: targetEntry.customText,
+        restaurantName: targetEntry.restaurantName,
+        restaurantNotes: targetEntry.restaurantNotes,
+        sourceEntryId: targetEntry.sourceEntryId,
+      };
+
+      Promise.all([
+        updateMutation.mutateAsync({ id: sourceEntry.id, data: sourceUpdate }),
+        updateMutation.mutateAsync({ id: targetEntry.id, data: targetUpdate }),
+      ])
+        .then(() => {
+          setLocalEntries(null);
+        })
+        .catch(() => {
+          // onError handles revert
+        });
+    },
+    [entries, updateMutation]
+  );
+
   const handleClear = useCallback(
     (entryId: string) => {
       const entry = entries.find((e) => e.id === entryId);
@@ -277,8 +337,10 @@ export function PlanningBoardPage() {
               <PlanDayCard
                 key={entry.id}
                 entry={entry}
+                weekEntries={entries}
                 onEdit={() => setEditingEntryId(entry.id)}
                 onClear={() => handleClear(entry.id)}
+                onMoveSide={handleMoveSide}
                 isDragging={activeId === entry.id}
                 isOver={false}
               />

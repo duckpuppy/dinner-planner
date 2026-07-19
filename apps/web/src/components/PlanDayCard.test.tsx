@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { PlanDayCard, isEntryPlanned } from './PlanDayCard';
+import { PlanDayCard, isEntryPlanned, type WeekEntryRef } from './PlanDayCard';
 import type { DinnerEntry } from '@/lib/api';
 
 // Mock dnd-kit — avoid needing pointer events / drag context in unit tests
@@ -66,19 +66,32 @@ describe('isEntryPlanned', () => {
   });
 });
 
+const defaultWeekEntries: WeekEntryRef[] = [
+  { id: 'entry-0', dayOfWeek: 0, date: '2024-06-09', type: 'assembled' },
+  { id: 'entry-1', dayOfWeek: 1, date: '2024-06-10', type: 'assembled' },
+  { id: 'entry-2', dayOfWeek: 2, date: '2024-06-11', type: 'assembled' },
+];
+
 describe('PlanDayCard', () => {
   const onEdit = vi.fn();
   const onClear = vi.fn();
+  const onMoveSide = vi.fn();
 
   function renderCard(
     overrides: Partial<DinnerEntry> = {},
-    props: { isDragging?: boolean; isOver?: boolean } = {}
+    props: {
+      isDragging?: boolean;
+      isOver?: boolean;
+      weekEntries?: WeekEntryRef[];
+    } = {}
   ) {
     return render(
       <PlanDayCard
         entry={makeEntry(overrides)}
+        weekEntries={props.weekEntries ?? defaultWeekEntries}
         onEdit={onEdit}
         onClear={onClear}
+        onMoveSide={onMoveSide}
         isDragging={props.isDragging ?? false}
         isOver={props.isOver ?? false}
       />
@@ -111,6 +124,55 @@ describe('PlanDayCard', () => {
       sideDishes: [{ id: '2', name: 'Salad', type: 'side' }],
     });
     expect(screen.getByText(/salad/i)).toBeInTheDocument();
+  });
+
+  it('renders side dishes for an unplanned entry with no main dish', () => {
+    renderCard({
+      id: 'entry-1',
+      mainDish: null,
+      sideDishes: [{ id: '2', name: 'Salad', type: 'side' }],
+    });
+    expect(screen.getByText(/salad/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add meal for monday/i })).toBeInTheDocument();
+  });
+
+  it('renders a "Move to a different day" select for each side dish', () => {
+    renderCard({
+      id: 'entry-1',
+      mainDish: { id: '1', name: 'Steak', type: 'main' },
+      sideDishes: [{ id: '2', name: 'Salad', type: 'side' }],
+    });
+    expect(screen.getByLabelText(/move salad to a different day/i)).toBeInTheDocument();
+  });
+
+  it('does not offer non-assembled entries as move targets', () => {
+    renderCard(
+      {
+        id: 'entry-1',
+        mainDish: { id: '1', name: 'Steak', type: 'main' },
+        sideDishes: [{ id: '2', name: 'Salad', type: 'side' }],
+      },
+      {
+        weekEntries: [
+          { id: 'entry-0', dayOfWeek: 0, date: '2024-06-09', type: 'dining_out' },
+          { id: 'entry-1', dayOfWeek: 1, date: '2024-06-10', type: 'assembled' },
+        ],
+      }
+    );
+    // No move control is offered at all when there are no assembled-type
+    // days to move the side dish to.
+    expect(screen.queryByLabelText(/move salad to a different day/i)).not.toBeInTheDocument();
+  });
+
+  it('calls onMoveSide with dish id, source entry id, and target entry id when a day is selected', () => {
+    renderCard({
+      id: 'entry-1',
+      mainDish: { id: '1', name: 'Steak', type: 'main' },
+      sideDishes: [{ id: '2', name: 'Salad', type: 'side' }],
+    });
+    const select = screen.getByLabelText(/move salad to a different day/i);
+    fireEvent.change(select, { target: { value: 'entry-2' } });
+    expect(onMoveSide).toHaveBeenCalledWith('2', 'entry-1', 'entry-2');
   });
 
   it('renders fend_for_self label', () => {
