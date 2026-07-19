@@ -30,6 +30,7 @@ import { StarRating } from '@/components/StarRating';
 import { SkeletonCard, Skeleton } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
+import { EntryScaleControl, ScaleBadge } from '@/components/EntryScaleControl';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -180,6 +181,17 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
       mainDishId: entry.mainDish?.id ?? null,
       sideDishIds: entry.sideDishes.map((d) => d.id),
       scale: newScale,
+      sideScale: entry.sideScale,
+    });
+  }
+
+  function handleSideScaleChange(newScale: 1 | 2 | 4) {
+    scaleMutation.mutate({
+      type: entry.type,
+      mainDishId: entry.mainDish?.id ?? null,
+      sideDishIds: entry.sideDishes.map((d) => d.id),
+      scale: entry.scale,
+      sideScale: newScale,
     });
   }
 
@@ -279,39 +291,34 @@ function TodayCard({ entry }: { entry: DinnerEntry }) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold">{entry.mainDish.name}</h2>
-              {entry.scale > 1 && (
-                <span
-                  className="text-sm font-semibold text-primary tabular-nums"
-                  aria-label={`Serving scale: ${entry.scale}×`}
-                >
-                  {entry.scale}&times;
-                </span>
-              )}
+              <ScaleBadge scale={entry.scale} label="Main dish serving scale" large />
+            </div>
+            <div className="mt-2">
+              <EntryScaleControl
+                label="Main dish serving scale"
+                value={entry.scale}
+                onChange={handleScaleChange}
+                disabled={scaleMutation.isPending}
+              />
             </div>
             {entry.sideDishes.length > 0 && (
-              <p className="text-muted-foreground mt-1">
-                with {entry.sideDishes.map((d) => d.name).join(', ')}
-              </p>
+              <>
+                <div className="flex items-center gap-2 mt-3">
+                  <p className="text-muted-foreground">
+                    with {entry.sideDishes.map((d) => d.name).join(', ')}
+                  </p>
+                  <ScaleBadge scale={entry.sideScale} label="Side dish serving scale" large />
+                </div>
+                <div className="mt-2">
+                  <EntryScaleControl
+                    label="Side dish serving scale"
+                    value={entry.sideScale}
+                    onChange={handleSideScaleChange}
+                    disabled={scaleMutation.isPending}
+                  />
+                </div>
+              </>
             )}
-            <div className="flex items-center gap-1 mt-2" role="group" aria-label="Serving scale">
-              {([1, 2, 4] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleScaleChange(s)}
-                  disabled={scaleMutation.isPending}
-                  className={cn(
-                    'px-2 py-1 text-xs font-medium rounded border transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    entry.scale === s
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-input hover:bg-muted text-muted-foreground'
-                  )}
-                  aria-pressed={entry.scale === s}
-                >
-                  {s}&times;
-                </button>
-              ))}
-            </div>
           </div>
         )}
 

@@ -88,6 +88,7 @@ function makeEntry(overrides = {}) {
     completed: false,
     skipped: false,
     scale: 1,
+    sideScale: 1,
     mainDish: { id: 'dish-1', name: 'Pasta', type: 'main' },
     sideDishes: [],
     preparations: [],
@@ -266,9 +267,67 @@ describe('WeekPage', () => {
       await waitFor(() => {
         expect(vi.mocked(menus.updateEntry)).toHaveBeenCalledWith(
           'entry-1',
-          expect.objectContaining({ scale: 2 })
+          expect.objectContaining({ scale: 2, sideScale: 1 })
         );
       });
+    });
+
+    it('renders a separate side dish scale control when entry has side dishes', async () => {
+      const entry = makeEntry({
+        scale: 1,
+        sideScale: 1,
+        sideDishes: [{ id: 'dish-2', name: 'Salad', type: 'side' }],
+      });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+      const mainGroup = screen.getByRole('group', { name: /main dish serving scale/i });
+      const sideGroup = screen.getByRole('group', { name: /side dish serving scale/i });
+      expect(mainGroup).toBeTruthy();
+      expect(sideGroup).toBeTruthy();
+    });
+
+    it('changes main and side scale independently', async () => {
+      vi.mocked(menus.updateEntry).mockResolvedValue({} as never);
+      const entry = makeEntry({
+        scale: 1,
+        sideScale: 1,
+        sideDishes: [{ id: 'dish-2', name: 'Salad', type: 'side' }],
+      });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+
+      const sideGroup = screen.getByRole('group', { name: /side dish serving scale/i });
+      const sideButtons = Array.from(sideGroup.querySelectorAll('button'));
+      fireEvent.click(sideButtons[2]); // 4x
+
+      await waitFor(() => {
+        expect(vi.mocked(menus.updateEntry)).toHaveBeenCalledWith(
+          'entry-1',
+          expect.objectContaining({ scale: 1, sideScale: 4 })
+        );
+      });
+    });
+
+    it('does not show a side dish scale control when entry has no side dishes', async () => {
+      const entry = makeEntry({ scale: 1, sideScale: 1, sideDishes: [] });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+      expect(screen.queryByRole('group', { name: /side dish serving scale/i })).toBeNull();
+    });
+
+    it('shows side scale badge only when side scale differs from 1', async () => {
+      const entry = makeEntry({
+        scale: 1,
+        sideScale: 2,
+        sideDishes: [{ id: 'dish-2', name: 'Salad', type: 'side' }],
+      });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      render(<WeekPage />, { wrapper });
+      await screen.findByText('Pasta');
+      expect(screen.getByLabelText('Side dish serving scale: 2×')).toBeTruthy();
     });
   });
 
@@ -538,6 +597,27 @@ describe('WeekPage', () => {
       fireEvent.click(editBtns[0]);
       await screen.findByText('Home Cooked');
       expect(await screen.findByText('Suggest')).toBeTruthy();
+    });
+
+    it('preserves existing scale and sideScale when saving via the editor (does not reset to 1x)', async () => {
+      const entry = makeEntry({
+        scale: 2,
+        sideScale: 4,
+        sideDishes: [{ id: 'side-1', name: 'Salad', type: 'side' }],
+      });
+      vi.mocked(menus.getWeek).mockResolvedValue(makeWeekResponse([entry]));
+      vi.mocked(menus.updateEntry).mockResolvedValue({} as never);
+      render(<WeekPage />, { wrapper });
+      const editBtns = await screen.findAllByRole('button', { name: /edit/i });
+      fireEvent.click(editBtns[0]);
+      await screen.findByText('Home Cooked');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(menus.updateEntry).toHaveBeenCalledWith(
+          'entry-1',
+          expect.objectContaining({ scale: 2, sideScale: 4 })
+        );
+      });
     });
   });
 
