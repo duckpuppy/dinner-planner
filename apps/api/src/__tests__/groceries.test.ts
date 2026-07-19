@@ -559,4 +559,94 @@ describe('getWeekGroceries', () => {
 
     expect(result.groceries[0].quantity).toBeNull();
   });
+
+  it('applies scale to main dish and sideScale to side dishes independently (main 2x, sides 1x)', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Roast Chicken' },
+      sideDishes: [{ id: 'dish-2', name: 'Mashed Potatoes' }],
+      scale: 2,
+      sideScale: 1,
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Chicken Breast',
+          quantity: 100,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Meat',
+        },
+        {
+          id: 'ing-2',
+          dishId: 'dish-2',
+          name: 'Potatoes',
+          quantity: 50,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Produce',
+        },
+      ])
+    );
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhere([]));
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    const chicken = result.groceries.find((g) => g.name === 'Chicken Breast');
+    const potatoes = result.groceries.find((g) => g.name === 'Potatoes');
+    // main dish scale=2 → 100g × 2 = 200g
+    expect(chicken?.quantity).toBe(200);
+    // side dish sideScale=1 → 50g × 1 = 50g (unaffected by main scale)
+    expect(potatoes?.quantity).toBe(50);
+  });
+
+  it('applies scale to main dish and sideScale to side dishes independently (main 1x, sides 3x)', async () => {
+    const entry = makeEntry({
+      type: 'assembled',
+      mainDish: { id: 'dish-1', name: 'Roast Chicken' },
+      sideDishes: [{ id: 'dish-2', name: 'Mashed Potatoes' }],
+      scale: 1,
+      sideScale: 3,
+    });
+    mockGetOrCreateWeekMenu.mockResolvedValueOnce(makeMenu([entry]));
+    mockDb.select.mockReturnValueOnce(
+      selFromWhereOrderBy([
+        {
+          id: 'ing-1',
+          dishId: 'dish-1',
+          name: 'Chicken Breast',
+          quantity: 100,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Meat',
+        },
+        {
+          id: 'ing-2',
+          dishId: 'dish-2',
+          name: 'Potatoes',
+          quantity: 50,
+          unit: 'g',
+          notes: null,
+          sortOrder: 0,
+          category: 'Produce',
+        },
+      ])
+    );
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhere([]));
+
+    const result = await getWeekGroceries('2024-01-01');
+
+    const chicken = result.groceries.find((g) => g.name === 'Chicken Breast');
+    const potatoes = result.groceries.find((g) => g.name === 'Potatoes');
+    // main dish scale=1 → 100g × 1 = 100g (unaffected by side scale)
+    expect(chicken?.quantity).toBe(100);
+    // side dish sideScale=3 → 50g × 3 = 150g
+    expect(potatoes?.quantity).toBe(150);
+  });
 });

@@ -178,6 +178,7 @@ export const dinnerEntries = sqliteTable('dinner_entries', {
   completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   scale: integer('scale').notNull().default(1),
+  sideScale: integer('side_scale').notNull().default(1),
   ...timestamps,
 });
 

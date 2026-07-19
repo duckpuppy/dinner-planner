@@ -8,6 +8,7 @@ vi.mock('@/lib/api', () => ({
     getToday: vi.fn(),
     getWeek: vi.fn(),
     skipEntry: vi.fn(),
+    updateEntry: vi.fn(),
   },
   prepTasks: {
     list: vi.fn().mockResolvedValue({ prepTasks: [] }),
@@ -81,6 +82,8 @@ const baseEntry = {
   restaurantId: null,
   completed: false,
   skipped: false,
+  scale: 1,
+  sideScale: 1,
   mainDish: { id: 'dish-1', name: 'Pasta', type: 'main' },
   sideDishes: [],
   preparations: [],
@@ -306,6 +309,70 @@ describe('TodayPage entry type display', () => {
     });
     const { findByText } = render(<TodayPage />, { wrapper });
     expect(await findByText(/with Salad/)).toBeTruthy();
+  });
+
+  it('does not show a side dish scale control when entry has no side dishes', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({ entry: { ...baseEntry, sideDishes: [] } });
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: { weekStartDate: '2024-06-10', entries: [] },
+    });
+    render(<TodayPage />, { wrapper });
+    await screen.findByText('Pasta');
+    expect(screen.queryByRole('group', { name: /side dish serving scale/i })).toBeNull();
+  });
+
+  it('shows separate main and side scale controls and changes them independently', async () => {
+    vi.mocked(menus.updateEntry).mockResolvedValue({} as never);
+    vi.mocked(menus.getToday).mockResolvedValue({
+      entry: {
+        ...baseEntry,
+        scale: 1,
+        sideScale: 1,
+        sideDishes: [{ id: 'side-1', name: 'Salad', type: 'side' }],
+      },
+    });
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: { weekStartDate: '2024-06-10', entries: [] },
+    });
+    render(<TodayPage />, { wrapper });
+    await screen.findByText('Pasta');
+
+    const mainGroup = screen.getByRole('group', { name: /main dish serving scale/i });
+    const mainButtons = Array.from(mainGroup.querySelectorAll('button'));
+    fireEvent.click(mainButtons[1]); // 2x main
+    await waitFor(() => {
+      expect(vi.mocked(menus.updateEntry)).toHaveBeenCalledWith(
+        'entry-1',
+        expect.objectContaining({ scale: 2, sideScale: 1 })
+      );
+    });
+
+    const sideGroup = screen.getByRole('group', { name: /side dish serving scale/i });
+    const sideButtons = Array.from(sideGroup.querySelectorAll('button'));
+    fireEvent.click(sideButtons[2]); // 4x side
+    await waitFor(() => {
+      expect(vi.mocked(menus.updateEntry)).toHaveBeenCalledWith(
+        'entry-1',
+        expect.objectContaining({ scale: 1, sideScale: 4 })
+      );
+    });
+  });
+
+  it('shows side scale badge only when side scale differs from main', async () => {
+    vi.mocked(menus.getToday).mockResolvedValue({
+      entry: {
+        ...baseEntry,
+        scale: 1,
+        sideScale: 2,
+        sideDishes: [{ id: 'side-1', name: 'Salad', type: 'side' }],
+      },
+    });
+    vi.mocked(menus.getWeek).mockResolvedValue({
+      menu: { weekStartDate: '2024-06-10', entries: [] },
+    });
+    render(<TodayPage />, { wrapper });
+    await screen.findByText('Pasta');
+    expect(screen.getByLabelText('Side dish serving scale: 2×')).toBeTruthy();
   });
 
   it('shows "Not yet prepared" status banner', async () => {

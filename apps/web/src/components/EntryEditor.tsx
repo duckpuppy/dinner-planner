@@ -103,6 +103,8 @@ export function EntryEditor({ entry, onSave, onCancel, isSaving }: EntryEditorPr
       restaurantName: type === 'dining_out' ? restaurantName || null : null,
       restaurantNotes: type === 'dining_out' ? restaurantNotes || null : null,
       sourceEntryId: type === 'leftovers' ? sourceEntryId || null : null,
+      scale: entry.scale,
+      sideScale: entry.sideScale,
     });
   };
 

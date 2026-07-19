@@ -30,6 +30,7 @@ import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 import { EntryEditor } from '@/components/EntryEditor';
+import { EntryScaleControl, ScaleBadge } from '@/components/EntryScaleControl';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -212,6 +213,17 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
       mainDishId: entry.mainDish?.id ?? null,
       sideDishIds: entry.sideDishes.map((d) => d.id),
       scale: newScale,
+      sideScale: entry.sideScale,
+    });
+  }
+
+  function handleSideScaleChange(newScale: 1 | 2 | 4) {
+    updateMutation.mutate({
+      type: entry.type,
+      mainDishId: entry.mainDish?.id ?? null,
+      sideDishIds: entry.sideDishes.map((d) => d.id),
+      scale: entry.scale,
+      sideScale: newScale,
     });
   }
 
@@ -264,40 +276,36 @@ function DayCard({ entry, activeItemId, onSwipeStart, onSwipeEnd }: DayCardProps
               <>
                 <div className="flex items-center gap-2">
                   <div className="font-medium truncate">{entry.mainDish.name}</div>
-                  {entry.scale > 1 && (
-                    <span className="shrink-0 text-xs font-semibold text-primary tabular-nums">
-                      {entry.scale}&times;
-                    </span>
-                  )}
+                  <ScaleBadge scale={entry.scale} label="Main dish serving scale" />
                 </div>
                 {entry.sideDishes.length > 0 && (
-                  <div className="text-sm text-muted-foreground truncate">
-                    with {entry.sideDishes.map((d) => d.name).join(', ')}
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-muted-foreground truncate">
+                      with {entry.sideDishes.map((d) => d.name).join(', ')}
+                    </div>
+                    <ScaleBadge scale={entry.sideScale} label="Side dish serving scale" />
                   </div>
                 )}
-                <div
-                  className="flex items-center gap-1 mt-1"
-                  role="group"
-                  aria-label="Serving scale"
-                >
-                  {([1, 2, 4] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handleScaleChange(s)}
-                      disabled={updateMutation.isPending}
-                      className={cn(
-                        'px-1.5 py-0.5 text-xs font-medium rounded border transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                        entry.scale === s
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'border-input hover:bg-muted text-muted-foreground'
-                      )}
-                      aria-pressed={entry.scale === s}
-                    >
-                      {s}&times;
-                    </button>
-                  ))}
+                <div className="mt-1">
+                  <EntryScaleControl
+                    label="Main dish serving scale"
+                    value={entry.scale}
+                    onChange={handleScaleChange}
+                    disabled={updateMutation.isPending}
+                    compact
+                  />
                 </div>
+                {entry.sideDishes.length > 0 && (
+                  <div className="mt-1">
+                    <EntryScaleControl
+                      label="Side dish serving scale"
+                      value={entry.sideScale}
+                      onChange={handleSideScaleChange}
+                      disabled={updateMutation.isPending}
+                      compact
+                    />
+                  </div>
+                )}
               </>
             ) : entry.type === 'assembled' ? (
               <div className="text-muted-foreground">No dish selected</div>

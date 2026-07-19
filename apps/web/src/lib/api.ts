@@ -622,6 +622,7 @@ export interface DinnerEntry {
   completed: boolean;
   skipped: boolean;
   scale: number;
+  sideScale: number;
   sourceEntryId: string | null;
   sourceEntryDishName: string | null;
   mainDish: { id: string; name: string; type: string } | null;
@@ -642,6 +643,7 @@ export interface UpdateEntryData {
   sideDishIds?: string[];
   sourceEntryId?: string | null;
   scale?: number;
+  sideScale?: number;
 }
 
 export interface Preparation {

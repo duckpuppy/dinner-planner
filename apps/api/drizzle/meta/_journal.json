@@ -169,6 +169,13 @@
       "when": 1784346110058,
       "tag": "0023_windy_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1784424577783,
+      "tag": "0024_foamy_quentin_quire",
+      "breakpoints": true
     }
   ]
 }

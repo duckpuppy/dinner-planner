@@ -37,6 +37,7 @@ vi.mock('../db/index.js', () => ({
       completed: null,
       mainDishId: null,
       scale: null,
+      sideScale: null,
     },
     dishes: { id: null, name: null },
     users: { id: null },
@@ -87,6 +88,7 @@ function makeEntry(overrides: Record<string, unknown> = {}) {
     completed: false,
     skipped: false,
     scale: 1,
+    sideScale: 1,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -198,6 +200,28 @@ describe('updateDinnerEntry', () => {
 
     const updateCall = mockDb.update().set;
     expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ scale: 3 }));
+  });
+
+  it('persists sideScale when provided', async () => {
+    const entry = makeEntry();
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [], sideScale: 2 });
+
+    const updateCall = mockDb.update().set;
+    expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ sideScale: 2 }));
+  });
+
+  it('defaults sideScale to 1 when not provided', async () => {
+    const entry = makeEntry();
+    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    setupGetEntryWithRelations(entry);
+
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+
+    const updateCall = mockDb.update().set;
+    expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ sideScale: 1 }));
   });
 });
 
