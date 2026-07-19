@@ -4,6 +4,7 @@ import { GripVertical, X, Edit2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DinnerEntry } from '@/lib/api';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const DAY_NAMES_FULL = [
   'Sunday',
   'Monday',
@@ -72,8 +73,8 @@ function SideDishItem({ dish, entry, weekEntries, onMoveSide }: SideDishItemProp
   const otherDays = weekEntries.filter((e) => e.id !== entry.id && e.type === 'assembled');
 
   return (
-    <li className="flex items-center justify-between gap-1">
-      <span className="text-xs text-muted-foreground truncate">{dish.name}</span>
+    <li className="space-y-0.5">
+      <span className="block truncate text-xs text-muted-foreground">{dish.name}</span>
       {otherDays.length > 0 && (
         <select
           value=""
@@ -82,7 +83,7 @@ function SideDishItem({ dish, entry, weekEntries, onMoveSide }: SideDishItemProp
             if (targetId) onMoveSide(dish.id, entry.id, targetId);
           }}
           aria-label={`Move ${dish.name} to a different day`}
-          className="shrink-0 max-w-[92px] text-[10px] bg-transparent border border-border/60 rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-full min-h-[28px] text-[11px] bg-background text-muted-foreground border border-border/60 rounded px-1.5 py-1 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
         >
           <option value="" disabled>
             Move…
