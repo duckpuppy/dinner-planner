@@ -103,6 +103,7 @@ export const updateDinnerEntrySchema = z.object({
   sideDishIds: z.array(z.string().uuid()).default([]),
   sourceEntryId: z.string().uuid().nullable().optional(),
   scale: z.number().int().min(1).max(4).default(1),
+  sideScale: z.number().int().min(1).max(4).default(1),
   restaurantId: z.string().uuid().nullable().default(null),
 });
 

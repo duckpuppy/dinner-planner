@@ -77,11 +77,12 @@ export async function getWeekGroceries(
   for (const entry of menu.entries) {
     if (entry.type !== 'assembled') continue;
     const scale = entry.scale ?? 1;
+    const sideScale = entry.sideScale ?? 1;
     if (entry.mainDish) {
       dishEntries.push({ dishId: entry.mainDish.id, dishName: entry.mainDish.name, scale });
     }
     for (const side of entry.sideDishes) {
-      dishEntries.push({ dishId: side.id, dishName: side.name, scale });
+      dishEntries.push({ dishId: side.id, dishName: side.name, scale: sideScale });
     }
   }
 

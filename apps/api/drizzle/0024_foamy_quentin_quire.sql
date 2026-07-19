@@ -1,0 +1,1 @@
+ALTER TABLE `dinner_entries` ADD `side_scale` integer DEFAULT 1 NOT NULL;
