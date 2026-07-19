@@ -70,6 +70,7 @@ vi.mock('@dnd-kit/utilities', () => ({
 }));
 
 import { menus, settings } from '@/lib/api';
+import { toast } from 'sonner';
 
 function makeEntry(overrides: Partial<DinnerEntry> = {}): DinnerEntry {
   return {
@@ -298,6 +299,92 @@ describe('PlanningBoardPage', () => {
     render(<PlanningBoardPage />, { wrapper });
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /plan next week/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('move side dish', () => {
+    function makeEntriesWithSide() {
+      const entries = makeWeekEntries();
+      entries[0] = makeEntry({
+        id: 'entry-0',
+        date: '2024-06-16',
+        dayOfWeek: 0,
+        mainDish: { id: 'main-1', name: 'Steak', type: 'main' },
+        sideDishes: [{ id: 'side-1', name: 'Salad', type: 'side' }],
+      });
+      entries[1] = makeEntry({
+        id: 'entry-1',
+        date: '2024-06-17',
+        dayOfWeek: 1,
+        mainDish: { id: 'main-2', name: 'Tacos', type: 'main' },
+        sideDishes: [],
+      });
+      return entries;
+    }
+
+    it('moves a side dish to the target day and PATCHes both entries', async () => {
+      const entries = makeEntriesWithSide();
+      vi.mocked(menus.getWeek).mockResolvedValue({
+        menu: { id: 'menu-1', weekStartDate: '2024-06-16', entries, createdAt: '', updatedAt: '' },
+      });
+      vi.mocked(menus.updateEntry).mockResolvedValue({ entry: makeEntry() });
+
+      render(<PlanningBoardPage />, { wrapper });
+      const select = await screen.findByLabelText(/move salad to a different day/i);
+      fireEvent.change(select, { target: { value: 'entry-1' } });
+
+      await waitFor(() => {
+        expect(menus.updateEntry).toHaveBeenCalledWith(
+          'entry-0',
+          expect.objectContaining<Partial<UpdateEntryData>>({ sideDishIds: [] })
+        );
+        expect(menus.updateEntry).toHaveBeenCalledWith(
+          'entry-1',
+          expect.objectContaining<Partial<UpdateEntryData>>({ sideDishIds: ['side-1'] })
+        );
+      });
+    });
+
+    it('no-ops and shows a toast when the dish is already on the target day', async () => {
+      const entries = makeEntriesWithSide();
+      entries[1] = { ...entries[1], sideDishes: [{ id: 'side-1', name: 'Salad', type: 'side' }] };
+      vi.mocked(menus.getWeek).mockResolvedValue({
+        menu: { id: 'menu-1', weekStartDate: '2024-06-16', entries, createdAt: '', updatedAt: '' },
+      });
+
+      render(<PlanningBoardPage />, { wrapper });
+      // Both days now have a "Salad" side dish, so two move-selects share the
+      // same accessible name — the source day's (entry-0) renders first.
+      await waitFor(() => {
+        expect(screen.getAllByLabelText(/move salad to a different day/i).length).toBeGreaterThan(
+          0
+        );
+      });
+      const [select] = screen.getAllByLabelText(/move salad to a different day/i);
+      fireEvent.change(select, { target: { value: 'entry-1' } });
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/already planned/i));
+      });
+      expect(menus.updateEntry).not.toHaveBeenCalled();
+    });
+
+    it('reverts the optimistic move and shows a toast when a PATCH fails', async () => {
+      const entries = makeEntriesWithSide();
+      vi.mocked(menus.getWeek).mockResolvedValue({
+        menu: { id: 'menu-1', weekStartDate: '2024-06-16', entries, createdAt: '', updatedAt: '' },
+      });
+      vi.mocked(menus.updateEntry).mockRejectedValue(new Error('Network error'));
+
+      render(<PlanningBoardPage />, { wrapper });
+      const select = await screen.findByLabelText(/move salad to a different day/i);
+      fireEvent.change(select, { target: { value: 'entry-1' } });
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/reverted/i));
+      });
+      // Side dish should still show back on the original day after revert.
+      expect(await screen.findByLabelText(/move salad to a different day/i)).toBeInTheDocument();
     });
   });
 

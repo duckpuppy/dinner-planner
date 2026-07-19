@@ -4,7 +4,7 @@ import { GripVertical, X, Edit2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DinnerEntry } from '@/lib/api';
 
-const DAY_NAMES_FULL = [
+export const DAY_NAMES_FULL = [
   'Sunday',
   'Monday',
   'Tuesday',
@@ -14,10 +14,19 @@ const DAY_NAMES_FULL = [
   'Saturday',
 ];
 
+export interface WeekEntryRef {
+  id: string;
+  dayOfWeek: number;
+  date: string;
+  type: DinnerEntry['type'];
+}
+
 export interface PlanDayCardProps {
   entry: DinnerEntry;
+  weekEntries: WeekEntryRef[];
   onEdit: () => void;
   onClear: () => void;
+  onMoveSide: (dishId: string, sourceEntryId: string, targetEntryId: string) => void;
   isDragging: boolean;
   isOver: boolean;
 }
@@ -37,12 +46,67 @@ function getEntryLabel(entry: DinnerEntry): string | null {
   return null;
 }
 
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function isEntryPlanned(entry: DinnerEntry): boolean {
   return entry.mainDish !== null || entry.type !== 'assembled';
 }
 
-export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: PlanDayCardProps) {
+interface SideDishItemProps {
+  dish: { id: string; name: string };
+  entry: DinnerEntry;
+  weekEntries: WeekEntryRef[];
+  onMoveSide: (dishId: string, sourceEntryId: string, targetEntryId: string) => void;
+}
+
+function SideDishItem({ dish, entry, weekEntries, onMoveSide }: SideDishItemProps) {
+  // Only entries of type 'assembled' render/persist side dishes today, so
+  // limit move targets to those — moving onto another entry type would
+  // silently vanish from the UI even though the data would still round-trip.
+  const otherDays = weekEntries.filter((e) => e.id !== entry.id && e.type === 'assembled');
+
+  return (
+    <li className="flex items-center justify-between gap-1">
+      <span className="text-xs text-muted-foreground truncate">{dish.name}</span>
+      {otherDays.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => {
+            const targetId = e.target.value;
+            if (targetId) onMoveSide(dish.id, entry.id, targetId);
+          }}
+          aria-label={`Move ${dish.name} to a different day`}
+          className="shrink-0 max-w-[92px] text-[10px] bg-transparent border border-border/60 rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <option value="" disabled>
+            Move…
+          </option>
+          {otherDays.map((d) => (
+            <option key={d.id} value={d.id}>
+              {DAY_NAMES_FULL[d.dayOfWeek].slice(0, 3)} {formatShortDate(d.date)}
+            </option>
+          ))}
+        </select>
+      )}
+    </li>
+  );
+}
+
+export function PlanDayCard({
+  entry,
+  weekEntries,
+  onEdit,
+  onClear,
+  onMoveSide,
+  isDragging,
+  isOver,
+}: PlanDayCardProps) {
   const planned = isEntryPlanned(entry);
 
   const {
@@ -63,6 +127,11 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
   const date = new Date(entry.date + 'T00:00:00');
   const dayName = DAY_NAMES_FULL[entry.dayOfWeek];
   const dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Side dishes only render/persist for 'assembled' entries. They can exist
+  // even when no main dish has been picked yet (an "empty" day that already
+  // has a moved-in side), so this is intentionally independent of `planned`.
+  const hasSideDishes = entry.type === 'assembled' && entry.sideDishes.length > 0;
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform), zIndex: 50, position: 'relative' as const }
@@ -119,7 +188,7 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center">
+      <div className="flex-1 flex flex-col justify-center gap-1.5">
         {planned && label ? (
           <div className="flex items-start gap-2">
             {/* Drag handle */}
@@ -134,11 +203,6 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
             </button>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{label}</p>
-              {entry.type === 'assembled' && entry.sideDishes.length > 0 && (
-                <p className="text-xs text-muted-foreground truncate">
-                  with {entry.sideDishes.map((d) => d.name).join(', ')}
-                </p>
-              )}
               {(entry.type === 'custom' ||
                 (entry.type === 'dining_out' && entry.restaurantName)) && (
                 <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide font-medium">
@@ -151,12 +215,29 @@ export function PlanDayCard({ entry, onEdit, onClear, isDragging, isOver }: Plan
           <button
             type="button"
             onClick={onEdit}
-            className="flex items-center justify-center gap-1.5 w-full h-full min-h-[48px] rounded-lg border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors text-sm"
+            className={cn(
+              'flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-colors text-sm',
+              hasSideDishes ? 'w-full py-1.5 text-xs' : 'w-full h-full min-h-[48px]'
+            )}
             aria-label={`Add meal for ${dayName}`}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             Add meal
           </button>
+        )}
+
+        {hasSideDishes && (
+          <ul className={cn('space-y-1', planned && label && 'pl-6')}>
+            {entry.sideDishes.map((dish) => (
+              <SideDishItem
+                key={dish.id}
+                dish={dish}
+                entry={entry}
+                weekEntries={weekEntries}
+                onMoveSide={onMoveSide}
+              />
+            ))}
+          </ul>
         )}
       </div>
     </div>
