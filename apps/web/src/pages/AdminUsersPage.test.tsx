@@ -27,14 +27,20 @@ vi.mock('@/lib/api', () => ({
     delete: vi.fn(),
     resetPassword: vi.fn(),
   },
+  families: {
+    getMine: vi.fn(),
+    update: vi.fn(),
+  },
 }));
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-import { users } from '@/lib/api';
+import { users, families } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
+
+const mockFamily = { id: 'family-1', name: 'The Smiths', createdAt: '', updatedAt: '' };
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -48,7 +54,10 @@ afterEach(() => {
     (selector: (s: { user: typeof mockCurrentUser }) => unknown) =>
       selector({ user: mockCurrentUser })
   );
+  vi.mocked(families.getMine).mockResolvedValue({ family: mockFamily });
 });
+
+vi.mocked(families.getMine).mockResolvedValue({ family: mockFamily });
 
 const mockUsers = [
   { id: 'user-1', username: 'admin', displayName: 'Admin User', role: 'admin' as const },
@@ -266,6 +275,66 @@ describe('AdminUsersPage', () => {
       await waitFor(() => {
         expect(screen.queryByText('Delete User')).toBeNull();
       });
+    });
+  });
+
+  describe('family section', () => {
+    it('shows the family name', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      expect(await screen.findByText('The Smiths')).toBeTruthy();
+    });
+
+    it('shows error message when family fails to load', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      vi.mocked(families.getMine).mockRejectedValue(new Error('Network error'));
+      render(<AdminUsersPage />, { wrapper });
+      expect(await screen.findByText(/Failed to load family details/)).toBeTruthy();
+    });
+
+    it('opens rename form when rename button clicked', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Rename family/i }));
+      expect(screen.getByLabelText('Family name')).toBeTruthy();
+    });
+
+    it('closes rename form when cancel clicked', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Rename family/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Cancel editing family name/i }));
+      expect(screen.queryByLabelText('Family name')).toBeNull();
+    });
+
+    it('calls families.update with the new name on submit', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      vi.mocked(families.update).mockResolvedValue({
+        family: { ...mockFamily, name: 'The Joneses' },
+      });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Rename family/i }));
+      const input = screen.getByLabelText('Family name');
+      fireEvent.change(input, { target: { value: 'The Joneses' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save family name/i }));
+      await waitFor(() => {
+        expect(families.update).toHaveBeenCalledWith('family-1', 'The Joneses');
+      });
+    });
+
+    it('shows a validation error when the new name is empty', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Rename family/i }));
+      const input = screen.getByLabelText('Family name');
+      fireEvent.change(input, { target: { value: '   ' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save family name/i }));
+      expect(await screen.findByText('Family name is required')).toBeTruthy();
+      expect(families.update).not.toHaveBeenCalled();
     });
   });
 });

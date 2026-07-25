@@ -7,6 +7,7 @@ interface FieldErrors {
   username?: string;
   password?: string;
   confirmPassword?: string;
+  familyName?: string;
 }
 
 export function SetupPage() {
@@ -16,6 +17,7 @@ export function SetupPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [familyName, setFamilyName] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState('');
   const [alreadyComplete, setAlreadyComplete] = useState(false);
@@ -31,6 +33,9 @@ export function SetupPage() {
     }
     if (password !== confirmPassword) {
       errors.confirmPassword = 'Passwords do not match';
+    }
+    if (familyName.trim().length < 1) {
+      errors.familyName = 'Family name is required';
     }
     return errors;
   }
@@ -49,7 +54,7 @@ export function SetupPage() {
     setIsSubmitting(true);
 
     try {
-      await postSetup(username, password);
+      await postSetup(username, password, familyName.trim());
       setupComplete();
       navigate('/login');
     } catch (err) {
@@ -64,6 +69,7 @@ export function SetupPage() {
             const apiErrors: FieldErrors = {};
             if (details.details.username) apiErrors.username = details.details.username[0];
             if (details.details.password) apiErrors.password = details.details.password[0];
+            if (details.details.familyName) apiErrors.familyName = details.details.familyName[0];
             setFieldErrors(apiErrors);
           } else {
             setGeneralError(details?.error ?? 'Setup failed. Please try again.');
@@ -125,6 +131,30 @@ export function SetupPage() {
           )}
 
           <div className="space-y-2">
+            <label htmlFor="familyName" className="text-sm font-medium">
+              Family Name
+            </label>
+            <input
+              id="familyName"
+              type="text"
+              value={familyName}
+              onChange={(e) => setFamilyName(e.target.value)}
+              aria-describedby={fieldErrors.familyName ? 'familyName-error' : undefined}
+              aria-invalid={!!fieldErrors.familyName}
+              className="w-full px-3 py-2 border rounded-md bg-background text-foreground
+                         focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="e.g. The Smith Family"
+              autoComplete="off"
+              autoFocus
+            />
+            {fieldErrors.familyName && (
+              <p id="familyName-error" role="alert" className="text-destructive text-xs mt-1">
+                {fieldErrors.familyName}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <label htmlFor="username" className="text-sm font-medium">
               Username
             </label>
@@ -139,7 +169,6 @@ export function SetupPage() {
                          focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="At least 3 characters"
               autoComplete="username"
-              autoFocus
             />
             {fieldErrors.username && (
               <p id="username-error" role="alert" className="text-destructive text-xs mt-1">

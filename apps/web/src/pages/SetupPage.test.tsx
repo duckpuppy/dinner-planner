@@ -43,6 +43,7 @@ describe('SetupPage', () => {
   describe('form rendering', () => {
     it('renders the setup form with all fields', () => {
       renderSetupPage();
+      expect(screen.getByLabelText('Family Name')).toBeInTheDocument();
       expect(screen.getByLabelText('Username')).toBeInTheDocument();
       expect(screen.getByLabelText('Password')).toBeInTheDocument();
       expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
@@ -58,6 +59,7 @@ describe('SetupPage', () => {
   describe('client-side validation', () => {
     it('shows error when username is too short', async () => {
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'ab');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -70,6 +72,7 @@ describe('SetupPage', () => {
 
     it('shows error when password is too short', async () => {
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'short');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'short');
@@ -82,6 +85,7 @@ describe('SetupPage', () => {
 
     it('shows error when passwords do not match', async () => {
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'differentpassword');
@@ -91,11 +95,8 @@ describe('SetupPage', () => {
       expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
       expect(mockPostSetup).not.toHaveBeenCalled();
     });
-  });
 
-  describe('successful submission', () => {
-    it('calls postSetup with username and password on valid submit', async () => {
-      mockPostSetup.mockResolvedValue(undefined);
+    it('shows error when family name is empty', async () => {
       renderSetupPage();
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
@@ -103,12 +104,31 @@ describe('SetupPage', () => {
       fireEvent.submit(
         screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
       );
-      await waitFor(() => expect(mockPostSetup).toHaveBeenCalledWith('adminuser', 'validpassword'));
+      expect(await screen.findByText('Family name is required')).toBeInTheDocument();
+      expect(mockPostSetup).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('successful submission', () => {
+    it('calls postSetup with username and password on valid submit', async () => {
+      mockPostSetup.mockResolvedValue(undefined);
+      renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
+      await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
+      await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
+      await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
+      await waitFor(() =>
+        expect(mockPostSetup).toHaveBeenCalledWith('adminuser', 'validpassword', 'Test Family')
+      );
     });
 
     it('calls setupComplete and navigates to /login on success', async () => {
       mockPostSetup.mockResolvedValue(undefined);
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -129,6 +149,7 @@ describe('SetupPage', () => {
         })
       );
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -146,6 +167,7 @@ describe('SetupPage', () => {
     it('shows already-complete message when API returns already_complete', async () => {
       mockPostSetup.mockRejectedValue(new Error('already_complete'));
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -160,6 +182,7 @@ describe('SetupPage', () => {
     it('shows a link to login when already complete', async () => {
       mockPostSetup.mockRejectedValue(new Error('already_complete'));
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -178,6 +201,7 @@ describe('SetupPage', () => {
       });
       mockPostSetup.mockRejectedValue(err);
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -187,12 +211,29 @@ describe('SetupPage', () => {
       expect(await screen.findByText('Username already taken')).toBeInTheDocument();
     });
 
+    it('shows field-level family name error from API response', async () => {
+      const err = Object.assign(new Error('setup_failed'), {
+        details: { details: { familyName: ['Family name is required'] } },
+      });
+      mockPostSetup.mockRejectedValue(err);
+      renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
+      await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
+      await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
+      await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
+      fireEvent.submit(
+        screen.getByRole('button', { name: 'Create Admin Account' }).closest('form')!
+      );
+      expect(await screen.findByText('Family name is required')).toBeInTheDocument();
+    });
+
     it('shows general error when setup_failed has no field details', async () => {
       const err = Object.assign(new Error('setup_failed'), {
         details: { error: 'Internal server error' },
       });
       mockPostSetup.mockRejectedValue(err);
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');
@@ -207,6 +248,7 @@ describe('SetupPage', () => {
     it('shows generic error on unexpected error', async () => {
       mockPostSetup.mockRejectedValue(new Error('network failure'));
       renderSetupPage();
+      await userEvent.type(screen.getByLabelText('Family Name'), 'Test Family');
       await userEvent.type(screen.getByLabelText('Username'), 'adminuser');
       await userEvent.type(screen.getByLabelText('Password'), 'validpassword');
       await userEvent.type(screen.getByLabelText('Confirm Password'), 'validpassword');

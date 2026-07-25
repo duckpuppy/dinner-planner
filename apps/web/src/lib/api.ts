@@ -212,6 +212,23 @@ export const users = {
   delete: (id: string) => request<{ success: boolean }>(`/users/${id}`, { method: 'DELETE' }),
 };
 
+// Families API
+export const families = {
+  getMine: () => request<{ family: Family }>('/families/me'),
+
+  create: (name: string) =>
+    request<{ family: Family }>('/families', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  update: (id: string, name: string) =>
+    request<{ family: Family }>(`/families/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+};
+
 // Dishes API
 export const dishes = {
   list: (params?: Record<string, string>) => {
@@ -533,6 +550,14 @@ export interface User {
   theme: 'light' | 'dark';
   homeView: 'today' | 'week';
   dietaryPreferences: string[];
+  familyId: string;
+}
+
+export interface Family {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Dish {
@@ -946,11 +971,15 @@ export async function getHealth(): Promise<{ status: string; setupRequired: bool
   return response.json();
 }
 
-export async function postSetup(username: string, password: string): Promise<void> {
+export async function postSetup(
+  username: string,
+  password: string,
+  familyName: string
+): Promise<void> {
   const response = await fetch('/api/setup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, familyName }),
   });
   if (response.status === 404) throw new Error('already_complete');
   if (!response.ok) {
