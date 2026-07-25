@@ -148,6 +148,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           username: user.username,
           displayName: user.displayName,
           role: user.role,
+          familyId: user.familyId,
           theme: user.theme,
           homeView: user.homeView,
         },

@@ -42,6 +42,7 @@ export function validateApiToken(token: string) {
       userId: schema.users.id,
       username: schema.users.username,
       role: schema.users.role,
+      familyId: schema.users.familyId,
     })
     .from(schema.apiTokens)
     .innerJoin(schema.users, eq(schema.apiTokens.userId, schema.users.id))
@@ -56,7 +57,12 @@ export function validateApiToken(token: string) {
     .where(eq(schema.apiTokens.tokenHash, hash))
     .run();
 
-  return { userId: row.userId, username: row.username, role: row.role as 'admin' | 'member' };
+  return {
+    userId: row.userId,
+    username: row.username,
+    role: row.role as 'admin' | 'member',
+    familyId: row.familyId,
+  };
 }
 
 export function revokeApiToken(tokenId: string, userId: string): boolean {
