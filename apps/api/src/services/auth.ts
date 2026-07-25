@@ -10,6 +10,7 @@ export interface TokenPayload {
   userId: string;
   username: string;
   role: 'admin' | 'member';
+  familyId: string;
 }
 
 export interface AuthResult {
@@ -18,6 +19,7 @@ export interface AuthResult {
     username: string;
     displayName: string;
     role: 'admin' | 'member';
+    familyId: string;
     theme: 'light' | 'dark';
     homeView: 'today' | 'week';
   };
@@ -106,6 +108,7 @@ export async function login(
     userId: user.id,
     username: user.username,
     role: user.role,
+    familyId: user.familyId,
   });
 
   const refreshToken = generateToken();
@@ -126,6 +129,7 @@ export async function login(
       username: user.username,
       displayName: user.displayName,
       role: user.role,
+      familyId: user.familyId,
       theme: user.theme,
       homeView: user.homeView,
     },
@@ -170,6 +174,7 @@ export async function refreshAccessToken(
     userId: user.id,
     username: user.username,
     role: user.role,
+    familyId: user.familyId,
   });
 
   return {
@@ -179,6 +184,7 @@ export async function refreshAccessToken(
       username: user.username,
       displayName: user.displayName,
       role: user.role,
+      familyId: user.familyId,
       theme: user.theme,
       homeView: user.homeView,
     },

@@ -12,13 +12,14 @@ export async function isSetupRequired(): Promise<boolean> {
 }
 
 /**
- * Creates the first admin user during initial setup.
+ * Creates the first family and its first admin user during initial setup.
  * Returns { success: false } if users already exist (setup already done).
  * Returns { success: true } on success.
  */
 export async function createFirstAdmin(
   username: string,
-  password: string
+  password: string,
+  familyName: string
 ): Promise<{ success: boolean }> {
   const setupRequired = await isSetupRequired();
   if (!setupRequired) {
@@ -27,12 +28,19 @@ export async function createFirstAdmin(
 
   const passwordHash = await bcrypt.hash(password, 10);
   const adminId = crypto.randomUUID();
+  const familyId = crypto.randomUUID();
+
+  await db.insert(schema.families).values({
+    id: familyId,
+    name: familyName,
+  });
 
   await db.insert(schema.users).values({
     id: adminId,
     username,
     displayName: username,
     passwordHash,
+    familyId,
     role: 'admin',
     theme: 'light',
     homeView: 'today',

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { hashPassword, verifyPassword } from './auth.js';
 import type {
@@ -15,6 +15,7 @@ export interface UserResponse {
   username: string;
   displayName: string;
   role: 'admin' | 'member';
+  familyId: string;
   theme: 'light' | 'dark';
   homeView: 'today' | 'week';
   dietaryPreferences: DietaryTag[];
@@ -39,6 +40,7 @@ function toUserResponse(user: typeof schema.users.$inferSelect): UserResponse {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
+    familyId: user.familyId,
     theme: user.theme,
     homeView: user.homeView,
     dietaryPreferences: parseDietaryPreferences(user.dietaryPreferences),
@@ -48,28 +50,30 @@ function toUserResponse(user: typeof schema.users.$inferSelect): UserResponse {
 }
 
 /**
- * Get all users
+ * Get all users within a family
  */
-export async function getAllUsers(): Promise<UserResponse[]> {
-  const users = await db.select().from(schema.users);
+export async function getAllUsers(familyId: string): Promise<UserResponse[]> {
+  const users = await db.select().from(schema.users).where(eq(schema.users.familyId, familyId));
   return users.map(toUserResponse);
 }
 
 /**
- * Get user by ID
+ * Get user by ID, scoped to a family. Returns null if the user doesn't exist
+ * or belongs to a different family (both cases behave as "not found" so
+ * membership in another family is never disclosed).
  */
-export async function getUserById(id: string): Promise<UserResponse | null> {
+export async function getUserById(id: string, familyId: string): Promise<UserResponse | null> {
   const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, id),
+    where: and(eq(schema.users.id, id), eq(schema.users.familyId, familyId)),
   });
 
   return user ? toUserResponse(user) : null;
 }
 
 /**
- * Create a new user (admin only)
+ * Create a new user within a family (admin only)
  */
-export async function createUser(input: CreateUserInput): Promise<UserResponse> {
+export async function createUser(input: CreateUserInput, familyId: string): Promise<UserResponse> {
   // Check if username already exists
   const existing = await db.query.users.findFirst({
     where: eq(schema.users.username, input.username),
@@ -89,6 +93,7 @@ export async function createUser(input: CreateUserInput): Promise<UserResponse> 
     displayName: input.displayName,
     passwordHash,
     role: input.role,
+    familyId,
     theme: 'light',
     homeView: 'today',
     dietaryPreferences: '[]',
@@ -104,11 +109,15 @@ export async function createUser(input: CreateUserInput): Promise<UserResponse> 
 }
 
 /**
- * Update user (admin only)
+ * Update user (admin only), scoped to a family
  */
-export async function updateUser(id: string, input: UpdateUserInput): Promise<UserResponse | null> {
+export async function updateUser(
+  id: string,
+  input: UpdateUserInput,
+  familyId: string
+): Promise<UserResponse | null> {
   const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, id),
+    where: and(eq(schema.users.id, id), eq(schema.users.familyId, familyId)),
   });
 
   if (!user) {
@@ -201,14 +210,15 @@ export async function changePassword(
 }
 
 /**
- * Reset user password (admin only)
+ * Reset user password (admin only), scoped to a family
  */
 export async function resetPassword(
   userId: string,
-  newPassword: string
+  newPassword: string,
+  familyId: string
 ): Promise<{ success: boolean; error?: string }> {
   const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, userId),
+    where: and(eq(schema.users.id, userId), eq(schema.users.familyId, familyId)),
   });
 
   if (!user) {
@@ -230,11 +240,12 @@ export async function resetPassword(
 }
 
 /**
- * Delete user (admin only)
+ * Delete user (admin only), scoped to a family
  */
 export async function deleteUser(
   userId: string,
-  requesterId: string
+  requesterId: string,
+  familyId: string
 ): Promise<{ success: boolean; error?: string }> {
   // Prevent self-deletion
   if (userId === requesterId) {
@@ -242,7 +253,7 @@ export async function deleteUser(
   }
 
   const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, userId),
+    where: and(eq(schema.users.id, userId), eq(schema.users.familyId, familyId)),
   });
 
   if (!user) {

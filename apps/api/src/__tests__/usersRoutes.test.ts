@@ -36,18 +36,24 @@ async function buildApp() {
 
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
-function memberHeader(app: TestApp, userId = 'user-1') {
-  const token = app.jwt.sign({ userId, username: 'alice', role: 'member' });
+function memberHeader(app: TestApp, userId = 'user-1', familyId = 'family-1') {
+  const token = app.jwt.sign({ userId, username: 'alice', role: 'member', familyId });
   return { Authorization: `Bearer ${token}` };
 }
 
-function adminHeader(app: TestApp, userId = 'admin-1') {
-  const token = app.jwt.sign({ userId, username: 'admin', role: 'admin' });
+function adminHeader(app: TestApp, userId = 'admin-1', familyId = 'family-1') {
+  const token = app.jwt.sign({ userId, username: 'admin', role: 'admin', familyId });
   return { Authorization: `Bearer ${token}` };
 }
 
-function jsonHeaders(app: TestApp, role: 'member' | 'admin' = 'admin', userId?: string) {
-  const base = role === 'admin' ? adminHeader(app, userId) : memberHeader(app, userId);
+function jsonHeaders(
+  app: TestApp,
+  role: 'member' | 'admin' = 'admin',
+  userId?: string,
+  familyId?: string
+) {
+  const base =
+    role === 'admin' ? adminHeader(app, userId, familyId) : memberHeader(app, userId, familyId);
   return { ...base, 'content-type': 'application/json' };
 }
 
@@ -56,6 +62,7 @@ const mockUser = {
   username: 'alice',
   displayName: 'Alice',
   role: 'member' as const,
+  familyId: 'family-1',
   theme: 'light' as const,
   homeView: 'today' as const,
   dietaryPreferences: [],
@@ -87,6 +94,18 @@ describe('GET /api/users', () => {
 
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).users).toHaveLength(1);
+  });
+
+  it('scopes the list to the requesting admin own family', async () => {
+    vi.mocked(usersService.getAllUsers).mockResolvedValueOnce([mockUser]);
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/users',
+      headers: adminHeader(app, 'admin-1', 'family-a'),
+    });
+
+    expect(usersService.getAllUsers).toHaveBeenCalledWith('family-a');
   });
 
   it('returns 403 for non-admin', async () => {
@@ -163,6 +182,21 @@ describe('GET /api/users/:id', () => {
 
     expect(res.statusCode).toBe(404);
   });
+
+  it('returns 404 (not 200) when admin from family A looks up a user in family B', async () => {
+    // Service is family-scoped: a user in another family looks "not found"
+    // from this admin's perspective, rather than leaking a 403/other signal.
+    vi.mocked(usersService.getUserById).mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/users/user-in-family-b',
+      headers: adminHeader(app, 'admin-a', 'family-a'),
+    });
+
+    expect(usersService.getUserById).toHaveBeenCalledWith('user-in-family-b', 'family-a');
+    expect(res.statusCode).toBe(404);
+  });
 });
 
 // ===========================================================================
@@ -195,6 +229,27 @@ describe('POST /api/users', () => {
 
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(res.body).user.id).toBe('user-1');
+  });
+
+  it('creates the new user in the admin own family', async () => {
+    vi.mocked(usersService.createUser).mockResolvedValueOnce(mockUser);
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/users',
+      headers: jsonHeaders(app, 'admin', 'admin-a', 'family-a'),
+      body: JSON.stringify({
+        username: 'bob',
+        displayName: 'Bob',
+        password: 'password123',
+        role: 'member',
+      }),
+    });
+
+    expect(usersService.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'bob' }),
+      'family-a'
+    );
   });
 
   it('returns 400 for invalid body', async () => {
@@ -280,6 +335,24 @@ describe('PATCH /api/users/:id', () => {
       body: JSON.stringify({ displayName: 'Bob' }),
     });
 
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 404 when target user belongs to a different family', async () => {
+    vi.mocked(usersService.updateUser).mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/users/user-in-family-b',
+      headers: jsonHeaders(app, 'admin', 'admin-a', 'family-a'),
+      body: JSON.stringify({ displayName: 'Eve' }),
+    });
+
+    expect(usersService.updateUser).toHaveBeenCalledWith(
+      'user-in-family-b',
+      { displayName: 'Eve' },
+      'family-a'
+    );
     expect(res.statusCode).toBe(404);
   });
 
@@ -489,6 +562,23 @@ describe('POST /api/users/:id/reset-password', () => {
 
     expect(res.statusCode).toBe(403);
   });
+
+  it('passes the requesting admin family through to the service', async () => {
+    vi.mocked(usersService.resetPassword).mockResolvedValueOnce({ success: true });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/users/user-in-family-b/reset-password',
+      headers: jsonHeaders(app, 'admin', 'admin-a', 'family-a'),
+      body: JSON.stringify({ newPassword: 'newpassword123' }),
+    });
+
+    expect(usersService.resetPassword).toHaveBeenCalledWith(
+      'user-in-family-b',
+      'newpassword123',
+      'family-a'
+    );
+  });
 });
 
 // ===========================================================================
@@ -544,6 +634,22 @@ describe('DELETE /api/users/:id', () => {
     });
 
     expect(res.statusCode).toBe(400);
+  });
+
+  it('scopes the delete to the requesting admin own family', async () => {
+    vi.mocked(usersService.deleteUser).mockResolvedValueOnce({
+      success: false,
+      error: 'User not found',
+    });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/users/user-in-family-b',
+      headers: adminHeader(app, 'admin-a', 'family-a'),
+    });
+
+    expect(usersService.deleteUser).toHaveBeenCalledWith('user-in-family-b', 'admin-a', 'family-a');
+    expect(res.statusCode).toBe(404);
   });
 
   it('returns 403 for non-admin', async () => {

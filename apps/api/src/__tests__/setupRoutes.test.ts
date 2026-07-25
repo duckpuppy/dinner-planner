@@ -44,12 +44,12 @@ describe('POST /api/setup', () => {
       method: 'POST',
       url: '/api/setup',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'alice', password: 'password123' }),
+      body: JSON.stringify({ username: 'alice', password: 'password123', familyName: 'Smiths' }),
     });
 
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(res.body)).toEqual({ message: 'Setup complete' });
-    expect(setupService.createFirstAdmin).toHaveBeenCalledWith('alice', 'password123');
+    expect(setupService.createFirstAdmin).toHaveBeenCalledWith('alice', 'password123', 'Smiths');
   });
 
   it('returns 404 when setup already completed', async () => {
@@ -59,7 +59,7 @@ describe('POST /api/setup', () => {
       method: 'POST',
       url: '/api/setup',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'alice', password: 'password123' }),
+      body: JSON.stringify({ username: 'alice', password: 'password123', familyName: 'Smiths' }),
     });
 
     expect(res.statusCode).toBe(404);
@@ -71,7 +71,7 @@ describe('POST /api/setup', () => {
       method: 'POST',
       url: '/api/setup',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'ab', password: 'password123' }),
+      body: JSON.stringify({ username: 'ab', password: 'password123', familyName: 'Smiths' }),
     });
 
     expect(res.statusCode).toBe(400);
@@ -85,7 +85,7 @@ describe('POST /api/setup', () => {
       method: 'POST',
       url: '/api/setup',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'alice', password: 'short' }),
+      body: JSON.stringify({ username: 'alice', password: 'short', familyName: 'Smiths' }),
     });
 
     expect(res.statusCode).toBe(400);
@@ -100,6 +100,18 @@ describe('POST /api/setup', () => {
       url: '/api/setup',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({}),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(setupService.createFirstAdmin).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when familyName is missing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/setup',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'alice', password: 'password123' }),
     });
 
     expect(res.statusCode).toBe(400);

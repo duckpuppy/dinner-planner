@@ -176,6 +176,20 @@
       "when": 1784424577783,
       "tag": "0024_foamy_quentin_quire",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1784963860899,
+      "tag": "0025_breezy_smasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1784963885993,
+      "tag": "0026_silent_microchip",
+      "breakpoints": true
     }
   ]
 }

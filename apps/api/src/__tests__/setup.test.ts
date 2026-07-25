@@ -25,6 +25,7 @@ vi.mock('../db/index.js', () => ({
   db: mockDb,
   schema: {
     users: { id: null, username: null },
+    families: { id: null },
     appSettings: { id: null },
   },
 }));
@@ -71,14 +72,16 @@ describe('isSetupRequired', () => {
 describe('createFirstAdmin', () => {
   it('returns { success: false } when users already exist', async () => {
     mockDb.select.mockReturnValueOnce(selFromWithCount(1));
-    const result = await createFirstAdmin('admin', 'password123');
+    const result = await createFirstAdmin('admin', 'password123', 'The Smiths');
     expect(result).toEqual({ success: false });
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
-  it('inserts user and appSettings when no users exist, returns { success: true }', async () => {
+  it('inserts family, user and appSettings when no users exist, returns { success: true }', async () => {
     // isSetupRequired check — no users
     mockDb.select.mockReturnValueOnce(selFromWithCount(0));
+    // insert family
+    mockDb.insert.mockReturnValueOnce(insValues());
     // insert user
     mockDb.insert.mockReturnValueOnce(insValues());
     // check existing appSettings — none found
@@ -86,20 +89,21 @@ describe('createFirstAdmin', () => {
     // insert appSettings
     mockDb.insert.mockReturnValueOnce(insValues());
 
-    const result = await createFirstAdmin('alice', 'securepass');
+    const result = await createFirstAdmin('alice', 'securepass', 'The Smiths');
     expect(result).toEqual({ success: true });
-    expect(mockDb.insert).toHaveBeenCalledTimes(2);
+    expect(mockDb.insert).toHaveBeenCalledTimes(3);
   });
 
   it('does not insert appSettings when they already exist', async () => {
     mockDb.select.mockReturnValueOnce(selFromWithCount(0));
-    mockDb.insert.mockReturnValueOnce(insValues());
+    mockDb.insert.mockReturnValueOnce(insValues()); // family
+    mockDb.insert.mockReturnValueOnce(insValues()); // user
     // appSettings already exist
     mockDb.select.mockReturnValueOnce(selFromLimit([{ id: 'default', weekStartDay: 0 }]));
 
-    const result = await createFirstAdmin('alice', 'securepass');
+    const result = await createFirstAdmin('alice', 'securepass', 'The Smiths');
     expect(result).toEqual({ success: true });
-    // Only user insert — no appSettings insert
-    expect(mockDb.insert).toHaveBeenCalledTimes(1);
+    // family insert + user insert — no appSettings insert
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
   });
 });

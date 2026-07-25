@@ -29,6 +29,13 @@ export async function seedAdmin(): Promise<void> {
   // Hash password
   const passwordHash = await hashPassword(password);
 
+  // Create the family this admin belongs to
+  const familyId = crypto.randomUUID();
+  await db.insert(schema.families).values({
+    id: familyId,
+    name: 'Default Family',
+  });
+
   // Create admin user
   const adminId = crypto.randomUUID();
   await db.insert(schema.users).values({
@@ -36,6 +43,7 @@ export async function seedAdmin(): Promise<void> {
     username: config.ADMIN_USERNAME,
     displayName: 'Administrator',
     passwordHash,
+    familyId,
     role: 'admin',
     theme: 'light',
     homeView: 'today',

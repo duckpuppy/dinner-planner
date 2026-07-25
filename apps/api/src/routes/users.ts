@@ -22,14 +22,14 @@ export async function usersRoutes(fastify: FastifyInstance) {
     '/api/users',
     { preHandler: [fastify.requireAdmin] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const users = await usersService.getAllUsers();
+      const users = await usersService.getAllUsers(request.user.familyId);
       return reply.send({ users });
     }
   );
 
   /**
    * GET /api/users/:id
-   * Get user by ID (admin or self)
+   * Get user by ID (admin or self), scoped to the requester's family
    */
   fastify.get(
     '/api/users/:id',
@@ -42,7 +42,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      const user = await usersService.getUserById(id);
+      const user = await usersService.getUserById(id, request.user.familyId);
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
@@ -54,7 +54,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/users
-   * Create a new user (admin only)
+   * Create a new user within the admin's own family (admin only)
    */
   fastify.post(
     '/api/users',
@@ -70,7 +70,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const user = await usersService.createUser(parseResult.data);
+        const user = await usersService.createUser(parseResult.data, request.user.familyId);
         void logEvent({
           level: 'info',
           category: 'admin',
@@ -90,7 +90,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
 
   /**
    * PATCH /api/users/:id
-   * Update user (admin only)
+   * Update user (admin only), scoped to the admin's own family
    */
   fastify.patch(
     '/api/users/:id',
@@ -106,7 +106,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const user = await usersService.updateUser(id, parseResult.data);
+      const user = await usersService.updateUser(id, parseResult.data, request.user.familyId);
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
@@ -222,7 +222,11 @@ export async function usersRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await usersService.resetPassword(id, parseResult.data.newPassword);
+      const result = await usersService.resetPassword(
+        id,
+        parseResult.data.newPassword,
+        request.user.familyId
+      );
 
       if (!result.success) {
         return reply.status(404).send({ error: result.error });
@@ -250,7 +254,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const result = await usersService.deleteUser(id, request.user.userId);
+      const result = await usersService.deleteUser(id, request.user.userId, request.user.familyId);
 
       if (!result.success) {
         const status = result.error === 'User not found' ? 404 : 400;

@@ -24,6 +24,22 @@ export const updateUserSchema = z.object({
   role: z.enum(['admin', 'member']).optional(),
 });
 
+// Setup schemas (first-run: creates the first family + its first admin)
+export const setupSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  familyName: z.string().min(1, 'Family name is required').max(100),
+});
+
+// Family schemas
+export const createFamilySchema = z.object({
+  name: z.string().min(1, 'Family name is required').max(100),
+});
+
+export const updateFamilySchema = z.object({
+  name: z.string().min(1, 'Family name is required').max(100),
+});
+
 // Dietary tags (M18)
 export const DIETARY_TAGS = [
   'vegetarian',
@@ -416,6 +432,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type SetupInput = z.infer<typeof setupSchema>;
+export type CreateFamilyInput = z.infer<typeof createFamilySchema>;
+export type UpdateFamilyInput = z.infer<typeof updateFamilySchema>;
 export type UserPreferencesInput = z.infer<typeof userPreferencesSchema>;
 export type IngredientInput = z.infer<typeof ingredientSchema>;
 export type CreateDishInput = z.infer<typeof createDishSchema>;

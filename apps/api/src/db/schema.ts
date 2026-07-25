@@ -12,6 +12,10 @@ export const DIETARY_TAGS = [
 ] as const;
 export type DietaryTag = (typeof DIETARY_TAGS)[number];
 
+// Fixed id for the family created by the backfill migration (0025) so that
+// pre-existing single-tenant installs keep working with zero disruption.
+export const DEFAULT_FAMILY_ID = '00000000-0000-0000-0000-000000000001';
+
 // Helper for timestamps
 const timestamps = {
   createdAt: text('created_at')
@@ -22,12 +26,24 @@ const timestamps = {
     .default(sql`(datetime('now'))`),
 };
 
+// Families table (M-multi-family Phase 1: family entity + membership)
+export const families = sqliteTable('families', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  ...timestamps,
+});
+
 // Users table
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   username: text('username').notNull().unique(),
   displayName: text('display_name').notNull(),
   passwordHash: text('password_hash').notNull(),
+  // Added nullable then backfilled then tightened to NOT NULL across two
+  // migrations (0025, 0026) -- see drizzle/0025_*.sql for why.
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   role: text('role', { enum: ['admin', 'member'] })
     .notNull()
     .default('member'),
