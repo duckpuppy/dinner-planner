@@ -150,6 +150,7 @@ function FamilySection() {
               aria-describedby={nameError ? 'family-name-error' : undefined}
               aria-invalid={!!nameError}
               className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              autoComplete="off"
               autoFocus
             />
             {nameError && (
@@ -163,7 +164,7 @@ function FamilySection() {
               type="submit"
               disabled={renameMutation.isPending}
               aria-label="Save family name"
-              className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              className="p-3 md:p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 touch-manipulation"
             >
               <Check className="h-4 w-4" />
             </button>
@@ -171,24 +172,24 @@ function FamilySection() {
               type="button"
               onClick={() => setIsEditing(false)}
               aria-label="Cancel editing family name"
-              className="p-2 border rounded-md hover:bg-muted"
+              className="p-3 md:p-2 border rounded-md hover:bg-muted touch-manipulation"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </form>
       ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Home className="h-5 w-5 text-muted-foreground" />
-            <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Home className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Family</p>
-              <p className="font-semibold">{family.name}</p>
+              <p className="font-semibold truncate">{family.name}</p>
             </div>
           </div>
           <button
             onClick={startEditing}
-            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
+            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation shrink-0"
             aria-label="Rename family"
           >
             <Pencil className="h-4 w-4" />
