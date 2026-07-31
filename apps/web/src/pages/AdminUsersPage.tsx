@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { users, type User } from '@/lib/api';
-import { Users, Plus, Pencil, Trash2, KeyRound, X } from 'lucide-react';
+import { users, families, type User } from '@/lib/api';
+import { Users, Plus, Pencil, Trash2, KeyRound, X, Home, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAuthStore } from '@/stores/auth';
@@ -22,8 +22,10 @@ export function AdminUsersPage() {
   const usersList = data?.users ?? [];
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 max-w-4xl mx-auto space-y-6">
+      <FamilySection />
+
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-2xl font-bold">User Management</h1>
@@ -65,6 +67,135 @@ export function AdminUsersPage() {
         <ResetPasswordForm user={resetPasswordUser} onClose={() => setResetPasswordUser(null)} />
       )}
       {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} />}
+    </div>
+  );
+}
+
+function FamilySection() {
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['family'],
+    queryFn: () => families.getMine(),
+  });
+
+  const family = data?.family;
+
+  const renameMutation = useMutation({
+    mutationFn: (newName: string) => families.update(family!.id, newName),
+    onSuccess: () => {
+      toast.success('Family renamed successfully');
+      queryClient.invalidateQueries({ queryKey: ['family'] });
+      setIsEditing(false);
+    },
+    onError: (err) => {
+      toast.error('Failed to rename family');
+      console.error('Error renaming family:', err);
+    },
+  });
+
+  const startEditing = () => {
+    setName(family?.name ?? '');
+    setNameError('');
+    setIsEditing(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed.length < 1) {
+      setNameError('Family name is required');
+      return;
+    }
+    setNameError('');
+    renameMutation.mutate(trimmed);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-card border rounded-lg p-4 animate-pulse">
+        <div className="h-6 bg-muted rounded w-48" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        message="Failed to load family details. Please try again."
+        error={error as Error}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (!family) return null;
+
+  return (
+    <div className="bg-card border rounded-lg p-4">
+      {isEditing ? (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <div className="flex-1">
+            <label htmlFor="family-name" className="sr-only">
+              Family name
+            </label>
+            <input
+              id="family-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-describedby={nameError ? 'family-name-error' : undefined}
+              aria-invalid={!!nameError}
+              className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              autoComplete="off"
+              autoFocus
+            />
+            {nameError && (
+              <p id="family-name-error" role="alert" className="text-destructive text-xs mt-1">
+                {nameError}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={renameMutation.isPending}
+              aria-label="Save family name"
+              className="p-3 md:p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 touch-manipulation"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              aria-label="Cancel editing family name"
+              className="p-3 md:p-2 border rounded-md hover:bg-muted touch-manipulation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Home className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Family</p>
+              <p className="font-semibold truncate">{family.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={startEditing}
+            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation shrink-0"
+            aria-label="Rename family"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
