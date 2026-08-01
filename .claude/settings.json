@@ -14,6 +14,8 @@
       "Bash(corepack enable:*)",
       "Bash(source:*)",
       "Bash(export:*)",
+      "Edit",
+      "Write",
       "mcp__filesystem__list_directory",
       "mcp__filesystem__read_multiple_files",
       "Skill(beads:beads)"
