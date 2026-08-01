@@ -45,6 +45,7 @@ vi.mock('../db/index.js', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn().mockReturnValue(null),
+  and: vi.fn().mockReturnValue(null),
 }));
 
 // Mock node:fs for streaming (statSync)

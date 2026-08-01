@@ -9,7 +9,7 @@ export async function dishNotesRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { dishId } = request.params as { dishId: string };
-      const notes = await getDishNotes(dishId);
+      const notes = await getDishNotes(dishId, request.user.familyId);
       return reply.send({ notes });
     }
   );
@@ -26,8 +26,12 @@ export async function dishNotesRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
-      const user = request.user as { userId: string };
-      const note = await createDishNote(dishId, parsed.data.note, user.userId);
+      const note = await createDishNote(
+        dishId,
+        parsed.data.note,
+        request.user.userId,
+        request.user.familyId
+      );
       if (!note) return reply.status(404).send({ error: 'Dish not found' });
       return reply.status(201).send(note);
     }
@@ -39,7 +43,7 @@ export async function dishNotesRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deleteDishNote(id);
+      const deleted = await deleteDishNote(id, request.user.familyId);
       if (!deleted) return reply.status(404).send({ error: 'Note not found' });
       return reply.status(204).send();
     }

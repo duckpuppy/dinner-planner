@@ -70,7 +70,10 @@ export interface HistoryQueryParams {
 /**
  * Get meal history with optional filtering
  */
-export async function getHistory(params: HistoryQueryParams): Promise<{
+export async function getHistory(
+  params: HistoryQueryParams,
+  familyId: string
+): Promise<{
   entries: HistoryEntry[];
   total: number;
 }> {
@@ -78,6 +81,9 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
 
   // Build conditions
   const conditions = [];
+
+  // Scope to the requesting family
+  conditions.push(eq(schema.weeklyMenus.familyId, familyId));
 
   // Only include completed entries or entries with preparations
   conditions.push(eq(schema.dinnerEntries.completed, true));
@@ -92,8 +98,17 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
 
   // Get all matching entries
   let entries = await db
-    .select()
+    .select({
+      id: schema.dinnerEntries.id,
+      date: schema.dinnerEntries.date,
+      type: schema.dinnerEntries.type,
+      customText: schema.dinnerEntries.customText,
+      completed: schema.dinnerEntries.completed,
+      mainDishId: schema.dinnerEntries.mainDishId,
+      sourceEntryId: schema.dinnerEntries.sourceEntryId,
+    })
     .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
     .where(and(...conditions))
     .orderBy(desc(schema.dinnerEntries.date))
     .limit(limit)
@@ -240,7 +255,10 @@ export async function getHistory(params: HistoryQueryParams): Promise<{
 /**
  * Get preparation history for a specific dish
  */
-export async function getDishHistory(dishId: string): Promise<{
+export async function getDishHistory(
+  dishId: string,
+  familyId: string
+): Promise<{
   preparations: {
     id: string;
     date: string;
@@ -254,6 +272,11 @@ export async function getDishHistory(dishId: string): Promise<{
     }[];
   }[];
 }> {
+  const dish = await db.query.dishes.findFirst({
+    where: and(eq(schema.dishes.id, dishId), eq(schema.dishes.familyId, familyId)),
+  });
+  if (!dish) return { preparations: [] };
+
   const preps = await db
     .select()
     .from(schema.preparations)
@@ -297,9 +320,24 @@ export async function getDishHistory(dishId: string): Promise<{
 }
 
 /**
- * Delete a history entry (dinner entry) and all related data
+ * Delete a history entry (dinner entry) and all related data, scoped to a
+ * family via its parent menu.
  */
-export async function deleteHistoryEntry(entryId: string): Promise<{ success: boolean }> {
+export async function deleteHistoryEntry(
+  entryId: string,
+  familyId: string
+): Promise<{ success: boolean }> {
+  const entryRow = await db
+    .select({ familyId: schema.weeklyMenus.familyId })
+    .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+    .where(eq(schema.dinnerEntries.id, entryId))
+    .limit(1);
+
+  if (entryRow[0]?.familyId !== familyId) {
+    return { success: false };
+  }
+
   // Get all preparations for this entry
   const preps = await db
     .select()

@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockDb = vi.hoisted(() => ({
   select: vi.fn(),
+  query: {
+    restaurants: { findFirst: vi.fn() },
+  },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -21,7 +24,7 @@ vi.mock('../db/index.js', () => ({
     tags: { name: null, id: null },
     preparations: { dishId: null, id: null, preparedDate: null, restaurantId: null },
     ratings: { stars: null, id: null, preparationId: null },
-    restaurants: { archived: null, id: null, cuisineType: null },
+    restaurants: { archived: null, id: null, cuisineType: null, familyId: null },
     restaurantDishes: { restaurantId: null, id: null },
     restaurantDishRatings: {
       restaurantDishId: null,
@@ -516,12 +519,13 @@ function setupDishSuggestionsMocks(
 describe('getDishSuggestions', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockDb.query.restaurants.findFirst.mockResolvedValue({ id: 'r1', familyId: 'family-1' });
   });
 
   it('returns empty array for restaurant with no dishes', async () => {
     mockDb.select.mockReturnValueOnce(selFromWhere([]));
 
-    const result = await getDishSuggestions('r1', { limit: 10 });
+    const result = await getDishSuggestions('r1', { limit: 10 }, 'family-1');
 
     expect(result).toEqual([]);
   });

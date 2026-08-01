@@ -12,7 +12,7 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const ratings = await ratingsService.getRatingsForPreparation(id);
+      const ratings = await ratingsService.getRatingsForPreparation(id, request.user.familyId);
       return reply.send({ ratings });
     }
   );
@@ -36,7 +36,12 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const rating = await ratingsService.createRating(id, request.user.userId, parseResult.data);
+        const rating = await ratingsService.createRating(
+          id,
+          request.user.userId,
+          parseResult.data,
+          request.user.familyId
+        );
         return reply.status(201).send({ rating });
       } catch (error) {
         if (error instanceof Error) {
@@ -71,7 +76,12 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const rating = await ratingsService.updateRating(id, request.user.userId, parseResult.data);
+        const rating = await ratingsService.updateRating(
+          id,
+          request.user.userId,
+          parseResult.data,
+          request.user.familyId
+        );
 
         if (!rating) {
           return reply.status(404).send({ error: 'Rating not found' });
@@ -100,7 +110,8 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
       const result = await ratingsService.deleteRating(
         id,
         request.user.userId,
-        request.user.role === 'admin'
+        request.user.role === 'admin',
+        request.user.familyId
       );
 
       if (!result.success) {
@@ -121,7 +132,7 @@ export async function ratingsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const stats = await ratingsService.getDishRatingStats(id);
+      const stats = await ratingsService.getDishRatingStats(id, request.user.familyId);
       return reply.send({ stats });
     }
   );

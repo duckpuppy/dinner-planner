@@ -77,7 +77,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await dishesService.getDishes(parseResult.data);
+      const result = await dishesService.getDishes(parseResult.data, request.user.familyId);
       return reply.send(result);
     }
   );
@@ -92,7 +92,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const dish = await dishesService.getDishById(id);
+      const dish = await dishesService.getDishById(id, request.user.familyId);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
@@ -119,7 +119,11 @@ export async function dishesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const dish = await dishesService.createDish(parseResult.data, request.user.userId);
+      const dish = await dishesService.createDish(
+        parseResult.data,
+        request.user.userId,
+        request.user.familyId
+      );
       return reply.status(201).send({ dish });
     }
   );
@@ -142,7 +146,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const dish = await dishesService.updateDish(id, parseResult.data);
+      const dish = await dishesService.updateDish(id, parseResult.data, request.user.familyId);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
@@ -162,7 +166,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const dish = await dishesService.archiveDish(id);
+      const dish = await dishesService.archiveDish(id, request.user.familyId);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
@@ -182,7 +186,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const dish = await dishesService.unarchiveDish(id);
+      const dish = await dishesService.unarchiveDish(id, request.user.familyId);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
@@ -202,7 +206,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const result = await dishesService.deleteDish(id);
+      const result = await dishesService.deleteDish(id, request.user.familyId);
 
       if (!result.success) {
         return reply.status(404).send({ error: result.error });
@@ -220,7 +224,7 @@ export async function dishesRoutes(fastify: FastifyInstance) {
     '/api/tags',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tags = await dishesService.getAllTags();
+      const tags = await dishesService.getAllTags(request.user.familyId);
       return reply.send({ tags });
     }
   );

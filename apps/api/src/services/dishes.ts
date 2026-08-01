@@ -89,9 +89,9 @@ async function insertIngredientStores(ingredientId: string, storeIds: string[]):
     .values(storeIds.map((storeId) => ({ ingredientId, storeId })));
 }
 
-async function getDishWithRelations(id: string): Promise<DishResponse | null> {
+async function getDishWithRelations(id: string, familyId: string): Promise<DishResponse | null> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, id),
+    where: and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, familyId)),
   });
 
   if (!dish) return null;
@@ -146,9 +146,13 @@ async function getDishWithRelations(id: string): Promise<DishResponse | null> {
  * Get all dishes with filtering and pagination
  */
 export async function getDishes(
-  query: DishQueryInput
+  query: DishQueryInput,
+  familyId: string
 ): Promise<{ dishes: DishResponse[]; total: number }> {
   const conditions = [];
+
+  // Scope to the requesting family
+  conditions.push(eq(schema.dishes.familyId, familyId));
 
   // Filter by archived status
   conditions.push(eq(schema.dishes.archived, query.archived));
@@ -209,7 +213,7 @@ export async function getDishes(
   // Get related data for each dish
   const dishesWithRelations = await Promise.all(
     dishes.map(async (dish) => {
-      const result = await getDishWithRelations(dish.id);
+      const result = await getDishWithRelations(dish.id, familyId);
       return result!;
     })
   );
@@ -237,22 +241,28 @@ export async function getDishes(
 }
 
 /**
- * Get dish by ID
+ * Get dish by ID, scoped to a family. Returns null if the dish doesn't exist
+ * or belongs to a different family (both cases behave as "not found").
  */
-export async function getDishById(id: string): Promise<DishResponse | null> {
-  return getDishWithRelations(id);
+export async function getDishById(id: string, familyId: string): Promise<DishResponse | null> {
+  return getDishWithRelations(id, familyId);
 }
 
 /**
  * Create a new dish
  */
-export async function createDish(input: CreateDishInput, userId: string): Promise<DishResponse> {
+export async function createDish(
+  input: CreateDishInput,
+  userId: string,
+  familyId: string
+): Promise<DishResponse> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   // Insert dish
   await db.insert(schema.dishes).values({
     id,
+    familyId,
     name: input.name,
     description: input.description,
     type: input.type,
@@ -323,15 +333,19 @@ export async function createDish(input: CreateDishInput, userId: string): Promis
       .values(input.dietaryTags.map((tag) => ({ dishId: id, tag })));
   }
 
-  return (await getDishWithRelations(id))!;
+  return (await getDishWithRelations(id, familyId))!;
 }
 
 /**
- * Update a dish
+ * Update a dish, scoped to a family
  */
-export async function updateDish(id: string, input: UpdateDishInput): Promise<DishResponse | null> {
+export async function updateDish(
+  id: string,
+  input: UpdateDishInput,
+  familyId: string
+): Promise<DishResponse | null> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, id),
+    where: and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, familyId)),
   });
 
   if (!dish) return null;
@@ -417,15 +431,15 @@ export async function updateDish(id: string, input: UpdateDishInput): Promise<Di
     }
   }
 
-  return getDishWithRelations(id);
+  return getDishWithRelations(id, familyId);
 }
 
 /**
- * Archive a dish (soft delete)
+ * Archive a dish (soft delete), scoped to a family
  */
-export async function archiveDish(id: string): Promise<DishResponse | null> {
+export async function archiveDish(id: string, familyId: string): Promise<DishResponse | null> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, id),
+    where: and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, familyId)),
   });
 
   if (!dish) return null;
@@ -437,15 +451,15 @@ export async function archiveDish(id: string): Promise<DishResponse | null> {
     .set({ archived: true, updatedAt: now })
     .where(eq(schema.dishes.id, id));
 
-  return getDishWithRelations(id);
+  return getDishWithRelations(id, familyId);
 }
 
 /**
- * Unarchive a dish
+ * Unarchive a dish, scoped to a family
  */
-export async function unarchiveDish(id: string): Promise<DishResponse | null> {
+export async function unarchiveDish(id: string, familyId: string): Promise<DishResponse | null> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, id),
+    where: and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, familyId)),
   });
 
   if (!dish) return null;
@@ -457,15 +471,18 @@ export async function unarchiveDish(id: string): Promise<DishResponse | null> {
     .set({ archived: false, updatedAt: now })
     .where(eq(schema.dishes.id, id));
 
-  return getDishWithRelations(id);
+  return getDishWithRelations(id, familyId);
 }
 
 /**
- * Permanently delete a dish (admin only)
+ * Permanently delete a dish (admin only), scoped to a family
  */
-export async function deleteDish(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteDish(
+  id: string,
+  familyId: string
+): Promise<{ success: boolean; error?: string }> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, id),
+    where: and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, familyId)),
   });
 
   if (!dish) {
@@ -516,16 +533,22 @@ export async function deleteDish(id: string): Promise<{ success: boolean; error?
 }
 
 /**
- * Get all tags
+ * Get all tags with dish counts scoped to a family. Tags themselves remain a
+ * global/shared catalog (see dinner-7pt.5); only the per-tag dish count is
+ * scoped so counts don't leak how many dishes another family has tagged.
  */
-export async function getAllTags(): Promise<{ name: string; count: number }[]> {
+export async function getAllTags(familyId: string): Promise<{ name: string; count: number }[]> {
   const result = await db
     .select({
       name: schema.tags.name,
-      count: sql<number>`count(${schema.dishTags.dishId})`,
+      count: sql<number>`count(${schema.dishes.id})`,
     })
     .from(schema.tags)
     .leftJoin(schema.dishTags, eq(schema.tags.id, schema.dishTags.tagId))
+    .leftJoin(
+      schema.dishes,
+      and(eq(schema.dishTags.dishId, schema.dishes.id), eq(schema.dishes.familyId, familyId))
+    )
     .groupBy(schema.tags.name)
     .orderBy(asc(schema.tags.name));
 
@@ -533,9 +556,11 @@ export async function getAllTags(): Promise<{ name: string; count: number }[]> {
 }
 
 /**
- * Get dishes by IDs (batch fetch)
+ * Get dishes by IDs (batch fetch), scoped to a family. IDs that don't exist
+ * or belong to another family are silently dropped from the result.
  */
-export async function getDishesByIds(ids: string[]): Promise<DishResponse[]> {
+export async function getDishesByIds(ids: string[], familyId: string): Promise<DishResponse[]> {
   if (ids.length === 0) return [];
-  return Promise.all(ids.map((id) => getDishWithRelations(id).then((r) => r!)));
+  const results = await Promise.all(ids.map((id) => getDishWithRelations(id, familyId)));
+  return results.filter((d): d is DishResponse => d !== null);
 }

@@ -67,9 +67,10 @@ export function aggregateIngredients(sources: IngredientSource[]): GroceryItem[]
  * Returns aggregated ingredients sorted alphabetically.
  */
 export async function getWeekGroceries(
-  date: string
+  date: string,
+  familyId: string
 ): Promise<{ groceries: GroceryItem[]; weekStartDate: string }> {
-  const menu = await getOrCreateWeekMenu(date);
+  const menu = await getOrCreateWeekMenu(date, familyId);
 
   // Collect dish+scale pairs from assembled entries (allows same dish at different scales)
   const dishEntries: Array<{ dishId: string; dishName: string; scale: number }> = [];

@@ -19,15 +19,6 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('../db/index.js', () => ({
   db: mockDb,
-  schema: {
-    photos: {
-      id: null,
-      preparationId: null,
-      uploadedById: null,
-      filename: null,
-    },
-    preparations: { id: null },
-  },
 }));
 
 // Mock filesystem so tests don't touch disk
@@ -60,12 +51,25 @@ function selWhere(result: unknown[]) {
   return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
 }
 
-function selSelectFromWhere(result: unknown[]) {
+// select().from().innerJoin().innerJoin().where().limit() — preparationFamilyId
+function selFamilyCheck(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(result),
+      innerJoin: vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(result),
+          }),
+        }),
+      }),
     }),
   };
+}
+
+const FAMILY_ID = 'family-1';
+
+function mockFamilyCheck() {
+  mockDb.select.mockReturnValueOnce(selFamilyCheck([{ familyId: FAMILY_ID }]));
 }
 
 function makeInsertReturning(result: unknown) {
@@ -98,9 +102,10 @@ beforeEach(() => {
 
 describe('getPhotosForPreparation', () => {
   it('returns photos with url for a preparation', async () => {
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selWhere([mockPhoto]));
 
-    const result = await getPhotosForPreparation('prep-1');
+    const result = await getPhotosForPreparation('prep-1', FAMILY_ID);
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('photo-1');
@@ -108,11 +113,20 @@ describe('getPhotosForPreparation', () => {
   });
 
   it('returns empty array when no photos', async () => {
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selWhere([]));
 
-    const result = await getPhotosForPreparation('prep-1');
+    const result = await getPhotosForPreparation('prep-1', FAMILY_ID);
 
     expect(result).toHaveLength(0);
+  });
+
+  it('returns empty array when preparation belongs to another family', async () => {
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([]));
+
+    const result = await getPhotosForPreparation('prep-1', FAMILY_ID);
+
+    expect(result).toEqual([]);
   });
 });
 
@@ -129,20 +143,19 @@ describe('uploadPhoto', () => {
   }
 
   it('throws 404 when preparation not found', async () => {
-    // select({id}).from(preparations).where() → []
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([]));
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([])); // preparationFamilyId → null
 
-    await expect(uploadPhoto('prep-1', 'user-1', makeFile())).rejects.toMatchObject({
+    await expect(uploadPhoto('prep-1', 'user-1', makeFile(), FAMILY_ID)).rejects.toMatchObject({
       message: 'Preparation not found',
       statusCode: 404,
     });
   });
 
   it('throws 400 for disallowed mime type', async () => {
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
 
     await expect(
-      uploadPhoto('prep-1', 'user-1', makeFile({ mimetype: 'text/plain' }))
+      uploadPhoto('prep-1', 'user-1', makeFile({ mimetype: 'text/plain' }), FAMILY_ID)
     ).rejects.toMatchObject({
       message: 'Only JPEG, PNG, WebP and GIF images are allowed',
       statusCode: 400,
@@ -150,10 +163,10 @@ describe('uploadPhoto', () => {
   });
 
   it('uploads file and inserts DB record on success', async () => {
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
     mockDb.insert.mockReturnValueOnce(makeInsertReturning(mockPhoto));
 
-    const result = await uploadPhoto('prep-1', 'user-1', makeFile());
+    const result = await uploadPhoto('prep-1', 'user-1', makeFile(), FAMILY_ID);
 
     expect(result.id).toBe('photo-1');
     expect(result.url).toBe('/uploads/abc.jpg');
@@ -163,40 +176,53 @@ describe('uploadPhoto', () => {
     const pipelineError = new Error('Write error');
     vi.mocked(streamPromises.pipeline).mockRejectedValueOnce(pipelineError);
 
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
 
-    await expect(uploadPhoto('prep-1', 'user-1', makeFile())).rejects.toThrow('Write error');
+    await expect(uploadPhoto('prep-1', 'user-1', makeFile(), FAMILY_ID)).rejects.toThrow(
+      'Write error'
+    );
     expect(fs.unlink).toHaveBeenCalled();
   });
 
   it('accepts png mime type', async () => {
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
     mockDb.insert.mockReturnValueOnce(
       makeInsertReturning({ ...mockPhoto, mimeType: 'image/png', filename: 'test.png' })
     );
 
-    const result = await uploadPhoto('prep-1', 'user-1', makeFile({ mimetype: 'image/png' }));
+    const result = await uploadPhoto(
+      'prep-1',
+      'user-1',
+      makeFile({ mimetype: 'image/png' }),
+      FAMILY_ID
+    );
     expect(result.url).toMatch(/\/uploads\//);
   });
 
   it('accepts gif mime type', async () => {
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
     mockDb.insert.mockReturnValueOnce(
       makeInsertReturning({ ...mockPhoto, mimeType: 'image/gif', filename: 'test.gif' })
     );
 
-    const result = await uploadPhoto('prep-1', 'user-1', makeFile({ mimetype: 'image/gif' }));
+    const result = await uploadPhoto(
+      'prep-1',
+      'user-1',
+      makeFile({ mimetype: 'image/gif' }),
+      FAMILY_ID
+    );
     expect(result.url).toMatch(/\/uploads\//);
   });
 
   it('derives extension from mimetype when filename has no extension', async () => {
-    mockDb.select.mockReturnValueOnce(selSelectFromWhere([{ id: 'prep-1' }]));
+    mockFamilyCheck();
     mockDb.insert.mockReturnValueOnce(makeInsertReturning(mockPhoto));
 
     const result = await uploadPhoto(
       'prep-1',
       'user-1',
-      makeFile({ filename: 'photo', mimetype: 'image/png' })
+      makeFile({ filename: 'photo', mimetype: 'image/png' }),
+      FAMILY_ID
     );
     expect(result).toBeDefined();
   });
@@ -206,7 +232,17 @@ describe('deletePhoto', () => {
   it('throws 404 when photo not found', async () => {
     mockDb.select.mockReturnValueOnce(selWhere([]));
 
-    await expect(deletePhoto('photo-1', 'user-1', false)).rejects.toMatchObject({
+    await expect(deletePhoto('photo-1', 'user-1', false, FAMILY_ID)).rejects.toMatchObject({
+      message: 'Photo not found',
+      statusCode: 404,
+    });
+  });
+
+  it('throws 404 when photo belongs to a preparation in another family', async () => {
+    mockDb.select.mockReturnValueOnce(selWhere([mockPhoto]));
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([])); // preparationFamilyId → null
+
+    await expect(deletePhoto('photo-1', 'user-1', false, FAMILY_ID)).rejects.toMatchObject({
       message: 'Photo not found',
       statusCode: 404,
     });
@@ -214,8 +250,9 @@ describe('deletePhoto', () => {
 
   it('throws 403 when non-owner non-admin tries to delete', async () => {
     mockDb.select.mockReturnValueOnce(selWhere([mockPhoto]));
+    mockFamilyCheck();
 
-    await expect(deletePhoto('photo-1', 'other-user', false)).rejects.toMatchObject({
+    await expect(deletePhoto('photo-1', 'other-user', false, FAMILY_ID)).rejects.toMatchObject({
       message: 'Forbidden',
       statusCode: 403,
     });
@@ -223,8 +260,9 @@ describe('deletePhoto', () => {
 
   it('deletes photo record and file when owner requests delete', async () => {
     mockDb.select.mockReturnValueOnce(selWhere([mockPhoto]));
+    mockFamilyCheck();
 
-    await deletePhoto('photo-1', 'user-1', false);
+    await deletePhoto('photo-1', 'user-1', false, FAMILY_ID);
 
     expect(mockDb.delete).toHaveBeenCalled();
     expect(fs.unlink).toHaveBeenCalled();
@@ -232,8 +270,9 @@ describe('deletePhoto', () => {
 
   it('deletes photo record and file when admin requests delete', async () => {
     mockDb.select.mockReturnValueOnce(selWhere([{ ...mockPhoto, uploadedById: 'other-user' }]));
+    mockFamilyCheck();
 
-    await deletePhoto('photo-1', 'admin-user', true);
+    await deletePhoto('photo-1', 'admin-user', true, FAMILY_ID);
 
     expect(mockDb.delete).toHaveBeenCalled();
     expect(fs.unlink).toHaveBeenCalled();

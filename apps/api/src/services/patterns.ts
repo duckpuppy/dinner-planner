@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreatePatternInput, UpdatePatternInput } from '@dinner-planner/shared';
 
@@ -183,10 +183,16 @@ export async function deletePattern(patternId: string): Promise<boolean> {
  * and no side dishes (i.e. truly untouched default entries).
  * Returns count of entries updated.
  */
-export async function applyPatternsToWeek(weekStartDate: string): Promise<{ applied: number }> {
-  // Get all entries for the week
+export async function applyPatternsToWeek(
+  weekStartDate: string,
+  familyId: string
+): Promise<{ applied: number }> {
+  // Get all entries for the week, scoped to the family
   const menu = await db.query.weeklyMenus.findFirst({
-    where: eq(schema.weeklyMenus.weekStartDate, weekStartDate),
+    where: and(
+      eq(schema.weeklyMenus.weekStartDate, weekStartDate),
+      eq(schema.weeklyMenus.familyId, familyId)
+    ),
   });
 
   if (!menu) return { applied: 0 };

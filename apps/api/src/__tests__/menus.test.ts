@@ -12,6 +12,7 @@ const mockDb = vi.hoisted(() => ({
     dishes: { findFirst: vi.fn() },
     users: { findFirst: vi.fn() },
     preparations: { findFirst: vi.fn() },
+    restaurants: { findFirst: vi.fn() },
   },
 }));
 
@@ -29,7 +30,7 @@ vi.mock('../db/index.js', () => ({
   db: mockDb,
   schema: {
     appSettings: { id: null, weekStartDay: null },
-    weeklyMenus: { weekStartDate: null, id: null },
+    weeklyMenus: { weekStartDate: null, id: null, familyId: null },
     dinnerEntries: {
       id: null,
       menuId: null,
@@ -39,7 +40,8 @@ vi.mock('../db/index.js', () => ({
       scale: null,
       sideScale: null,
     },
-    dishes: { id: null, name: null },
+    dishes: { id: null, name: null, familyId: null },
+    restaurants: { id: null, familyId: null },
     users: { id: null },
     preparations: { id: null, dishId: null, dinnerEntryId: null, preparedDate: null },
     preparationPreparers: { preparationId: null, userId: null },
@@ -63,6 +65,38 @@ import {
 
 function selWhere(result: unknown[]) {
   return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
+}
+
+// select().from().innerJoin().where().limit() — entryFamilyId family check
+function selFromInnerJoinWhereLimit(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(result),
+        }),
+      }),
+    }),
+  };
+}
+
+// select().from().innerJoin().where().orderBy() — getRecentCompleted family-scoped query
+function selFromInnerJoinWhereOrderBy(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue(result),
+        }),
+      }),
+    }),
+  };
+}
+
+const FAMILY_ID = 'family-1';
+
+function mockFamilyCheck() {
+  mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([{ familyId: FAMILY_ID }]));
 }
 
 function makeUpdate() {
@@ -134,69 +168,83 @@ beforeEach(() => {
 
 describe('updateDinnerEntry', () => {
   it('returns null when entry not found', async () => {
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined);
-    const result = await updateDinnerEntry('nonexistent', {
-      type: 'assembled',
-      sideDishIds: [],
-    });
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([])); // entryFamilyId → null
+    const result = await updateDinnerEntry(
+      'nonexistent',
+      {
+        type: 'assembled',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
     expect(result).toBeNull();
   });
 
   it('calls db.update on the entry', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'fend_for_self', sideDishIds: [] });
+    await updateDinnerEntry('entry-1', { type: 'fend_for_self', sideDishIds: [] }, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('always deletes existing side dishes', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] }, FAMILY_ID);
     expect(mockDb.delete).toHaveBeenCalledOnce();
   });
 
   it('inserts new side dishes when sideDishIds provided', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', {
-      type: 'assembled',
-      mainDishId: 'dish-1',
-      sideDishIds: ['side-1', 'side-2'],
-    });
+    await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'assembled',
+        mainDishId: 'dish-1',
+        sideDishIds: ['side-1', 'side-2'],
+      },
+      FAMILY_ID
+    );
     expect(mockDb.insert).toHaveBeenCalledOnce();
   });
 
   it('does not insert side dishes when sideDishIds is empty', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] }, FAMILY_ID);
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it('does not insert side dishes when sideDishIds is undefined', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled' });
+    await updateDinnerEntry('entry-1', { type: 'assembled' }, FAMILY_ID);
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it('persists scale when provided', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [], scale: 3 });
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [], scale: 3 }, FAMILY_ID);
 
     const updateCall = mockDb.update().set;
     expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ scale: 3 }));
@@ -204,10 +252,15 @@ describe('updateDinnerEntry', () => {
 
   it('persists sideScale when provided', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [], sideScale: 2 });
+    await updateDinnerEntry(
+      'entry-1',
+      { type: 'assembled', sideDishIds: [], sideScale: 2 },
+      FAMILY_ID
+    );
 
     const updateCall = mockDb.update().set;
     expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ sideScale: 2 }));
@@ -215,10 +268,11 @@ describe('updateDinnerEntry', () => {
 
   it('defaults sideScale to 1 when not provided', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] }, FAMILY_ID);
 
     const updateCall = mockDb.update().set;
     expect(updateCall).toHaveBeenCalledWith(expect.objectContaining({ sideScale: 1 }));
@@ -232,36 +286,40 @@ describe('updateDinnerEntry', () => {
 describe('deletePreparation', () => {
   it('returns {success: false, error} when preparation not found', async () => {
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deletePreparation('nonexistent');
+    const result = await deletePreparation('nonexistent', FAMILY_ID);
     expect(result).toEqual({ success: false, error: 'Preparation not found' });
   });
 
   it('returns {success: true} after successful delete', async () => {
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(makePrep());
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selWhere([])); // no remaining preps
-    const result = await deletePreparation('prep-1');
+    const result = await deletePreparation('prep-1', FAMILY_ID);
     expect(result).toEqual({ success: true });
   });
 
   it('marks entry as not completed when last preparation is deleted', async () => {
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(makePrep());
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selWhere([])); // no remaining preps after delete
-    await deletePreparation('prep-1');
+    await deletePreparation('prep-1', FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('does not update entry completed when other preparations remain', async () => {
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(makePrep());
+    mockFamilyCheck();
     // Another prep still exists for this entry
     mockDb.select.mockReturnValueOnce(selWhere([makePrep({ id: 'prep-2' })]));
-    await deletePreparation('prep-1');
+    await deletePreparation('prep-1', FAMILY_ID);
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
   it('deletes the preparation record', async () => {
     mockDb.query.preparations.findFirst.mockResolvedValueOnce(makePrep());
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selWhere([]));
-    await deletePreparation('prep-1');
+    await deletePreparation('prep-1', FAMILY_ID);
     expect(mockDb.delete).toHaveBeenCalledOnce();
   });
 });
@@ -272,35 +330,38 @@ describe('deletePreparation', () => {
 
 describe('setSkipped', () => {
   it('returns null when entry not found', async () => {
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined);
-    const result = await setSkipped('nonexistent', true);
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([])); // entryFamilyId → null
+    const result = await setSkipped('nonexistent', true, FAMILY_ID);
     expect(result).toBeNull();
   });
 
   it('calls db.update to set skipped=true', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await setSkipped('entry-1', true);
+    await setSkipped('entry-1', true, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('calls db.update to set skipped=false', async () => {
     const entry = makeEntry({ skipped: true });
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await setSkipped('entry-1', false);
+    await setSkipped('entry-1', false, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('does not modify completed field', async () => {
     const entry = makeEntry({ completed: true });
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await setSkipped('entry-1', true);
+    await setSkipped('entry-1', true, FAMILY_ID);
 
     const updateCall = mockDb.update.mock.results[0].value;
     const setArgs = updateCall.set.mock.calls[0][0];
@@ -314,40 +375,34 @@ function selFromWhere(result: unknown[]) {
   return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
 }
 
-function selFromWhereOrderByDescDate(result: unknown[]) {
-  return {
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue(result) }),
-    }),
-  };
-}
-
 // ===========================================================================
 // markEntryCompleted
 // ===========================================================================
 
 describe('markEntryCompleted', () => {
   it('returns null when entry not found', async () => {
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined);
-    const result = await markEntryCompleted('nonexistent', true);
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([])); // entryFamilyId → null
+    const result = await markEntryCompleted('nonexistent', true, FAMILY_ID);
     expect(result).toBeNull();
   });
 
   it('calls db.update to set completed=true', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await markEntryCompleted('entry-1', true);
+    await markEntryCompleted('entry-1', true, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('calls db.update to set completed=false', async () => {
     const entry = makeEntry({ completed: true });
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(entry);
 
-    await markEntryCompleted('entry-1', false);
+    await markEntryCompleted('entry-1', false, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 });
@@ -358,60 +413,116 @@ describe('markEntryCompleted', () => {
 
 describe('logPreparation', () => {
   it('inserts preparation, preparers, and auto-completes entry', async () => {
-    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', name: 'Pasta' });
+    mockFamilyCheck(); // entryFamilyId(dinnerEntryId)
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', familyId: FAMILY_ID }); // family check
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', name: 'Pasta' }); // dishName lookup
     // db.select().from(users).where() for preparers
     mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'user-1', displayName: 'Alice' }]));
 
-    const result = await logPreparation({
-      dishId: 'dish-1',
-      restaurantId: null,
-      dinnerEntryId: 'entry-1',
-      preparerIds: ['user-1'],
-      notes: 'Great dinner',
-    });
+    const result = await logPreparation(
+      {
+        dishId: 'dish-1',
+        restaurantId: null,
+        dinnerEntryId: 'entry-1',
+        preparerIds: ['user-1'],
+        notes: 'Great dinner',
+      },
+      FAMILY_ID
+    );
 
-    expect(result.dishName).toBe('Pasta');
-    expect(result.preparers).toHaveLength(1);
-    expect(result.preparers[0].name).toBe('Alice');
-    expect(result.notes).toBe('Great dinner');
+    expect(result).not.toBeNull();
+    expect(result!.dishName).toBe('Pasta');
+    expect(result!.preparers).toHaveLength(1);
+    expect(result!.preparers[0].name).toBe('Alice');
+    expect(result!.notes).toBe('Great dinner');
     // 2 inserts: preparation + preparers; 1 update: auto-complete entry
     expect(mockDb.insert).toHaveBeenCalledTimes(2);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
   it('returns null dishName when dish not found', async () => {
-    mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined);
+    mockFamilyCheck(); // entryFamilyId(dinnerEntryId)
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined); // family check: dish doesn't exist
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined); // dishName lookup
     mockDb.select.mockReturnValueOnce(selFromWhere([]));
 
-    const result = await logPreparation({
-      dishId: 'dish-x',
-      restaurantId: null,
-      dinnerEntryId: 'entry-1',
-      preparerIds: [],
-      notes: null,
-    });
+    const result = await logPreparation(
+      {
+        dishId: 'dish-x',
+        restaurantId: null,
+        dinnerEntryId: 'entry-1',
+        preparerIds: [],
+        notes: null,
+      },
+      FAMILY_ID
+    );
 
-    expect(result.dishName).toBeNull();
-    expect(result.notes).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.dishName).toBeNull();
+    expect(result!.notes).toBeNull();
   });
 
   it('creates preparation with null dishId for restaurant visit', async () => {
+    mockFamilyCheck(); // entryFamilyId(dinnerEntryId)
+    mockDb.query.restaurants.findFirst.mockResolvedValueOnce({
+      id: 'restaurant-1',
+      familyId: FAMILY_ID,
+    });
     mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'user-1', displayName: 'Alice' }]));
 
-    const result = await logPreparation({
-      dishId: null,
-      restaurantId: 'restaurant-1',
-      dinnerEntryId: 'entry-1',
-      preparerIds: ['user-1'],
-      notes: 'Great restaurant',
-    });
+    const result = await logPreparation(
+      {
+        dishId: null,
+        restaurantId: 'restaurant-1',
+        dinnerEntryId: 'entry-1',
+        preparerIds: ['user-1'],
+        notes: 'Great restaurant',
+      },
+      FAMILY_ID
+    );
 
-    expect(result.dishId).toBeNull();
-    expect(result.dishName).toBeNull();
-    expect(result.restaurantId).toBe('restaurant-1');
-    expect(result.preparers[0].name).toBe('Alice');
+    expect(result).not.toBeNull();
+    expect(result!.dishId).toBeNull();
+    expect(result!.dishName).toBeNull();
+    expect(result!.restaurantId).toBe('restaurant-1');
+    expect(result!.preparers[0].name).toBe('Alice');
     // dish lookup should NOT have been called
     expect(mockDb.query.dishes.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns null when dinner entry belongs to another family', async () => {
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([{ familyId: 'other-family' }]));
+
+    const result = await logPreparation(
+      {
+        dishId: null,
+        restaurantId: null,
+        dinnerEntryId: 'entry-1',
+        preparerIds: [],
+        notes: null,
+      },
+      FAMILY_ID
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when referenced dish belongs to another family', async () => {
+    mockFamilyCheck(); // entryFamilyId(dinnerEntryId)
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', familyId: 'other-family' });
+
+    const result = await logPreparation(
+      {
+        dishId: 'dish-1',
+        restaurantId: null,
+        dinnerEntryId: 'entry-1',
+        preparerIds: [],
+        notes: null,
+      },
+      FAMILY_ID
+    );
+
+    expect(result).toBeNull();
   });
 });
 
@@ -421,12 +532,20 @@ describe('logPreparation', () => {
 
 describe('getDishPreparations', () => {
   it('returns empty array when no preparations', async () => {
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', familyId: FAMILY_ID });
     mockDb.select.mockReturnValueOnce(selFromWhere([]));
-    const result = await getDishPreparations('dish-1');
+    const result = await getDishPreparations('dish-1', FAMILY_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when dish belongs to another family', async () => {
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce(undefined);
+    const result = await getDishPreparations('dish-1', FAMILY_ID);
     expect(result).toEqual([]);
   });
 
   it('returns preparations sorted by date descending', async () => {
+    mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', familyId: FAMILY_ID });
     const preps = [
       { ...makePrep({ id: 'prep-1', preparedDate: '2024-01-01' }) },
       { ...makePrep({ id: 'prep-2', preparedDate: '2024-01-10' }) },
@@ -440,7 +559,7 @@ describe('getDishPreparations', () => {
     // getDishWithRelations for prep-2
     mockDb.query.dishes.findFirst.mockResolvedValueOnce({ id: 'dish-1', name: 'Pasta' });
 
-    const result = await getDishPreparations('dish-1');
+    const result = await getDishPreparations('dish-1', FAMILY_ID);
 
     expect(result).toHaveLength(2);
     // sorted desc: 2024-01-10 first
@@ -455,18 +574,18 @@ describe('getDishPreparations', () => {
 
 describe('getRecentCompleted', () => {
   it('returns empty array when no completed entries', async () => {
-    mockDb.select.mockReturnValueOnce(selFromWhereOrderByDescDate([]));
-    const result = await getRecentCompleted();
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereOrderBy([]));
+    const result = await getRecentCompleted(FAMILY_ID);
     expect(result).toEqual([]);
   });
 
   it('returns entries with mainDishName', async () => {
     const entries = [{ id: 'entry-1', date: '2024-01-10', mainDishId: 'dish-1', completed: true }];
-    mockDb.select.mockReturnValueOnce(selFromWhereOrderByDescDate(entries));
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereOrderBy(entries));
     // db.select().from(dishes).where() → dish rows
     mockDb.select.mockReturnValueOnce(selFromWhere([{ id: 'dish-1', name: 'Pasta' }]));
 
-    const result = await getRecentCompleted();
+    const result = await getRecentCompleted(FAMILY_ID);
 
     expect(result).toHaveLength(1);
     expect(result[0].mainDishName).toBe('Pasta');
@@ -477,10 +596,10 @@ describe('getRecentCompleted', () => {
     const entries = [
       { id: 'entry-1', date: '2024-01-10', mainDishId: 'dish-missing', completed: true },
     ];
-    mockDb.select.mockReturnValueOnce(selFromWhereOrderByDescDate(entries));
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereOrderBy(entries));
     mockDb.select.mockReturnValueOnce(selFromWhere([])); // no dish rows
 
-    const result = await getRecentCompleted();
+    const result = await getRecentCompleted(FAMILY_ID);
 
     expect(result).toEqual([]);
   });
@@ -493,27 +612,38 @@ describe('getRecentCompleted', () => {
 describe('updateDinnerEntry leftovers validation', () => {
   it('returns null when sourceEntryId equals entryId (self-reference)', async () => {
     const entry = makeEntry();
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
 
-    const result = await updateDinnerEntry('entry-1', {
-      type: 'leftovers',
-      sourceEntryId: 'entry-1',
-      sideDishIds: [],
-    });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'leftovers',
+        sourceEntryId: 'entry-1',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
 
     expect(result).toBeNull();
   });
 
   it('returns null when source entry not found', async () => {
     const entry = makeEntry();
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    mockFamilyCheck(); // entryFamilyId(sourceEntryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined); // source not found
 
-    const result = await updateDinnerEntry('entry-1', {
-      type: 'leftovers',
-      sourceEntryId: 'entry-2',
-      sideDishIds: [],
-    });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'leftovers',
+        sourceEntryId: 'entry-2',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
 
     expect(result).toBeNull();
   });
@@ -521,24 +651,31 @@ describe('updateDinnerEntry leftovers validation', () => {
   it('returns null when source entry is also leftovers (no chaining)', async () => {
     const entry = makeEntry();
     const sourceEntry = makeEntry({ id: 'entry-2', type: 'leftovers' });
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    mockFamilyCheck(); // entryFamilyId(sourceEntryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(sourceEntry);
 
-    const result = await updateDinnerEntry('entry-1', {
-      type: 'leftovers',
-      sourceEntryId: 'entry-2',
-      sideDishIds: [],
-    });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'leftovers',
+        sourceEntryId: 'entry-2',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
 
     expect(result).toBeNull();
   });
 
   it('clears sourceEntryId when type changes away from leftovers', async () => {
     const entry = makeEntry({ type: 'leftovers' });
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRelations(makeEntry());
 
-    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] }, FAMILY_ID);
 
     const updateCall = mockDb.update.mock.results[0].value;
     const setArgs = updateCall.set.mock.calls[0][0];
@@ -548,15 +685,21 @@ describe('updateDinnerEntry leftovers validation', () => {
   it('sets sourceEntryId when leftovers type with valid source', async () => {
     const entry = makeEntry();
     const sourceEntry = makeEntry({ id: 'entry-2', type: 'assembled' });
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
+    mockFamilyCheck(); // entryFamilyId(sourceEntryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(sourceEntry);
     setupGetEntryWithRelations(makeEntry());
 
-    await updateDinnerEntry('entry-1', {
-      type: 'leftovers',
-      sourceEntryId: 'entry-2',
-      sideDishIds: [],
-    });
+    await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'leftovers',
+        sourceEntryId: 'entry-2',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
 
     const updateCall = mockDb.update.mock.results[0].value;
     const setArgs = updateCall.set.mock.calls[0][0];
@@ -626,10 +769,15 @@ function setupGetEntryWithRichRelations(entry: ReturnType<typeof makeEntry>) {
 describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
   it('includes mainDish when entry has mainDishId', async () => {
     const entry = makeEntry({ mainDishId: 'dish-1' });
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRichRelations(entry);
 
-    const result = await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      { type: 'assembled', sideDishIds: [] },
+      FAMILY_ID
+    );
 
     expect(result?.mainDish).not.toBeNull();
     expect(result?.mainDish?.name).toBe('Pasta');
@@ -637,10 +785,15 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
 
   it('includes sideDishes when entry has side dish links', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRichRelations(entry);
 
-    const result = await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      { type: 'assembled', sideDishIds: [] },
+      FAMILY_ID
+    );
 
     expect(result?.sideDishes).toHaveLength(1);
     expect(result?.sideDishes[0].name).toBe('Salad');
@@ -648,10 +801,15 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
 
   it('includes preparations with preparers', async () => {
     const entry = makeEntry();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     setupGetEntryWithRichRelations(entry);
 
-    const result = await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      { type: 'assembled', sideDishIds: [] },
+      FAMILY_ID
+    );
 
     expect(result?.preparations).toHaveLength(1);
     expect(result?.preparations[0].preparers).toHaveLength(1);
@@ -660,7 +818,9 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
 
   it('includes sourceEntryDishName for leftovers entries', async () => {
     const entry = makeEntry({ sourceEntryId: 'source-1' });
+    mockFamilyCheck(); // entryFamilyId(entryId)
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry); // updateDinnerEntry findFirst
+    mockFamilyCheck(); // entryFamilyId(sourceEntryId)
     // sourceEntry validation
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(
       makeEntry({ id: 'source-1', type: 'assembled' })
@@ -684,17 +844,22 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
       }),
     });
 
-    const result = await updateDinnerEntry('entry-1', {
-      type: 'leftovers',
-      sourceEntryId: 'source-1',
-      sideDishIds: [],
-    });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      {
+        type: 'leftovers',
+        sourceEntryId: 'source-1',
+        sideDishIds: [],
+      },
+      FAMILY_ID
+    );
 
     expect(result?.sourceEntryDishName).toBe('Tacos');
   });
 
   it('returns null mainDish when dish query returns nothing', async () => {
     const entry = makeEntry({ mainDishId: 'dish-missing' });
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
     // getEntryWithRelations
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
@@ -702,7 +867,11 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
     mockDb.select.mockReturnValueOnce(selWhere([])); // no side dishes
     mockDb.select.mockReturnValueOnce(selWhere([])); // no preparations
 
-    const result = await updateDinnerEntry('entry-1', { type: 'assembled', sideDishIds: [] });
+    const result = await updateDinnerEntry(
+      'entry-1',
+      { type: 'assembled', sideDishIds: [] },
+      FAMILY_ID
+    );
 
     expect(result?.mainDish).toBeNull();
   });

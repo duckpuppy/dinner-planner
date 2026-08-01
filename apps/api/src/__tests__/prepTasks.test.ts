@@ -31,7 +31,8 @@ vi.mock('../db/index.js', () => ({
       createdAt: null,
       updatedAt: null,
     },
-    dinnerEntries: { id: null },
+    dinnerEntries: { id: null, menuId: null },
+    weeklyMenus: { id: null, familyId: null },
   },
 }));
 
@@ -50,6 +51,25 @@ function selFromWhereOrderBy(result: unknown[]) {
       where: vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue(result) }),
     }),
   };
+}
+
+// select().from().innerJoin().where().limit() — entryFamilyId family check
+function selFamilyCheck(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(result),
+        }),
+      }),
+    }),
+  };
+}
+
+const FAMILY_ID = 'family-1';
+
+function mockFamilyCheck() {
+  mockDb.select.mockReturnValueOnce(selFamilyCheck([{ familyId: FAMILY_ID }]));
 }
 
 function makeInsert() {
@@ -106,17 +126,19 @@ beforeEach(() => {
 
 describe('getPrepTasksForEntry', () => {
   it('returns empty array when no tasks exist', async () => {
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([]));
-    const result = await getPrepTasksForEntry('entry-1');
+    const result = await getPrepTasksForEntry('entry-1', FAMILY_ID);
     expect(result).toEqual([]);
   });
 
   it('returns tasks ordered by createdAt asc', async () => {
     const task1 = makePrepTask({ id: 'task-1', createdAt: '2024-01-01T00:00:00.000Z' });
     const task2 = makePrepTask({ id: 'task-2', createdAt: '2024-01-02T00:00:00.000Z' });
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([task1, task2]));
 
-    const result = await getPrepTasksForEntry('entry-1');
+    const result = await getPrepTasksForEntry('entry-1', FAMILY_ID);
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe('task-1');
     expect(result[1].id).toBe('task-2');
@@ -124,9 +146,10 @@ describe('getPrepTasksForEntry', () => {
 
   it('maps all fields from row', async () => {
     const task = makePrepTask({ completed: true });
+    mockFamilyCheck();
     mockDb.select.mockReturnValueOnce(selFromWhereOrderBy([task]));
 
-    const [result] = await getPrepTasksForEntry('entry-1');
+    const [result] = await getPrepTasksForEntry('entry-1', FAMILY_ID);
     expect(result).toEqual({
       id: 'task-1',
       entryId: 'entry-1',
@@ -136,6 +159,12 @@ describe('getPrepTasksForEntry', () => {
       updatedAt: '2024-01-01T00:00:00.000Z',
     });
   });
+
+  it('returns empty array when entry belongs to another family', async () => {
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([]));
+    const result = await getPrepTasksForEntry('entry-1', FAMILY_ID);
+    expect(result).toEqual([]);
+  });
 });
 
 // ===========================================================================
@@ -144,18 +173,19 @@ describe('getPrepTasksForEntry', () => {
 
 describe('createPrepTask', () => {
   it('returns null when entryId does not exist', async () => {
-    mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(undefined);
-    const result = await createPrepTask('nonexistent', { description: 'Test' });
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([])); // entryFamilyId → null
+    const result = await createPrepTask('nonexistent', { description: 'Test' }, FAMILY_ID);
     expect(result).toBeNull();
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it('returns PrepTask on success', async () => {
     const task = makePrepTask();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(makeEntry());
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(task);
 
-    const result = await createPrepTask('entry-1', { description: 'Chop vegetables' });
+    const result = await createPrepTask('entry-1', { description: 'Chop vegetables' }, FAMILY_ID);
     expect(result).not.toBeNull();
     expect(result!.entryId).toBe('entry-1');
     expect(result!.description).toBe('Chop vegetables');
@@ -164,10 +194,11 @@ describe('createPrepTask', () => {
 
   it('inserts into db when entry exists', async () => {
     const task = makePrepTask();
+    mockFamilyCheck();
     mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(makeEntry());
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(task);
 
-    await createPrepTask('entry-1', { description: 'Chop vegetables' });
+    await createPrepTask('entry-1', { description: 'Chop vegetables' }, FAMILY_ID);
     expect(mockDb.insert).toHaveBeenCalledOnce();
   });
 });
@@ -179,7 +210,16 @@ describe('createPrepTask', () => {
 describe('updatePrepTask', () => {
   it('returns null when id not found', async () => {
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(undefined);
-    const result = await updatePrepTask('nonexistent', { description: 'New desc' });
+    const result = await updatePrepTask('nonexistent', { description: 'New desc' }, FAMILY_ID);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when task belongs to another family', async () => {
+    const existing = makePrepTask();
+    mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(existing);
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([{ familyId: 'other-family' }]));
+
+    const result = await updatePrepTask('task-1', { description: 'New desc' }, FAMILY_ID);
     expect(result).toBeNull();
   });
 
@@ -187,8 +227,13 @@ describe('updatePrepTask', () => {
     const existing = makePrepTask();
     const updated = makePrepTask({ description: 'Updated desc', completed: true });
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(existing).mockResolvedValueOnce(updated);
+    mockFamilyCheck();
 
-    const result = await updatePrepTask('task-1', { description: 'Updated desc', completed: true });
+    const result = await updatePrepTask(
+      'task-1',
+      { description: 'Updated desc', completed: true },
+      FAMILY_ID
+    );
     expect(result).not.toBeNull();
     expect(result!.description).toBe('Updated desc');
     expect(result!.completed).toBe(true);
@@ -202,14 +247,23 @@ describe('updatePrepTask', () => {
 describe('deletePrepTask', () => {
   it('returns false when id not found', async () => {
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deletePrepTask('nonexistent');
+    const result = await deletePrepTask('nonexistent', FAMILY_ID);
+    expect(result).toBe(false);
+    expect(mockDb.delete).not.toHaveBeenCalled();
+  });
+
+  it('returns false when task belongs to another family', async () => {
+    mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(makePrepTask());
+    mockDb.select.mockReturnValueOnce(selFamilyCheck([{ familyId: 'other-family' }]));
+    const result = await deletePrepTask('task-1', FAMILY_ID);
     expect(result).toBe(false);
     expect(mockDb.delete).not.toHaveBeenCalled();
   });
 
   it('returns true on success', async () => {
     mockDb.query.prepTasks.findFirst.mockResolvedValueOnce(makePrepTask());
-    const result = await deletePrepTask('task-1');
+    mockFamilyCheck();
+    const result = await deletePrepTask('task-1', FAMILY_ID);
     expect(result).toBe(true);
     expect(mockDb.delete).toHaveBeenCalledOnce();
   });

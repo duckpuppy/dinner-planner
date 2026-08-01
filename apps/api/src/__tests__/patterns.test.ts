@@ -15,7 +15,10 @@ const mockDb = vi.hoisted(() => ({
 }));
 
 // Mock eq so it doesn't crash on our stub schema column values
-vi.mock('drizzle-orm', () => ({ eq: vi.fn().mockReturnValue(null) }));
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn().mockReturnValue(null),
+  and: vi.fn().mockReturnValue(null),
+}));
 
 // Mock db module — schema stubs only need to be property-accessible objects
 vi.mock('../db/index.js', () => ({

@@ -19,6 +19,7 @@ const mockDb = vi.hoisted(() => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn().mockReturnValue(null),
+  and: vi.fn().mockReturnValue(null),
   desc: vi.fn().mockReturnValue(null),
 }));
 
@@ -32,7 +33,7 @@ vi.mock('../db/index.js', () => ({
       createdById: null,
       createdAt: null,
     },
-    dishes: { id: null },
+    dishes: { id: null, familyId: null },
     users: { id: null, username: null },
   },
 }));
@@ -95,6 +96,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockDb.insert.mockReturnValue(makeInsert());
   mockDb.delete.mockReturnValue(makeDelete());
+  // Default: dish under test belongs to the requesting family. Tests
+  // exercising the "not found"/cross-family paths override with
+  // mockResolvedValueOnce before calling the service function.
+  mockDb.query.dishes.findFirst.mockResolvedValue(makeDish());
 });
 
 // ===========================================================================

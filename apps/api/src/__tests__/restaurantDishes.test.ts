@@ -16,6 +16,7 @@ const mockDb = vi.hoisted(() => ({
     restaurantDishes: { findFirst: vi.fn() },
     restaurantDishRatings: { findFirst: vi.fn() },
     users: { findFirst: vi.fn() },
+    restaurants: { findFirst: vi.fn() },
   },
 }));
 
@@ -47,6 +48,7 @@ vi.mock('../db/index.js', () => ({
       updatedAt: null,
     },
     users: { id: null, displayName: null },
+    restaurants: { id: null, familyId: null },
   },
 }));
 
@@ -133,11 +135,18 @@ function mockDishStats(avg: number | null = null, count = 0) {
   mockDb.select.mockReturnValueOnce(makeSelectChain([{ avg, count }]));
 }
 
+const FAMILY_ID = 'family-1';
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockDb.insert.mockReturnValue(makeInsert());
   mockDb.update.mockReturnValue(makeUpdate());
   mockDb.delete.mockReturnValue(makeDelete());
+  // Default: the dish/restaurant under test belongs to the requesting
+  // family. Tests exercising cross-family behavior override these with
+  // mockResolvedValueOnce before calling the service function.
+  mockDb.query.restaurantDishes.findFirst.mockResolvedValue(makeDishRow());
+  mockDb.query.restaurants.findFirst.mockResolvedValue({ id: 'rest-1', familyId: FAMILY_ID });
 });
 
 // ===========================================================================

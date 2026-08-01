@@ -126,6 +126,20 @@ export interface WeeklyMenuResponse {
   updatedAt: string;
 }
 
+/**
+ * Resolve the family a dinner entry belongs to, via its parent weekly menu.
+ * Returns null if the entry doesn't exist.
+ */
+async function entryFamilyId(entryId: string): Promise<string | null> {
+  const row = await db
+    .select({ familyId: schema.weeklyMenus.familyId })
+    .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+    .where(eq(schema.dinnerEntries.id, entryId))
+    .limit(1);
+  return row[0]?.familyId ?? null;
+}
+
 async function getEntryWithRelations(entryId: string): Promise<DinnerEntryResponse | null> {
   const entry = await db.query.dinnerEntries.findFirst({
     where: eq(schema.dinnerEntries.id, entryId),
@@ -276,15 +290,21 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
 /**
  * Get or create a weekly menu for a given date
  */
-export async function getOrCreateWeekMenu(dateStr: string): Promise<WeeklyMenuResponse> {
+export async function getOrCreateWeekMenu(
+  dateStr: string,
+  familyId: string
+): Promise<WeeklyMenuResponse> {
   const weekStartDay = await getWeekStartDay();
   const date = parseDate(dateStr);
   const weekStart = getWeekStartDate(date, weekStartDay);
   const weekStartStr = formatDate(weekStart);
 
-  // Check if menu exists
+  // Check if menu exists for this family
   let menu = await db.query.weeklyMenus.findFirst({
-    where: eq(schema.weeklyMenus.weekStartDate, weekStartStr),
+    where: and(
+      eq(schema.weeklyMenus.weekStartDate, weekStartStr),
+      eq(schema.weeklyMenus.familyId, familyId)
+    ),
   });
 
   if (!menu) {
@@ -294,6 +314,7 @@ export async function getOrCreateWeekMenu(dateStr: string): Promise<WeeklyMenuRe
 
     await db.insert(schema.weeklyMenus).values({
       id: menuId,
+      familyId,
       weekStartDate: weekStartStr,
       createdAt: now,
       updatedAt: now,
@@ -344,25 +365,31 @@ export async function getOrCreateWeekMenu(dateStr: string): Promise<WeeklyMenuRe
 }
 
 /**
- * Get today's dinner entry
+ * Get today's dinner entry, scoped to a family
  */
-export async function getTodayEntry(): Promise<DinnerEntryResponse | null> {
+export async function getTodayEntry(familyId: string): Promise<DinnerEntryResponse | null> {
   const today = formatDate(new Date());
 
-  const entry = await db.query.dinnerEntries.findFirst({
-    where: eq(schema.dinnerEntries.date, today),
-  });
+  const entry = await db
+    .select({ id: schema.dinnerEntries.id })
+    .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+    .where(and(eq(schema.dinnerEntries.date, today), eq(schema.weeklyMenus.familyId, familyId)))
+    .limit(1);
 
-  if (!entry) {
+  if (entry.length === 0) {
     // Auto-create by fetching the week
-    await getOrCreateWeekMenu(today);
-    const newEntry = await db.query.dinnerEntries.findFirst({
-      where: eq(schema.dinnerEntries.date, today),
-    });
-    return newEntry ? getEntryWithRelations(newEntry.id) : null;
+    await getOrCreateWeekMenu(today, familyId);
+    const newEntry = await db
+      .select({ id: schema.dinnerEntries.id })
+      .from(schema.dinnerEntries)
+      .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+      .where(and(eq(schema.dinnerEntries.date, today), eq(schema.weeklyMenus.familyId, familyId)))
+      .limit(1);
+    return newEntry.length > 0 ? getEntryWithRelations(newEntry[0].id) : null;
   }
 
-  return getEntryWithRelations(entry.id);
+  return getEntryWithRelations(entry[0].id);
 }
 
 /**
@@ -370,17 +397,22 @@ export async function getTodayEntry(): Promise<DinnerEntryResponse | null> {
  */
 export async function updateDinnerEntry(
   entryId: string,
-  input: UpdateDinnerEntryInput
+  input: UpdateDinnerEntryInput,
+  familyId: string
 ): Promise<DinnerEntryResponse | null> {
+  if ((await entryFamilyId(entryId)) !== familyId) return null;
+
   const entry = await db.query.dinnerEntries.findFirst({
     where: eq(schema.dinnerEntries.id, entryId),
   });
 
   if (!entry) return null;
 
-  // Validate sourceEntryId: no self-reference, no circular chains, source must not be leftovers
+  // Validate sourceEntryId: no self-reference, no circular chains, source must
+  // not be leftovers, and source must belong to the same family
   if (input.type === 'leftovers' && input.sourceEntryId) {
     if (input.sourceEntryId === entryId) return null;
+    if ((await entryFamilyId(input.sourceEntryId)) !== familyId) return null;
     const sourceEntry = await db.query.dinnerEntries.findFirst({
       where: eq(schema.dinnerEntries.id, input.sourceEntryId),
     });
@@ -430,8 +462,11 @@ export async function updateDinnerEntry(
  */
 export async function markEntryCompleted(
   entryId: string,
-  completed: boolean
+  completed: boolean,
+  familyId: string
 ): Promise<DinnerEntryResponse | null> {
+  if ((await entryFamilyId(entryId)) !== familyId) return null;
+
   const entry = await db.query.dinnerEntries.findFirst({
     where: eq(schema.dinnerEntries.id, entryId),
   });
@@ -453,8 +488,11 @@ export async function markEntryCompleted(
  */
 export async function setSkipped(
   entryId: string,
-  skipped: boolean
+  skipped: boolean,
+  familyId: string
 ): Promise<DinnerEntryResponse | null> {
+  if ((await entryFamilyId(entryId)) !== familyId) return null;
+
   const entry = await db.query.dinnerEntries.findFirst({
     where: eq(schema.dinnerEntries.id, entryId),
   });
@@ -472,9 +510,32 @@ export async function setSkipped(
 }
 
 /**
- * Log a preparation
+ * Log a preparation, scoped to a family. Returns null if the dinner entry
+ * (or a referenced dish/restaurant) doesn't belong to the requesting family.
  */
-export async function logPreparation(input: CreatePreparationInput): Promise<PreparationResponse> {
+export async function logPreparation(
+  input: CreatePreparationInput,
+  familyId: string
+): Promise<PreparationResponse | null> {
+  if ((await entryFamilyId(input.dinnerEntryId)) !== familyId) return null;
+
+  // Reject references to a dish/restaurant that exists but belongs to a
+  // different family (cross-family data leak). A dishId/restaurantId that
+  // doesn't exist at all is left to degrade gracefully below (dishName ends
+  // up null) rather than being rejected outright -- that's existing,
+  // unrelated behavior this bead doesn't change.
+  if (input.dishId) {
+    const dish = await db.query.dishes.findFirst({ where: eq(schema.dishes.id, input.dishId) });
+    if (dish && dish.familyId !== familyId) return null;
+  }
+
+  if (input.restaurantId) {
+    const restaurant = await db.query.restaurants.findFirst({
+      where: eq(schema.restaurants.id, input.restaurantId),
+    });
+    if (restaurant && restaurant.familyId !== familyId) return null;
+  }
+
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const today = formatDate(new Date());
@@ -527,9 +588,18 @@ export async function logPreparation(input: CreatePreparationInput): Promise<Pre
 }
 
 /**
- * Get preparation history for a dish
+ * Get preparation history for a dish, scoped to a family. Returns an empty
+ * array if the dish doesn't exist or belongs to another family.
  */
-export async function getDishPreparations(dishId: string): Promise<PreparationResponse[]> {
+export async function getDishPreparations(
+  dishId: string,
+  familyId: string
+): Promise<PreparationResponse[]> {
+  const dish = await db.query.dishes.findFirst({
+    where: and(eq(schema.dishes.id, dishId), eq(schema.dishes.familyId, familyId)),
+  });
+  if (!dish) return [];
+
   const preps = await db
     .select()
     .from(schema.preparations)
@@ -564,16 +634,21 @@ export async function getDishPreparations(dishId: string): Promise<PreparationRe
 }
 
 /**
- * Delete a preparation
+ * Delete a preparation, scoped to a family via its dinner entry's menu
  */
 export async function deletePreparation(
-  prepId: string
+  prepId: string,
+  familyId: string
 ): Promise<{ success: boolean; error?: string }> {
   const prep = await db.query.preparations.findFirst({
     where: eq(schema.preparations.id, prepId),
   });
 
   if (!prep) {
+    return { success: false, error: 'Preparation not found' };
+  }
+
+  if ((await entryFamilyId(prep.dinnerEntryId)) !== familyId) {
     return { success: false, error: 'Preparation not found' };
   }
 
@@ -600,18 +675,24 @@ export async function deletePreparation(
  * Get recently completed entries (last 14 days) that have a main dish.
  * Used by the leftovers picker.
  */
-export async function getRecentCompleted(): Promise<
-  { id: string; date: string; mainDishName: string }[]
-> {
+export async function getRecentCompleted(
+  familyId: string
+): Promise<{ id: string; date: string; mainDishName: string }[]> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 14);
   const cutoffStr = formatDate(cutoff);
 
   const entries = await db
-    .select()
+    .select({
+      id: schema.dinnerEntries.id,
+      date: schema.dinnerEntries.date,
+      mainDishId: schema.dinnerEntries.mainDishId,
+    })
     .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
     .where(
       and(
+        eq(schema.weeklyMenus.familyId, familyId),
         eq(schema.dinnerEntries.completed, true),
         gte(schema.dinnerEntries.date, cutoffStr),
         isNotNull(schema.dinnerEntries.mainDishId)

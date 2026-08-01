@@ -7,7 +7,7 @@ import { cleanupOrphanedVideos } from '../services/videoCleanup.js';
 import { getSettings } from '../services/settings.js';
 import { checkOllamaHealth } from '../services/ollama.js';
 import { db, schema } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { join } from 'node:path';
 import { createReadStream, statSync } from 'node:fs';
 
@@ -118,7 +118,11 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const [dish] = await db.select().from(schema.dishes).where(eq(schema.dishes.id, id)).limit(1);
+      const [dish] = await db
+        .select()
+        .from(schema.dishes)
+        .where(and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, request.user.familyId)))
+        .limit(1);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
@@ -180,7 +184,11 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const [dish] = await db.select().from(schema.dishes).where(eq(schema.dishes.id, id)).limit(1);
+      const [dish] = await db
+        .select()
+        .from(schema.dishes)
+        .where(and(eq(schema.dishes.id, id), eq(schema.dishes.familyId, request.user.familyId)))
+        .limit(1);
 
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
