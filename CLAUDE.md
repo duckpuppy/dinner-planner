@@ -212,10 +212,14 @@ Log learnings: `bd comments add {ID} "LEARNED: [insight]"` — captured automati
 - M26: Standing/recurring items — `standingItems` table; full CRUD; `ManageStandingItemsDialog`
 - M27: Week planning board — `PlanningBoardPage` + `PlanDayCard`; 7-day card grid; `@dnd-kit/core` drag-to-swap; "Plan next week →" button on `WeekPage`; progress chip; `SuggestionModal` for dish picking
 - M28: Video transcript extraction for recipe extraction — yt-dlp `--write-subs`/`--write-auto-subs` (English only, manual preferred over auto-generated); `parseVtt()` + `downloadVideo()` in `apps/api/src/services/videoDownload.ts`; transcript appended (8000-char cap) to the title+description text fed to Ollama in `recipeExtraction.ts`; persisted on `videoJobs.transcript` (migration `0023_windy_rage.sql`). Released v1.17.0.
+- Multi-family support (epic dinner-7pt, all 7 children closed): the app is no longer single-tenant.
+  - Phase 1 (7pt.1/7pt.2, PRs #247/#248): `families` table; `users.familyId`; JWT payload carries `familyId`; `POST /api/setup` requires `familyName`; `GET/POST/PATCH /api/families`; family section in `AdminUsersPage`.
+  - Phase 2 (7pt.4/7pt.5, PRs #252/#254): every data table scoped by `family_id`. Anchors (`dishes`, `weeklyMenus`, `restaurants`) hold `family_id` directly; their cascading children (`dishTags`, `dinnerEntries`, `preparations`, `ratings`, `prepTasks`, `restaurantDishes`, etc.) are scoped transitively via JOIN, not a duplicated column. Orphan tables with no FK path to an anchor (`tags`, `recurringPatterns`, `pantryItems`, `stores`, `customGroceryItems`, `groceryChecks`, `standingItems`) got their own direct `family_id`. `ingredients` stays global (shared reference catalog, no ownership semantics). Cross-family access returns 404, not 403, to avoid disclosing existence of other families' data — this convention is now used throughout the API. Migration pattern for adding a NOT-NULL FK column to a non-empty SQLite table: two-step split (nullable + backfill, then tighten to NOT NULL) — see PRs #247/#252/#254 for reference migrations.
+  - Phase 3 (7pt.6/7pt.7, PRs #256/#257): `POST /api/families` (reassigns caller into a new family as its admin) now 409s if the caller is the sole admin of a family with other members, to avoid orphaning them (`isSoleAdminOrphaningFamily` in `apps/api/src/services/families.ts`). Frontend "Leave & create new family" confirmation dialog in `AdminUsersPage` requires typing the new family name, lists what's lost, surfaces the 409 inline, and refreshes the session (`useAuthStore.checkAuth()`) + invalidates the entire query cache on success.
 
 ### Active / upcoming milestones
 
-✨ No open milestones — all planned work through M28 is shipped.
+✨ No open milestones — all planned work is shipped.
 
 ### Grocery system architecture notes
 
