@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockDb = vi.hoisted(() => ({
   insert: vi.fn(),
   update: vi.fn(),
+  select: vi.fn(),
   query: {
     families: { findFirst: vi.fn() },
   },
@@ -21,7 +22,37 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import { getFamilyById, createFamily, updateFamily } from '../services/families.js';
+import {
+  getFamilyById,
+  createFamily,
+  updateFamily,
+  isSoleAdminOrphaningFamily,
+} from '../services/families.js';
+
+function makeUser(overrides: Partial<{ id: string; role: 'admin' | 'member' }> = {}) {
+  return {
+    id: 'user-1',
+    username: 'alice',
+    displayName: 'Alice',
+    passwordHash: 'hash',
+    role: 'member' as const,
+    familyId: 'family-1',
+    theme: 'light' as const,
+    homeView: 'today' as const,
+    dietaryPreferences: '[]',
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+    ...overrides,
+  };
+}
+
+function mockSelectFrom(users: ReturnType<typeof makeUser>[]) {
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(users),
+    }),
+  });
+}
 
 function ins() {
   return { values: vi.fn().mockResolvedValue(undefined) };
@@ -85,5 +116,45 @@ describe('updateFamily', () => {
 
     const result = await updateFamily('family-1', { name: 'New Name' });
     expect(result!.name).toBe('New Name');
+  });
+});
+
+describe('isSoleAdminOrphaningFamily', () => {
+  it('returns false when the sole admin is the only member of the family', async () => {
+    mockSelectFrom([makeUser({ id: 'user-1', role: 'admin' })]);
+
+    const result = await isSoleAdminOrphaningFamily('family-1', 'user-1');
+    expect(result).toBe(false);
+  });
+
+  it('returns true when the caller is the sole admin and other members exist', async () => {
+    mockSelectFrom([
+      makeUser({ id: 'user-1', role: 'admin' }),
+      makeUser({ id: 'user-2', role: 'member' }),
+    ]);
+
+    const result = await isSoleAdminOrphaningFamily('family-1', 'user-1');
+    expect(result).toBe(true);
+  });
+
+  it('returns false when there are multiple admins and other members', async () => {
+    mockSelectFrom([
+      makeUser({ id: 'user-1', role: 'admin' }),
+      makeUser({ id: 'user-2', role: 'admin' }),
+      makeUser({ id: 'user-3', role: 'member' }),
+    ]);
+
+    const result = await isSoleAdminOrphaningFamily('family-1', 'user-1');
+    expect(result).toBe(false);
+  });
+
+  it('returns false when the caller is not an admin', async () => {
+    mockSelectFrom([
+      makeUser({ id: 'user-1', role: 'admin' }),
+      makeUser({ id: 'user-2', role: 'member' }),
+    ]);
+
+    const result = await isSoleAdminOrphaningFamily('family-1', 'user-2');
+    expect(result).toBe(false);
   });
 });
