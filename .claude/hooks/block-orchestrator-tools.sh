@@ -15,16 +15,17 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 IS_SUBAGENT="false"
 
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-TOOL_USE_ID=$(echo "$INPUT" | jq -r '.tool_use_id // empty')
 
-if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -n "$TOOL_USE_ID" ]]; then
-  SESSION_DIR="${TRANSCRIPT_PATH%.jsonl}"
-  SUBAGENTS_DIR="$SESSION_DIR/subagents"
-
-  if [[ -d "$SUBAGENTS_DIR" ]]; then
-    MATCHING_SUBAGENT=$(grep -l "\"id\":\"$TOOL_USE_ID\"" "$SUBAGENTS_DIR"/agent-*.jsonl 2>/dev/null | head -1)
-    [[ -n "$MATCHING_SUBAGENT" ]] && IS_SUBAGENT="true"
-  fi
+# A subagent's own tool calls report transcript_path as ITS OWN transcript
+# file, which lives directly under a directory literally named 'subagents'
+# (e.g. .../subagents/agent-<id>.jsonl). The orchestrator's transcript does
+# not live under such a directory. This is simpler and correct, unlike the
+# previous approach of looking for a subagents/ child dir beneath the given
+# transcript path -- that only matches the orchestrator's own transcript,
+# which is backwards.
+if [[ -n "$TRANSCRIPT_PATH" ]]; then
+  PARENT_DIR_NAME=$(basename "$(dirname "$TRANSCRIPT_PATH")")
+  [[ "$PARENT_DIR_NAME" == "subagents" ]] && IS_SUBAGENT="true"
 fi
 
 if [[ "$IS_SUBAGENT" == "true" ]]; then
