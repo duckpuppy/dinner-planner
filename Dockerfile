@@ -23,16 +23,13 @@ COPY . .
 # Build all packages
 RUN pnpm build
 
-# Rebuild native modules against the current Node.js ABI (build tools available here)
-RUN cd apps/api && npm rebuild bcrypt better-sqlite3
-
-# Create prod-only deploy bundle for API (prod node_modules + package.json)
-# --legacy required for pnpm v10 without inject-workspace-packages
+# Create prod-only deploy bundle for API (prod node_modules + package.json).
+# pnpm deploy does a fresh install (not a copy), and pnpm-workspace.yaml's
+# `allowBuilds` config lets bcrypt/better-sqlite3 run their native build during
+# this install, so no separate `npm rebuild` step is needed (and would fail:
+# node-gyp's node_gyp_bins python3 shim already exists from this install and a
+# second `node-gyp rebuild` invocation collides with it — EEXIST).
 RUN pnpm deploy --filter=@dinner-planner/api --prod --legacy /app/api-deploy
-
-# Rebuild native modules in the deploy directory (pnpm deploy does a fresh install,
-# not a copy, so the rebuild above doesn't carry over)
-RUN cd /app/api-deploy && npm rebuild better-sqlite3 bcrypt
 
 # Production stage
 FROM node:24-alpine AS runner
