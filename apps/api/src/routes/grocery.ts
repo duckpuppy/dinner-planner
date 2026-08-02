@@ -52,7 +52,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
    * List all managed stores sorted by name.
    */
   fastify.get('/api/stores', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    const stores = await listStores();
+    const stores = await listStores(request.user.familyId);
     return reply.send({ stores: stores.map((s) => ({ id: s.id, name: s.name })) });
   });
 
@@ -72,7 +72,14 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       }
 
       const { weekDate, name, quantity = null, unit = null, storeId } = parsed.data;
-      const item = await addCustomItem(weekDate, name, quantity ?? null, unit ?? null, storeId);
+      const item = await addCustomItem(
+        weekDate,
+        name,
+        quantity ?? null,
+        unit ?? null,
+        storeId,
+        request.user.familyId
+      );
       return reply.status(201).send({ item });
     }
   );
@@ -93,7 +100,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      const item = await updateCustomItem(id, parsed.data);
+      const item = await updateCustomItem(id, parsed.data, request.user.familyId);
       if (!item) return reply.status(404).send({ error: 'Custom grocery item not found' });
       return reply.send({ item });
     }
@@ -108,7 +115,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deleteCustomItem(id);
+      const deleted = await deleteCustomItem(id, request.user.familyId);
       if (!deleted) return reply.status(404).send({ error: 'Custom grocery item not found' });
       return reply.status(204).send();
     }
@@ -131,7 +138,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
 
       const { weekDate, itemKey, itemName } = parsed.data;
       const userId = request.user.userId;
-      const checked = await toggleCheck(weekDate, itemKey, itemName, userId);
+      const checked = await toggleCheck(weekDate, itemKey, itemName, userId, request.user.familyId);
       return reply.send({ itemKey, checked });
     }
   );
@@ -152,7 +159,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      await clearAllChecks(parsed.data.weekDate);
+      await clearAllChecks(parsed.data.weekDate, request.user.familyId);
       return reply.status(204).send();
     }
   );
@@ -164,8 +171,8 @@ export async function groceryRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/api/grocery/standing',
     { preHandler: [fastify.authenticate] },
-    async (_request, reply) => {
-      const items = await listStandingItems();
+    async (request, reply) => {
+      const items = await listStandingItems(request.user.familyId);
       return reply.send({ items });
     }
   );
@@ -193,7 +200,8 @@ export async function groceryRoutes(fastify: FastifyInstance) {
         unit ?? null,
         category,
         storeId,
-        userId
+        userId,
+        request.user.familyId
       );
       return reply.status(201).send({ item });
     }
@@ -208,7 +216,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deleteStandingItem(id);
+      const deleted = await deleteStandingItem(id, request.user.familyId);
       if (!deleted) return reply.status(404).send({ error: 'Standing item not found' });
       return reply.status(204).send();
     }

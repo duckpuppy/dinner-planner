@@ -9,8 +9,8 @@ import {
 
 export async function pantryRoutes(fastify: FastifyInstance) {
   // GET /api/pantry
-  fastify.get('/api/pantry', { preHandler: [fastify.authenticate] }, async (_request, reply) => {
-    const items = await listPantryItems();
+  fastify.get('/api/pantry', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const items = await listPantryItems(request.user.familyId);
     return reply.send({ items });
   });
 
@@ -22,7 +22,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
         .status(400)
         .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
     }
-    const item = await createPantryItem(parsed.data);
+    const item = await createPantryItem(parsed.data, request.user.familyId);
     return reply.status(201).send({ item });
   });
 
@@ -38,7 +38,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
-      const item = await updatePantryItem(id, parsed.data);
+      const item = await updatePantryItem(id, parsed.data, request.user.familyId);
       if (!item) return reply.status(404).send({ error: 'Pantry item not found' });
       return reply.send({ item });
     }
@@ -50,7 +50,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const result = await deletePantryItem(id);
+      const result = await deletePantryItem(id, request.user.familyId);
       if (!result.success) return reply.status(404).send({ error: 'Pantry item not found' });
       return reply.status(204).send();
     }

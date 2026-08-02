@@ -301,21 +301,22 @@ export async function createDish(
     }
   }
 
-  // Handle free-form tags
+  // Handle free-form tags (tag catalog is scoped per-family, dinner-7pt.5)
   if (input.tags && input.tags.length > 0) {
     for (const tagName of input.tags) {
       // Find or create tag
       let tag = await db.query.tags.findFirst({
-        where: eq(schema.tags.name, tagName.toLowerCase()),
+        where: and(eq(schema.tags.name, tagName.toLowerCase()), eq(schema.tags.familyId, familyId)),
       });
 
       if (!tag) {
         const tagId = crypto.randomUUID();
         await db.insert(schema.tags).values({
           id: tagId,
+          familyId,
           name: tagName.toLowerCase(),
         });
-        tag = { id: tagId, name: tagName.toLowerCase() };
+        tag = { id: tagId, familyId, name: tagName.toLowerCase() };
       }
 
       // Link tag to dish
@@ -398,19 +399,20 @@ export async function updateDish(
     // Delete existing tag links
     await db.delete(schema.dishTags).where(eq(schema.dishTags.dishId, id));
 
-    // Add new tags
+    // Add new tags (tag catalog is scoped per-family, dinner-7pt.5)
     for (const tagName of input.tags) {
       let tag = await db.query.tags.findFirst({
-        where: eq(schema.tags.name, tagName.toLowerCase()),
+        where: and(eq(schema.tags.name, tagName.toLowerCase()), eq(schema.tags.familyId, familyId)),
       });
 
       if (!tag) {
         const tagId = crypto.randomUUID();
         await db.insert(schema.tags).values({
           id: tagId,
+          familyId,
           name: tagName.toLowerCase(),
         });
-        tag = { id: tagId, name: tagName.toLowerCase() };
+        tag = { id: tagId, familyId, name: tagName.toLowerCase() };
       }
 
       await db.insert(schema.dishTags).values({
@@ -533,9 +535,9 @@ export async function deleteDish(
 }
 
 /**
- * Get all tags with dish counts scoped to a family. Tags themselves remain a
- * global/shared catalog (see dinner-7pt.5); only the per-tag dish count is
- * scoped so counts don't leak how many dishes another family has tagged.
+ * Get all tags with dish counts, scoped to a family. The tag catalog itself
+ * is family-scoped (dinner-7pt.5) via tags.family_id, so both the tag list
+ * and the per-tag dish count are naturally isolated per family.
  */
 export async function getAllTags(familyId: string): Promise<{ name: string; count: number }[]> {
   const result = await db
@@ -549,6 +551,7 @@ export async function getAllTags(familyId: string): Promise<{ name: string; coun
       schema.dishes,
       and(eq(schema.dishTags.dishId, schema.dishes.id), eq(schema.dishes.familyId, familyId))
     )
+    .where(eq(schema.tags.familyId, familyId))
     .groupBy(schema.tags.name)
     .orderBy(asc(schema.tags.name));
 

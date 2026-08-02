@@ -1,6 +1,7 @@
 import crypto from 'crypto';
-import { eq, asc } from 'drizzle-orm';
+import { and, eq, asc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
+import { isStoreInFamily } from './stores.js';
 
 export interface StandingItemRow {
   id: string;
@@ -33,9 +34,9 @@ function rowToItem(row: {
 }
 
 /**
- * List all standing grocery items, sorted by name, joined with store name.
+ * List all standing grocery items for a family, sorted by name, joined with store name.
  */
-export async function listStandingItems(): Promise<StandingItemRow[]> {
+export async function listStandingItems(familyId: string): Promise<StandingItemRow[]> {
   const rows = await db
     .select({
       id: schema.standingItems.id,
@@ -48,13 +49,15 @@ export async function listStandingItems(): Promise<StandingItemRow[]> {
     })
     .from(schema.standingItems)
     .leftJoin(schema.stores, eq(schema.standingItems.storeId, schema.stores.id))
+    .where(eq(schema.standingItems.familyId, familyId))
     .orderBy(asc(schema.standingItems.name));
 
   return rows.map(rowToItem);
 }
 
 /**
- * Add a new standing grocery item. Returns the full row including storeName.
+ * Add a new standing grocery item, scoped to a family. Returns the full row
+ * including storeName.
  */
 export async function addStandingItem(
   name: string,
@@ -62,17 +65,23 @@ export async function addStandingItem(
   unit: string | null,
   category: string,
   storeId: string | null | undefined,
-  userId: string
+  userId: string,
+  familyId: string
 ): Promise<StandingItemRow> {
   const id = crypto.randomUUID();
 
+  // Ignore a storeId that doesn't belong to this family rather than trusting
+  // client input at face value (dinner-7pt.5: stores are now family-scoped).
+  const safeStoreId = storeId && (await isStoreInFamily(storeId, familyId)) ? storeId : null;
+
   await db.insert(schema.standingItems).values({
     id,
+    familyId,
     name,
     quantity: quantity ?? null,
     unit: unit ?? null,
     category,
-    storeId: storeId ?? null,
+    storeId: safeStoreId,
     createdBy: userId,
   });
 
@@ -94,11 +103,12 @@ export async function addStandingItem(
 }
 
 /**
- * Delete a standing item by id. Returns true if found and deleted, false if not found.
+ * Delete a standing item by id, scoped to a family. Returns true if found
+ * and deleted, false if not found or belongs to another family.
  */
-export async function deleteStandingItem(id: string): Promise<boolean> {
+export async function deleteStandingItem(id: string, familyId: string): Promise<boolean> {
   const existing = await db.query.standingItems.findFirst({
-    where: eq(schema.standingItems.id, id),
+    where: and(eq(schema.standingItems.id, id), eq(schema.standingItems.familyId, familyId)),
   });
   if (!existing) return false;
 

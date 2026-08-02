@@ -66,9 +66,9 @@ export async function menusRoutes(fastify: FastifyInstance) {
         parseResult.data.date,
         request.user.familyId
       );
-      const customItems = await getCustomItemsForWeek(result.weekStartDate);
-      const checkedKeys = await getCheckedKeys(result.weekStartDate);
-      const standingItems = await listStandingItems();
+      const customItems = await getCustomItemsForWeek(result.weekStartDate, request.user.familyId);
+      const checkedKeys = await getCheckedKeys(result.weekStartDate, request.user.familyId);
+      const standingItems = await listStandingItems(request.user.familyId);
       return reply.send({ ...result, customItems, checkedKeys, standingItems });
     }
   );

@@ -50,7 +50,12 @@ async function buildApp() {
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 function bearerHeader(app: TestApp) {
-  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role: 'member' });
+  const token = app.jwt.sign({
+    userId: 'user-1',
+    username: 'alice',
+    role: 'member',
+    familyId: 'family-1',
+  });
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -424,7 +429,7 @@ describe('DELETE /api/grocery/checks', () => {
     });
 
     expect(res.statusCode).toBe(204);
-    expect(groceryChecksService.clearAllChecks).toHaveBeenCalledWith('2026-02-24');
+    expect(groceryChecksService.clearAllChecks).toHaveBeenCalledWith('2026-02-24', 'family-1');
   });
 
   it('returns 400 when weekDate query param is missing', async () => {
@@ -491,6 +496,18 @@ describe('GET /api/stores', () => {
     expect(body.stores[1]).toEqual({ id: 's-2', name: 'Whole Foods' });
   });
 
+  it('scopes the store list to the requesting family (no cross-family leakage)', async () => {
+    vi.mocked(storesService.listStores).mockResolvedValueOnce([]);
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/stores',
+      headers: bearerHeader(app),
+    });
+
+    expect(storesService.listStores).toHaveBeenCalledWith('family-1');
+  });
+
   it('returns 200 with empty stores list', async () => {
     vi.mocked(storesService.listStores).mockResolvedValueOnce([]);
 
@@ -553,7 +570,8 @@ describe('POST /api/grocery/custom with storeId', () => {
       'Milk',
       2,
       'litre',
-      's-1'
+      's-1',
+      'family-1'
     );
   });
 });

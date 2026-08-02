@@ -12,8 +12,8 @@ import { getOrCreateWeekMenu } from '../services/menus.js';
 
 export async function patternsRoutes(fastify: FastifyInstance) {
   // GET /api/patterns
-  fastify.get('/api/patterns', { preHandler: [fastify.authenticate] }, async (_request, reply) => {
-    const patterns = await listPatterns();
+  fastify.get('/api/patterns', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const patterns = await listPatterns(request.user.familyId);
     return reply.send({ patterns });
   });
 
@@ -25,7 +25,7 @@ export async function patternsRoutes(fastify: FastifyInstance) {
         .status(400)
         .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
     }
-    const pattern = await createPattern(parsed.data, request.user.userId);
+    const pattern = await createPattern(parsed.data, request.user.userId, request.user.familyId);
     return reply.status(201).send({ pattern });
   });
 
@@ -35,7 +35,7 @@ export async function patternsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const pattern = await getPattern(id);
+      const pattern = await getPattern(id, request.user.familyId);
       if (!pattern) return reply.status(404).send({ error: 'Pattern not found' });
       return reply.send({ pattern });
     }
@@ -53,7 +53,7 @@ export async function patternsRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
-      const pattern = await updatePattern(id, parsed.data);
+      const pattern = await updatePattern(id, parsed.data, request.user.familyId);
       if (!pattern) return reply.status(404).send({ error: 'Pattern not found' });
       return reply.send({ pattern });
     }
@@ -65,7 +65,7 @@ export async function patternsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deletePattern(id);
+      const deleted = await deletePattern(id, request.user.familyId);
       if (!deleted) return reply.status(404).send({ error: 'Pattern not found' });
       return reply.status(200).send({ success: true });
     }

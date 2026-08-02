@@ -104,10 +104,23 @@ export const ingredients = sqliteTable('ingredients', {
 });
 
 // Tags table
-export const tags = sqliteTable('tags', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-});
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (see drizzle/ for the split, same pattern as
+// users.familyId / dishes.familyId). Tags are an orphan table with no FK
+// path to an anchor table, so they need their own direct family_id
+// (dinner-7pt.5). Uniqueness on `name` is now scoped per-family via the
+// composite unique index below instead of a column-level .unique().
+export const tags = sqliteTable(
+  'tags',
+  {
+    id: text('id').primaryKey(),
+    familyId: text('family_id')
+      .notNull()
+      .references(() => families.id),
+    name: text('name').notNull(),
+  },
+  (table) => [uniqueIndex('tags_family_name_unique').on(table.familyId, table.name)]
+);
 
 // Dish tags junction table
 export const dishTags = sqliteTable('dish_tags', {
@@ -307,8 +320,14 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // Recurring meal patterns table
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table.
 export const recurringPatterns = sqliteTable('recurring_patterns', {
   id: text('id').primaryKey(),
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   label: text('label').notNull(),
   dayOfWeek: integer('day_of_week').notNull(), // 0=Sun, 1=Mon, ..., 6=Sat
   type: text('type', { enum: ['assembled', 'fend_for_self', 'dining_out', 'custom'] })
@@ -356,8 +375,14 @@ export const photos = sqliteTable('photos', {
 });
 
 // Pantry items table (M16: pantry tracking)
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table.
 export const pantryItems = sqliteTable('pantry_items', {
   id: text('id').primaryKey(),
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   ingredientName: text('ingredient_name').notNull(),
   quantity: real('quantity'),
   unit: text('unit'),
@@ -368,13 +393,25 @@ export const pantryItems = sqliteTable('pantry_items', {
 });
 
 // Stores table (M25: managed store list for grocery organization)
-export const stores = sqliteTable('stores', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table. Uniqueness on
+// `name` is now scoped per-family via the composite unique index below
+// instead of a column-level .unique().
+export const stores = sqliteTable(
+  'stores',
+  {
+    id: text('id').primaryKey(),
+    familyId: text('family_id')
+      .notNull()
+      .references(() => families.id),
+    name: text('name').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [uniqueIndex('stores_family_name_unique').on(table.familyId, table.name)]
+);
 
 // Ingredient <-> Store junction table (M25)
 export const ingredientStores = sqliteTable(
@@ -391,8 +428,14 @@ export const ingredientStores = sqliteTable(
 );
 
 // Custom grocery items table (M23: user-added free-form grocery items)
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table.
 export const customGroceryItems = sqliteTable('custom_grocery_items', {
   id: text('id').primaryKey(),
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   weekDate: text('week_date').notNull(),
   name: text('name').notNull(),
   quantity: real('quantity'),
@@ -403,9 +446,19 @@ export const customGroceryItems = sqliteTable('custom_grocery_items', {
 });
 
 // Grocery checks table (M24: shared server-side check state)
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table. familyId is
+// folded into the composite primary key alongside the NOT NULL tightening
+// (a table rebuild is already required for that step) since itemKey is
+// derived from ingredient name/category and is not guaranteed unique across
+// families for the same week.
 export const groceryChecks = sqliteTable(
   'grocery_checks',
   {
+    familyId: text('family_id')
+      .notNull()
+      .references(() => families.id),
     weekDate: text('week_date').notNull(),
     itemKey: text('item_key').notNull(),
     itemName: text('item_name').notNull(),
@@ -416,12 +469,18 @@ export const groceryChecks = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (table) => [primaryKey({ columns: [table.weekDate, table.itemKey] })]
+  (table) => [primaryKey({ columns: [table.familyId, table.weekDate, table.itemKey] })]
 );
 
 // Standing grocery items table (M26: items that always appear on the grocery list)
+// familyId added nullable then backfilled then tightened to NOT NULL across
+// two migrations (dinner-7pt.5, same pattern as users/dishes.familyId).
+// This table is an orphan with no FK path to an anchor table.
 export const standingItems = sqliteTable('standing_items', {
   id: text('id').primaryKey(),
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   name: text('name').notNull(),
   quantity: real('quantity'),
   unit: text('unit'),

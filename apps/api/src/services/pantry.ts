@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type {
   CreatePantryItemInput,
@@ -26,22 +26,29 @@ function rowToPantryItem(row: {
 }
 
 /**
- * List all pantry items ordered by ingredientName.
+ * List all pantry items for a family, ordered by ingredientName.
  */
-export async function listPantryItems(): Promise<PantryItem[]> {
-  const rows = await db.select().from(schema.pantryItems);
+export async function listPantryItems(familyId: string): Promise<PantryItem[]> {
+  const rows = await db
+    .select()
+    .from(schema.pantryItems)
+    .where(eq(schema.pantryItems.familyId, familyId));
   return rows.map(rowToPantryItem).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
 }
 
 /**
- * Create a new pantry item.
+ * Create a new pantry item, scoped to a family.
  */
-export async function createPantryItem(input: CreatePantryItemInput): Promise<PantryItem> {
+export async function createPantryItem(
+  input: CreatePantryItemInput,
+  familyId: string
+): Promise<PantryItem> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.insert(schema.pantryItems).values({
     id,
+    familyId,
     ingredientName: input.ingredientName,
     quantity: input.quantity ?? null,
     unit: input.unit ?? null,
@@ -55,14 +62,16 @@ export async function createPantryItem(input: CreatePantryItemInput): Promise<Pa
 }
 
 /**
- * Update a pantry item by id. Returns null if not found.
+ * Update a pantry item by id, scoped to a family. Returns null if not found
+ * or belongs to another family (both cases behave as "not found").
  */
 export async function updatePantryItem(
   id: string,
-  input: UpdatePantryItemInput
+  input: UpdatePantryItemInput,
+  familyId: string
 ): Promise<PantryItem | null> {
   const existing = await db.query.pantryItems.findFirst({
-    where: eq(schema.pantryItems.id, id),
+    where: and(eq(schema.pantryItems.id, id), eq(schema.pantryItems.familyId, familyId)),
   });
   if (!existing) return null;
 
@@ -80,11 +89,14 @@ export async function updatePantryItem(
 }
 
 /**
- * Delete a pantry item by id.
+ * Delete a pantry item by id, scoped to a family.
  */
-export async function deletePantryItem(id: string): Promise<{ success: boolean }> {
+export async function deletePantryItem(
+  id: string,
+  familyId: string
+): Promise<{ success: boolean }> {
   const existing = await db.query.pantryItems.findFirst({
-    where: eq(schema.pantryItems.id, id),
+    where: and(eq(schema.pantryItems.id, id), eq(schema.pantryItems.familyId, familyId)),
   });
   if (!existing) return { success: false };
 

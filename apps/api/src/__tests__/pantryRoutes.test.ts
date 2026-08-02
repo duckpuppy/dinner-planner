@@ -33,7 +33,12 @@ async function buildApp() {
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 function bearerHeader(app: TestApp) {
-  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role: 'member' });
+  const token = app.jwt.sign({
+    userId: 'user-1',
+    username: 'alice',
+    role: 'member',
+    familyId: 'family-1',
+  });
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -204,6 +209,27 @@ describe('PATCH /api/pantry/:id', () => {
     expect(JSON.parse(res.body)).toMatchObject({ error: 'Pantry item not found' });
   });
 
+  it('returns 404 (not 403) when item belongs to another family', async () => {
+    // The service returns null for both "doesn't exist" and "belongs to
+    // another family" -- the route can't tell the difference, which is the
+    // point (dinner-7pt.5: cross-family access looks identical to not-found).
+    vi.mocked(pantryService.updatePantryItem).mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/pantry/other-familys-item',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ unit: 'litre' }),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(pantryService.updatePantryItem).toHaveBeenCalledWith(
+      'other-familys-item',
+      { unit: 'litre' },
+      'family-1'
+    );
+  });
+
   it('returns 400 with invalid body', async () => {
     const res = await app.inject({
       method: 'PATCH',
@@ -250,6 +276,19 @@ describe('DELETE /api/pantry/:id', () => {
     });
 
     expect(res.statusCode).toBe(204);
+  });
+
+  it('returns 404 (not 403) when item belongs to another family', async () => {
+    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ success: false });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/pantry/other-familys-item',
+      headers: bearerHeader(app),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(pantryService.deletePantryItem).toHaveBeenCalledWith('other-familys-item', 'family-1');
   });
 
   it('returns 404 when item does not exist', async () => {
