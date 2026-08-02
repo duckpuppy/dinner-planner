@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { users, families, type User } from '@/lib/api';
-import { Users, Plus, Pencil, Trash2, KeyRound, X, Home, Check } from 'lucide-react';
+import { users, families, ApiError, type User } from '@/lib/api';
+import { Users, Plus, Pencil, Trash2, KeyRound, X, Home, Check, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAuthStore } from '@/stores/auth';
@@ -76,6 +77,7 @@ function FamilySection() {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState('');
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['family'],
@@ -187,15 +189,155 @@ function FamilySection() {
               <p className="font-semibold truncate">{family.name}</p>
             </div>
           </div>
-          <button
-            onClick={startEditing}
-            className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation shrink-0"
-            aria-label="Rename family"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setShowLeaveDialog(true)}
+              className="p-3 md:p-2 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive touch-manipulation"
+              aria-label="Leave and create new family"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+            <button
+              onClick={startEditing}
+              className="p-3 md:p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground touch-manipulation"
+              aria-label="Rename family"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
+
+      {showLeaveDialog && <LeaveAndCreateFamilyDialog onClose={() => setShowLeaveDialog(false)} />}
+    </div>
+  );
+}
+
+function LeaveAndCreateFamilyDialog({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const checkAuth = useAuthStore((s) => s.checkAuth);
+  const [name, setName] = useState('');
+  const [formError, setFormError] = useState('');
+  const trimmedName = name.trim();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const createMutation = useMutation({
+    mutationFn: (newName: string) => families.create(newName),
+    onSuccess: async () => {
+      await checkAuth();
+      await queryClient.invalidateQueries();
+      toast.success('New family created');
+      onClose();
+      navigate('/');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setFormError(err.message);
+        return;
+      }
+      setFormError('');
+      toast.error('Failed to create family');
+      console.error('Error creating family:', err);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (trimmedName.length < 1) return;
+    setFormError('');
+    createMutation.mutate(trimmedName);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="leave-family-title"
+    >
+      <div className="bg-background border rounded-lg max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 id="leave-family-title" className="text-xl font-bold">
+            Leave &amp; create new family
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="p-2 hover:bg-muted rounded-md"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 space-y-2 text-sm text-muted-foreground">
+          <p>
+            You will lose access to everything in your current family, and this cannot be undone,
+            including:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Shared dishes</li>
+            <li>Menus</li>
+            <li>Restaurants</li>
+            <li>Grocery lists</li>
+            <li>Pantry items</li>
+            <li>Tags</li>
+            <li>Recurring patterns</li>
+          </ul>
+          <p>You&apos;ll become the admin of a brand-new family.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="new-family-name" className="block text-sm font-medium mb-1">
+              New family name
+            </label>
+            <input
+              id="new-family-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-describedby={formError ? 'new-family-name-error' : undefined}
+              aria-invalid={!!formError}
+              autoComplete="off"
+              autoFocus
+              className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="The Smiths"
+            />
+          </div>
+
+          {formError && (
+            <p id="new-family-name-error" role="alert" className="text-destructive text-sm">
+              {formError}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="submit"
+              disabled={trimmedName.length < 1 || createMutation.isPending}
+              className="flex-1 py-2 px-4 bg-destructive text-destructive-foreground rounded-md font-medium hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Leave & create family'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={createMutation.isPending}
+              className="py-2 px-4 border rounded-md hover:bg-muted disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
