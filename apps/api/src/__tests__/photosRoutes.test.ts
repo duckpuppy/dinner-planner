@@ -32,7 +32,7 @@ async function buildApp() {
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 function bearerHeader(app: TestApp, role: 'member' | 'admin' = 'member') {
-  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role });
+  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role, familyId: 'family-1' });
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -169,6 +169,11 @@ describe('DELETE /api/photos/:id', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(vi.mocked(photosService.deletePhoto)).toHaveBeenCalledWith('photo-1', 'user-1', true);
+    expect(vi.mocked(photosService.deletePhoto)).toHaveBeenCalledWith(
+      'photo-1',
+      'user-1',
+      true,
+      'family-1'
+    );
   });
 });

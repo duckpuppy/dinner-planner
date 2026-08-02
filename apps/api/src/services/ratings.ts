@@ -3,6 +3,21 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { CreateRatingInput, UpdateRatingInput } from '@dinner-planner/shared';
 
+/**
+ * Resolve the family a preparation belongs to, via its dinner entry's menu.
+ * Returns null if the preparation doesn't exist.
+ */
+async function preparationFamilyId(preparationId: string): Promise<string | null> {
+  const row = await db
+    .select({ familyId: schema.weeklyMenus.familyId })
+    .from(schema.preparations)
+    .innerJoin(schema.dinnerEntries, eq(schema.preparations.dinnerEntryId, schema.dinnerEntries.id))
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+    .where(eq(schema.preparations.id, preparationId))
+    .limit(1);
+  return row[0]?.familyId ?? null;
+}
+
 export interface RatingResponse {
   id: string;
   preparationId: string;
@@ -39,9 +54,15 @@ async function toRatingResponse(
 }
 
 /**
- * Get all ratings for a preparation
+ * Get all ratings for a preparation, scoped to a family. Returns an empty
+ * array if the preparation doesn't exist or belongs to another family.
  */
-export async function getRatingsForPreparation(preparationId: string): Promise<RatingResponse[]> {
+export async function getRatingsForPreparation(
+  preparationId: string,
+  familyId: string
+): Promise<RatingResponse[]> {
+  if ((await preparationFamilyId(preparationId)) !== familyId) return [];
+
   const ratings = await db
     .select()
     .from(schema.ratings)
@@ -66,13 +87,19 @@ export async function getUserRatingForPreparation(
 }
 
 /**
- * Create a rating for a preparation
+ * Create a rating for a preparation, scoped to a family
  */
 export async function createRating(
   preparationId: string,
   userId: string,
-  input: CreateRatingInput
+  input: CreateRatingInput,
+  familyId: string
 ): Promise<RatingResponse> {
+  // Verify preparation exists and belongs to the requesting family
+  if ((await preparationFamilyId(preparationId)) !== familyId) {
+    throw new Error('Preparation not found');
+  }
+
   // Check if user already rated this preparation
   const existing = await db.query.ratings.findFirst({
     where: and(eq(schema.ratings.preparationId, preparationId), eq(schema.ratings.userId, userId)),
@@ -80,15 +107,6 @@ export async function createRating(
 
   if (existing) {
     throw new Error('You have already rated this preparation');
-  }
-
-  // Verify preparation exists
-  const preparation = await db.query.preparations.findFirst({
-    where: eq(schema.preparations.id, preparationId),
-  });
-
-  if (!preparation) {
-    throw new Error('Preparation not found');
   }
 
   const id = crypto.randomUUID();
@@ -112,18 +130,23 @@ export async function createRating(
 }
 
 /**
- * Update a rating
+ * Update a rating, scoped to a family
  */
 export async function updateRating(
   ratingId: string,
   userId: string,
-  input: UpdateRatingInput
+  input: UpdateRatingInput,
+  familyId: string
 ): Promise<RatingResponse | null> {
   const rating = await db.query.ratings.findFirst({
     where: eq(schema.ratings.id, ratingId),
   });
 
   if (!rating) {
+    return null;
+  }
+
+  if ((await preparationFamilyId(rating.preparationId)) !== familyId) {
     return null;
   }
 
@@ -148,18 +171,19 @@ export async function updateRating(
 }
 
 /**
- * Delete a rating
+ * Delete a rating, scoped to a family
  */
 export async function deleteRating(
   ratingId: string,
   userId: string,
-  isAdmin: boolean
+  isAdmin: boolean,
+  familyId: string
 ): Promise<{ success: boolean; error?: string }> {
   const rating = await db.query.ratings.findFirst({
     where: eq(schema.ratings.id, ratingId),
   });
 
-  if (!rating) {
+  if (!rating || (await preparationFamilyId(rating.preparationId)) !== familyId) {
     return { success: false, error: 'Rating not found' };
   }
 
@@ -174,9 +198,20 @@ export async function deleteRating(
 }
 
 /**
- * Get aggregate rating stats for a dish
+ * Get aggregate rating stats for a dish, scoped to a family. Returns zeroed
+ * stats if the dish doesn't exist or belongs to another family.
  */
-export async function getDishRatingStats(dishId: string): Promise<DishRatingStats> {
+export async function getDishRatingStats(
+  dishId: string,
+  familyId: string
+): Promise<DishRatingStats> {
+  const dish = await db.query.dishes.findFirst({
+    where: and(eq(schema.dishes.id, dishId), eq(schema.dishes.familyId, familyId)),
+  });
+  if (!dish) {
+    return { averageRating: null, totalRatings: 0 };
+  }
+
   // Get all preparations for this dish
   const preparations = await db
     .select({ id: schema.preparations.id })
@@ -216,7 +251,8 @@ export async function getDishRatingStats(dishId: string): Promise<DishRatingStat
  * Get ratings stats for multiple dishes at once
  */
 export async function getDishesRatingStats(
-  dishIds: string[]
+  dishIds: string[],
+  familyId: string
 ): Promise<Map<string, DishRatingStats>> {
   const statsMap = new Map<string, DishRatingStats>();
 
@@ -227,7 +263,7 @@ export async function getDishesRatingStats(
 
   // Get all preparations for these dishes
   for (const dishId of dishIds) {
-    const stats = await getDishRatingStats(dishId);
+    const stats = await getDishRatingStats(dishId, familyId);
     statsMap.set(dishId, stats);
   }
 

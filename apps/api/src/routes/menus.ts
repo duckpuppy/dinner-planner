@@ -37,7 +37,10 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const menu = await menusService.getOrCreateWeekMenu(parseResult.data.date);
+      const menu = await menusService.getOrCreateWeekMenu(
+        parseResult.data.date,
+        request.user.familyId
+      );
       return reply.send({ menu });
     }
   );
@@ -59,7 +62,10 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await groceriesService.getWeekGroceries(parseResult.data.date);
+      const result = await groceriesService.getWeekGroceries(
+        parseResult.data.date,
+        request.user.familyId
+      );
       const customItems = await getCustomItemsForWeek(result.weekStartDate);
       const checkedKeys = await getCheckedKeys(result.weekStartDate);
       const standingItems = await listStandingItems();
@@ -75,7 +81,7 @@ export async function menusRoutes(fastify: FastifyInstance) {
     '/api/menus/today',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const entry = await menusService.getTodayEntry();
+      const entry = await menusService.getTodayEntry(request.user.familyId);
 
       if (!entry) {
         return reply.status(404).send({ error: 'No entry for today' });
@@ -103,7 +109,11 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const entry = await menusService.updateDinnerEntry(id, parseResult.data);
+      const entry = await menusService.updateDinnerEntry(
+        id,
+        parseResult.data,
+        request.user.familyId
+      );
 
       if (!entry) {
         return reply.status(404).send({ error: 'Entry not found' });
@@ -131,7 +141,11 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const entry = await menusService.markEntryCompleted(id, parseResult.data.completed);
+      const entry = await menusService.markEntryCompleted(
+        id,
+        parseResult.data.completed,
+        request.user.familyId
+      );
 
       if (!entry) {
         return reply.status(404).send({ error: 'Entry not found' });
@@ -159,7 +173,11 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const entry = await menusService.setSkipped(id, parseResult.data.skipped);
+      const entry = await menusService.setSkipped(
+        id,
+        parseResult.data.skipped,
+        request.user.familyId
+      );
 
       if (!entry) {
         return reply.status(404).send({ error: 'Entry not found' });
@@ -196,7 +214,15 @@ export async function menusRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const preparation = await menusService.logPreparation(parseResult.data);
+      const preparation = await menusService.logPreparation(
+        parseResult.data,
+        request.user.familyId
+      );
+
+      if (!preparation) {
+        return reply.status(404).send({ error: 'Entry not found' });
+      }
+
       return reply.status(201).send({ preparation });
     }
   );
@@ -210,7 +236,7 @@ export async function menusRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const preparations = await menusService.getDishPreparations(id);
+      const preparations = await menusService.getDishPreparations(id, request.user.familyId);
       return reply.send({ preparations });
     }
   );
@@ -225,7 +251,7 @@ export async function menusRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
 
-      const result = await menusService.deletePreparation(id);
+      const result = await menusService.deletePreparation(id, request.user.familyId);
 
       if (!result.success) {
         return reply.status(404).send({ error: result.error });
@@ -244,7 +270,7 @@ export async function menusRoutes(fastify: FastifyInstance) {
     '/api/entries/recent-completed',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const entries = await menusService.getRecentCompleted();
+      const entries = await menusService.getRecentCompleted(request.user.familyId);
       return reply.send({ entries });
     }
   );

@@ -6,7 +6,7 @@ import { pipeline } from 'stream/promises';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { db } from '../db/index.js';
-import { photos, preparations } from '../db/schema.js';
+import { photos, preparations, dinnerEntries, weeklyMenus } from '../db/schema.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,7 +31,31 @@ function photoUrl(filename: string): string {
   return `/uploads/${filename}`;
 }
 
-export async function getPhotosForPreparation(preparationId: string): Promise<PhotoResponse[]> {
+/**
+ * Resolve the family a preparation belongs to, via its dinner entry's menu.
+ * Returns null if the preparation doesn't exist.
+ */
+async function preparationFamilyId(preparationId: string): Promise<string | null> {
+  const row = await db
+    .select({ familyId: weeklyMenus.familyId })
+    .from(preparations)
+    .innerJoin(dinnerEntries, eq(preparations.dinnerEntryId, dinnerEntries.id))
+    .innerJoin(weeklyMenus, eq(dinnerEntries.menuId, weeklyMenus.id))
+    .where(eq(preparations.id, preparationId))
+    .limit(1);
+  return row[0]?.familyId ?? null;
+}
+
+/**
+ * Get photos for a preparation, scoped to a family. Returns an empty array
+ * if the preparation doesn't exist or belongs to another family.
+ */
+export async function getPhotosForPreparation(
+  preparationId: string,
+  familyId: string
+): Promise<PhotoResponse[]> {
+  if ((await preparationFamilyId(preparationId)) !== familyId) return [];
+
   const rows = await db.select().from(photos).where(eq(photos.preparationId, preparationId));
   return rows.map((p) => ({ ...p, url: photoUrl(p.filename) }));
 }
@@ -39,14 +63,11 @@ export async function getPhotosForPreparation(preparationId: string): Promise<Ph
 export async function uploadPhoto(
   preparationId: string,
   uploadedById: string,
-  file: { filename: string; mimetype: string; file: NodeJS.ReadableStream }
+  file: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
+  familyId: string
 ): Promise<PhotoResponse> {
-  // Validate preparation exists
-  const [prep] = await db
-    .select({ id: preparations.id })
-    .from(preparations)
-    .where(eq(preparations.id, preparationId));
-  if (!prep) {
+  // Validate preparation exists and belongs to the requesting family
+  if ((await preparationFamilyId(preparationId)) !== familyId) {
     throw Object.assign(new Error('Preparation not found'), { statusCode: 404 });
   }
 
@@ -104,10 +125,11 @@ export async function uploadPhoto(
 export async function deletePhoto(
   photoId: string,
   requestingUserId: string,
-  isAdmin: boolean
+  isAdmin: boolean,
+  familyId: string
 ): Promise<void> {
   const [photo] = await db.select().from(photos).where(eq(photos.id, photoId));
-  if (!photo) {
+  if (!photo || (await preparationFamilyId(photo.preparationId)) !== familyId) {
     throw Object.assign(new Error('Photo not found'), { statusCode: 404 });
   }
   if (!isAdmin && photo.uploadedById !== requestingUserId) {

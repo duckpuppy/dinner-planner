@@ -10,7 +10,7 @@ export async function photosRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest) => {
       const { id } = request.params as { id: string };
-      const photoList = await photosService.getPhotosForPreparation(id);
+      const photoList = await photosService.getPhotosForPreparation(id, request.user.familyId);
       return { photos: photoList };
     }
   );
@@ -29,7 +29,12 @@ export async function photosRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No file uploaded' });
       }
 
-      const photo = await photosService.uploadPhoto(id, request.user.userId, data);
+      const photo = await photosService.uploadPhoto(
+        id,
+        request.user.userId,
+        data,
+        request.user.familyId
+      );
       return reply.status(201).send({ photo });
     }
   );
@@ -43,7 +48,7 @@ export async function photosRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
       const isAdmin = request.user.role === 'admin';
-      await photosService.deletePhoto(id, request.user.userId, isAdmin);
+      await photosService.deletePhoto(id, request.user.userId, isAdmin, request.user.familyId);
       return reply.status(200).send({ success: true });
     }
   );

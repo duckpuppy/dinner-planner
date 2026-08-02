@@ -281,8 +281,10 @@ function selLeftJoinGroupByOrderBy(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
       leftJoin: vi.fn().mockReturnValue({
-        groupBy: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockResolvedValue(result),
+        leftJoin: vi.fn().mockReturnValue({
+          groupBy: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(result),
+          }),
         }),
       }),
     }),

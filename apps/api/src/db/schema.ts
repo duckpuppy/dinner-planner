@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
@@ -60,6 +60,11 @@ export const users = sqliteTable('users', {
 // Dishes table
 export const dishes = sqliteTable('dishes', {
   id: text('id').primaryKey(),
+  // Added nullable then backfilled then tightened to NOT NULL across two
+  // migrations (see drizzle/ for the split, same pattern as users.familyId).
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   type: text('type', { enum: ['main', 'side', 'both'] }).notNull(),
@@ -127,15 +132,32 @@ export const dishDietaryTags = sqliteTable(
 );
 
 // Weekly menus table
-export const weeklyMenus = sqliteTable('weekly_menus', {
-  id: text('id').primaryKey(),
-  weekStartDate: text('week_start_date').notNull().unique(),
-  ...timestamps,
-});
+export const weeklyMenus = sqliteTable(
+  'weekly_menus',
+  {
+    id: text('id').primaryKey(),
+    // Added nullable then backfilled then tightened to NOT NULL (see drizzle/).
+    familyId: text('family_id')
+      .notNull()
+      .references(() => families.id),
+    // No longer globally unique -- unique per family (a second family must be
+    // able to have its own week_start_date="2026-08-03" menu). Enforced via
+    // the composite unique index below instead of a column-level .unique().
+    weekStartDate: text('week_start_date').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('weekly_menus_family_week_unique').on(table.familyId, table.weekStartDate),
+  ]
+);
 
 // Restaurants table (M28: restaurant tracking)
 export const restaurants = sqliteTable('restaurants', {
   id: text('id').primaryKey(),
+  // Added nullable then backfilled then tightened to NOT NULL (see drizzle/).
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id),
   name: text('name').notNull(),
   cuisineType: text('cuisine_type'),
   location: text('location'),

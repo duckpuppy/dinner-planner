@@ -31,7 +31,10 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await restaurantsService.listRestaurants(parseResult.data);
+      const result = await restaurantsService.listRestaurants(
+        parseResult.data,
+        request.user.familyId
+      );
       return reply.send(result);
     }
   );
@@ -53,7 +56,11 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
       }
 
       const userId = (request.user as { userId: string }).userId;
-      const restaurant = await restaurantsService.createRestaurant(parseResult.data, userId);
+      const restaurant = await restaurantsService.createRestaurant(
+        parseResult.data,
+        userId,
+        request.user.familyId
+      );
       return reply.status(201).send(restaurant);
     }
   );
@@ -74,7 +81,10 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
           details: parseResult.error.flatten().fieldErrors,
         });
       }
-      const suggestions = await suggestionsService.getRestaurantSuggestions(parseResult.data);
+      const suggestions = await suggestionsService.getRestaurantSuggestions(
+        parseResult.data,
+        request.user.familyId
+      );
       return reply.send({ suggestions });
     }
   );
@@ -88,7 +98,7 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const restaurant = await restaurantsService.getRestaurantById(id);
+      const restaurant = await restaurantsService.getRestaurantById(id, request.user.familyId);
       if (!restaurant) {
         return reply.status(404).send({ error: 'Restaurant not found' });
       }
@@ -113,7 +123,11 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const restaurant = await restaurantsService.updateRestaurant(id, parseResult.data);
+      const restaurant = await restaurantsService.updateRestaurant(
+        id,
+        parseResult.data,
+        request.user.familyId
+      );
       if (!restaurant) {
         return reply.status(404).send({ error: 'Restaurant not found' });
       }
@@ -130,7 +144,7 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const result = await restaurantsService.deleteRestaurant(id);
+      const result = await restaurantsService.deleteRestaurant(id, request.user.familyId);
       if (!result.success) {
         return reply.status(404).send({ error: result.error ?? 'Restaurant not found' });
       }
@@ -155,7 +169,11 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
           details: parseResult.error.flatten().fieldErrors,
         });
       }
-      const suggestions = await suggestionsService.getDishSuggestions(id, parseResult.data);
+      const suggestions = await suggestionsService.getDishSuggestions(
+        id,
+        parseResult.data,
+        request.user.familyId
+      );
       return reply.send({ suggestions });
     }
   );
@@ -169,7 +187,10 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const dishes = await restaurantDishesService.listDishesByRestaurant(id);
+      const dishes = await restaurantDishesService.listDishesByRestaurant(
+        id,
+        request.user.familyId
+      );
       return reply.send({ dishes });
     }
   );
@@ -191,7 +212,14 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const dish = await restaurantDishesService.createRestaurantDish(id, parseResult.data);
+      const dish = await restaurantDishesService.createRestaurantDish(
+        id,
+        parseResult.data,
+        request.user.familyId
+      );
+      if (!dish) {
+        return reply.status(404).send({ error: 'Restaurant not found' });
+      }
       return reply.status(201).send(dish);
     }
   );
@@ -213,7 +241,11 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const dish = await restaurantDishesService.updateRestaurantDish(dishId, parseResult.data);
+      const dish = await restaurantDishesService.updateRestaurantDish(
+        dishId,
+        parseResult.data,
+        request.user.familyId
+      );
       if (!dish) {
         return reply.status(404).send({ error: 'Dish not found' });
       }
@@ -230,7 +262,10 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { dishId } = request.params as { restaurantId: string; dishId: string };
-      const result = await restaurantDishesService.deleteRestaurantDish(dishId);
+      const result = await restaurantDishesService.deleteRestaurantDish(
+        dishId,
+        request.user.familyId
+      );
       if (!result.success) {
         return reply.status(404).send({ error: result.error ?? 'Dish not found' });
       }
@@ -247,7 +282,7 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { dishId } = request.params as { restaurantId: string; dishId: string };
-      const ratings = await restaurantDishesService.getDishRatings(dishId);
+      const ratings = await restaurantDishesService.getDishRatings(dishId, request.user.familyId);
       return reply.send({ ratings });
     }
   );
@@ -270,7 +305,15 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
       }
 
       const userId = (request.user as { userId: string }).userId;
-      const rating = await restaurantDishesService.addDishRating(dishId, userId, parseResult.data);
+      const rating = await restaurantDishesService.addDishRating(
+        dishId,
+        userId,
+        parseResult.data,
+        request.user.familyId
+      );
+      if (!rating) {
+        return reply.status(404).send({ error: 'Dish not found' });
+      }
       return reply.status(201).send(rating);
     }
   );
@@ -296,7 +339,11 @@ export async function restaurantsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const rating = await restaurantDishesService.updateDishRating(ratingId, parseResult.data);
+      const rating = await restaurantDishesService.updateDishRating(
+        ratingId,
+        parseResult.data,
+        request.user.familyId
+      );
       if (!rating) {
         return reply.status(404).send({ error: 'Rating not found' });
       }

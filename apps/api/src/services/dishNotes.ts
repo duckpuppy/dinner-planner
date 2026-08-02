@@ -1,12 +1,19 @@
 import crypto from 'crypto';
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { DishNote } from '@dinner-planner/shared';
 
 /**
- * Get all notes for a dish, ordered by createdAt desc, joined to users for username.
+ * Get all notes for a dish, ordered by createdAt desc, joined to users for
+ * username. Scoped to a family; returns an empty array if the dish doesn't
+ * exist or belongs to another family.
  */
-export async function getDishNotes(dishId: string): Promise<DishNote[]> {
+export async function getDishNotes(dishId: string, familyId: string): Promise<DishNote[]> {
+  const dish = await db.query.dishes.findFirst({
+    where: and(eq(schema.dishes.id, dishId), eq(schema.dishes.familyId, familyId)),
+  });
+  if (!dish) return [];
+
   const rows = await db
     .select({
       id: schema.dishNotes.id,
@@ -32,15 +39,17 @@ export async function getDishNotes(dishId: string): Promise<DishNote[]> {
 }
 
 /**
- * Create a note for a dish. Returns null if the dish does not exist.
+ * Create a note for a dish, scoped to a family. Returns null if the dish
+ * doesn't exist or belongs to another family.
  */
 export async function createDishNote(
   dishId: string,
   note: string,
-  createdById: string
+  createdById: string,
+  familyId: string
 ): Promise<DishNote | null> {
   const dish = await db.query.dishes.findFirst({
-    where: eq(schema.dishes.id, dishId),
+    where: and(eq(schema.dishes.id, dishId), eq(schema.dishes.familyId, familyId)),
   });
   if (!dish) return null;
 
@@ -82,14 +91,20 @@ export async function createDishNote(
 }
 
 /**
- * Delete a dish note. Returns false if not found.
+ * Delete a dish note, scoped to a family via its parent dish. Returns false
+ * if not found or belonging to another family.
  */
-export async function deleteDishNote(id: string): Promise<boolean> {
+export async function deleteDishNote(id: string, familyId: string): Promise<boolean> {
   const existing = await db.query.dishNotes.findFirst({
     where: eq(schema.dishNotes.id, id),
   });
 
   if (!existing) return false;
+
+  const dish = await db.query.dishes.findFirst({
+    where: and(eq(schema.dishes.id, existing.dishId), eq(schema.dishes.familyId, familyId)),
+  });
+  if (!dish) return false;
 
   await db.delete(schema.dishNotes).where(eq(schema.dishNotes.id, id));
 

@@ -14,7 +14,7 @@ export async function prepTasksRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { entryId } = request.params as { entryId: string };
-      const prepTasks = await getPrepTasksForEntry(entryId);
+      const prepTasks = await getPrepTasksForEntry(entryId, request.user.familyId);
       return reply.send({ prepTasks });
     }
   );
@@ -31,7 +31,7 @@ export async function prepTasksRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
-      const prepTask = await createPrepTask(entryId, parsed.data);
+      const prepTask = await createPrepTask(entryId, parsed.data, request.user.familyId);
       if (!prepTask) return reply.status(404).send({ error: 'Entry not found' });
       return reply.status(201).send(prepTask);
     }
@@ -49,7 +49,7 @@ export async function prepTasksRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
-      const prepTask = await updatePrepTask(id, parsed.data);
+      const prepTask = await updatePrepTask(id, parsed.data, request.user.familyId);
       if (!prepTask) return reply.status(404).send({ error: 'Prep task not found' });
       return reply.send(prepTask);
     }
@@ -61,7 +61,7 @@ export async function prepTasksRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deletePrepTask(id);
+      const deleted = await deletePrepTask(id, request.user.familyId);
       if (!deleted) return reply.status(404).send({ error: 'Prep task not found' });
       return reply.status(204).send();
     }

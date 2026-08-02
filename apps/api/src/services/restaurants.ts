@@ -100,9 +100,13 @@ async function buildRestaurantResponse(
  * List restaurants with filtering and pagination
  */
 export async function listRestaurants(
-  query: RestaurantQueryInput
+  query: RestaurantQueryInput,
+  familyId: string
 ): Promise<{ restaurants: RestaurantResponse[]; total: number }> {
-  const conditions = [eq(schema.restaurants.archived, query.archived)];
+  const conditions = [
+    eq(schema.restaurants.familyId, familyId),
+    eq(schema.restaurants.archived, query.archived),
+  ];
 
   if (query.search) {
     const searchPattern = `%${query.search}%`;
@@ -146,11 +150,16 @@ export async function listRestaurants(
 }
 
 /**
- * Get restaurant by ID
+ * Get restaurant by ID, scoped to a family. Returns null if the restaurant
+ * doesn't exist or belongs to a different family (both cases behave as
+ * "not found" so membership in another family is never disclosed).
  */
-export async function getRestaurantById(id: string): Promise<RestaurantResponse | null> {
+export async function getRestaurantById(
+  id: string,
+  familyId: string
+): Promise<RestaurantResponse | null> {
   const restaurant = await db.query.restaurants.findFirst({
-    where: eq(schema.restaurants.id, id),
+    where: and(eq(schema.restaurants.id, id), eq(schema.restaurants.familyId, familyId)),
   });
   if (!restaurant) return null;
   return buildRestaurantResponse(restaurant);
@@ -161,13 +170,15 @@ export async function getRestaurantById(id: string): Promise<RestaurantResponse 
  */
 export async function createRestaurant(
   input: CreateRestaurantInput,
-  userId: string
+  userId: string,
+  familyId: string
 ): Promise<RestaurantResponse> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.insert(schema.restaurants).values({
     id,
+    familyId,
     name: input.name,
     cuisineType: input.cuisineType,
     location: input.location,
@@ -178,18 +189,19 @@ export async function createRestaurant(
     updatedAt: now,
   });
 
-  return (await getRestaurantById(id))!;
+  return (await getRestaurantById(id, familyId))!;
 }
 
 /**
- * Update a restaurant
+ * Update a restaurant, scoped to a family
  */
 export async function updateRestaurant(
   id: string,
-  input: UpdateRestaurantInput
+  input: UpdateRestaurantInput,
+  familyId: string
 ): Promise<RestaurantResponse | null> {
   const restaurant = await db.query.restaurants.findFirst({
-    where: eq(schema.restaurants.id, id),
+    where: and(eq(schema.restaurants.id, id), eq(schema.restaurants.familyId, familyId)),
   });
   if (!restaurant) return null;
 
@@ -204,15 +216,18 @@ export async function updateRestaurant(
 
   await db.update(schema.restaurants).set(updateData).where(eq(schema.restaurants.id, id));
 
-  return getRestaurantById(id);
+  return getRestaurantById(id, familyId);
 }
 
 /**
- * Delete a restaurant (hard delete)
+ * Delete a restaurant (hard delete), scoped to a family
  */
-export async function deleteRestaurant(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteRestaurant(
+  id: string,
+  familyId: string
+): Promise<{ success: boolean; error?: string }> {
   const restaurant = await db.query.restaurants.findFirst({
-    where: eq(schema.restaurants.id, id),
+    where: and(eq(schema.restaurants.id, id), eq(schema.restaurants.familyId, familyId)),
   });
   if (!restaurant) {
     return { success: false, error: 'Restaurant not found' };

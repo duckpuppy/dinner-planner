@@ -4,9 +4,27 @@ import { db, schema } from '../db/index.js';
 import type { CreatePrepTaskInput, UpdatePrepTaskInput, PrepTask } from '@dinner-planner/shared';
 
 /**
- * Get all prep tasks for a dinner entry, ordered by createdAt asc
+ * Resolve the family a dinner entry belongs to, via its parent weekly menu.
+ * Returns null if the entry doesn't exist.
  */
-export async function getPrepTasksForEntry(entryId: string): Promise<PrepTask[]> {
+async function entryFamilyId(entryId: string): Promise<string | null> {
+  const row = await db
+    .select({ familyId: schema.weeklyMenus.familyId })
+    .from(schema.dinnerEntries)
+    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
+    .where(eq(schema.dinnerEntries.id, entryId))
+    .limit(1);
+  return row[0]?.familyId ?? null;
+}
+
+/**
+ * Get all prep tasks for a dinner entry, ordered by createdAt asc, scoped to
+ * a family. Returns an empty array if the entry doesn't exist or belongs to
+ * another family.
+ */
+export async function getPrepTasksForEntry(entryId: string, familyId: string): Promise<PrepTask[]> {
+  if ((await entryFamilyId(entryId)) !== familyId) return [];
+
   const rows = await db
     .select()
     .from(schema.prepTasks)
@@ -24,12 +42,15 @@ export async function getPrepTasksForEntry(entryId: string): Promise<PrepTask[]>
 }
 
 /**
- * Create a prep task for a dinner entry
+ * Create a prep task for a dinner entry, scoped to a family
  */
 export async function createPrepTask(
   entryId: string,
-  data: CreatePrepTaskInput
+  data: CreatePrepTaskInput,
+  familyId: string
 ): Promise<PrepTask | null> {
+  if ((await entryFamilyId(entryId)) !== familyId) return null;
+
   const entry = await db.query.dinnerEntries.findFirst({
     where: eq(schema.dinnerEntries.id, entryId),
   });
@@ -62,17 +83,20 @@ export async function createPrepTask(
 }
 
 /**
- * Update a prep task. Returns updated task or null if not found.
+ * Update a prep task, scoped to a family. Returns updated task or null if
+ * not found or belonging to another family.
  */
 export async function updatePrepTask(
   id: string,
-  data: UpdatePrepTaskInput
+  data: UpdatePrepTaskInput,
+  familyId: string
 ): Promise<PrepTask | null> {
   const existing = await db.query.prepTasks.findFirst({
     where: eq(schema.prepTasks.id, id),
   });
 
   if (!existing) return null;
+  if ((await entryFamilyId(existing.entryId)) !== familyId) return null;
 
   const updates: Partial<typeof schema.prepTasks.$inferInsert> = {
     updatedAt: new Date().toISOString(),
@@ -97,14 +121,16 @@ export async function updatePrepTask(
 }
 
 /**
- * Delete a prep task. Returns true if deleted, false if not found.
+ * Delete a prep task, scoped to a family. Returns true if deleted, false if
+ * not found or belonging to another family.
  */
-export async function deletePrepTask(id: string): Promise<boolean> {
+export async function deletePrepTask(id: string, familyId: string): Promise<boolean> {
   const existing = await db.query.prepTasks.findFirst({
     where: eq(schema.prepTasks.id, id),
   });
 
   if (!existing) return false;
+  if ((await entryFamilyId(existing.entryId)) !== familyId) return false;
 
   await db.delete(schema.prepTasks).where(eq(schema.prepTasks.id, id));
 

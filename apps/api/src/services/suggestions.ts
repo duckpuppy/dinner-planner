@@ -88,13 +88,17 @@ export function buildReasons(
   return reasons;
 }
 
-export async function getSuggestions(query: SuggestionsQueryInput): Promise<SuggestedDish[]> {
+export async function getSuggestions(
+  query: SuggestionsQueryInput,
+  familyId: string
+): Promise<SuggestedDish[]> {
   const settings = await getSettings();
   const recencyWindowDays = settings.recencyWindowDays;
   const today = localDateStr();
 
   // Build exclude condition
   const baseConditions = [
+    eq(schema.dishes.familyId, familyId),
     eq(schema.dishes.archived, false),
     inArray(schema.dishes.type, ['main', 'both']),
   ];
@@ -265,19 +269,25 @@ function buildRestaurantReasons(
   return reasons;
 }
 
-export async function getRestaurantSuggestions(query: {
-  limit?: number;
-  exclude?: string[];
-  cuisineType?: string;
-}): Promise<SuggestedRestaurant[]> {
+export async function getRestaurantSuggestions(
+  query: {
+    limit?: number;
+    exclude?: string[];
+    cuisineType?: string;
+  },
+  familyId: string
+): Promise<SuggestedRestaurant[]> {
   const settings = await getSettings();
   const recencyWindowDays = settings.recencyWindowDays;
   const today = localDateStr();
   const limit = query.limit ?? 5;
   const exclude = query.exclude ?? [];
 
-  // Build base conditions: non-archived restaurants
-  const baseConditions = [eq(schema.restaurants.archived, false)];
+  // Build base conditions: non-archived restaurants scoped to the family
+  const baseConditions = [
+    eq(schema.restaurants.familyId, familyId),
+    eq(schema.restaurants.archived, false),
+  ];
   if (exclude.length > 0) {
     baseConditions.push(notInArray(schema.restaurants.id, exclude));
   }
@@ -399,9 +409,17 @@ function buildDishReasons(
  */
 export async function getDishSuggestions(
   restaurantId: string,
-  query: { limit?: number }
+  query: { limit?: number },
+  familyId: string
 ): Promise<SuggestedRestaurantDish[]> {
   const limit = query.limit ?? 10;
+
+  // Verify the restaurant belongs to the requesting family before returning
+  // any dish data scoped to it.
+  const restaurant = await db.query.restaurants.findFirst({
+    where: and(eq(schema.restaurants.id, restaurantId), eq(schema.restaurants.familyId, familyId)),
+  });
+  if (!restaurant) return [];
 
   // Fetch all dishes at the restaurant
   const dishes = await db

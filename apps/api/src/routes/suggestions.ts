@@ -20,7 +20,10 @@ export async function suggestionsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const suggestions = await suggestionsService.getSuggestions(parseResult.data);
+      const suggestions = await suggestionsService.getSuggestions(
+        parseResult.data,
+        request.user.familyId
+      );
       return reply.send({ suggestions });
     }
   );

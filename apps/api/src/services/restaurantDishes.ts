@@ -56,11 +56,27 @@ async function buildDishResponse(
 }
 
 /**
- * List all dishes for a restaurant
+ * Verify a restaurant belongs to a family. Used to scope access to
+ * restaurant_dishes / restaurant_dish_ratings, which have no family_id of
+ * their own and are scoped transitively via their parent restaurant.
+ */
+async function restaurantBelongsToFamily(restaurantId: string, familyId: string): Promise<boolean> {
+  const restaurant = await db.query.restaurants.findFirst({
+    where: and(eq(schema.restaurants.id, restaurantId), eq(schema.restaurants.familyId, familyId)),
+  });
+  return restaurant !== undefined;
+}
+
+/**
+ * List all dishes for a restaurant, scoped to a family. Returns an empty
+ * array if the restaurant doesn't exist or belongs to another family.
  */
 export async function listDishesByRestaurant(
-  restaurantId: string
+  restaurantId: string,
+  familyId: string
 ): Promise<RestaurantDishResponse[]> {
+  if (!(await restaurantBelongsToFamily(restaurantId, familyId))) return [];
+
   const dishes = await db
     .select()
     .from(schema.restaurantDishes)
@@ -70,12 +86,16 @@ export async function listDishesByRestaurant(
 }
 
 /**
- * Create a dish at a restaurant
+ * Create a dish at a restaurant, scoped to a family. Returns null if the
+ * restaurant doesn't exist or belongs to another family.
  */
 export async function createRestaurantDish(
   restaurantId: string,
-  input: CreateRestaurantDishInput
-): Promise<RestaurantDishResponse> {
+  input: CreateRestaurantDishInput,
+  familyId: string
+): Promise<RestaurantDishResponse | null> {
+  if (!(await restaurantBelongsToFamily(restaurantId, familyId))) return null;
+
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
@@ -96,16 +116,18 @@ export async function createRestaurantDish(
 }
 
 /**
- * Update a restaurant dish
+ * Update a restaurant dish, scoped to a family via its parent restaurant
  */
 export async function updateRestaurantDish(
   dishId: string,
-  input: UpdateRestaurantDishInput
+  input: UpdateRestaurantDishInput,
+  familyId: string
 ): Promise<RestaurantDishResponse | null> {
   const dish = await db.query.restaurantDishes.findFirst({
     where: eq(schema.restaurantDishes.id, dishId),
   });
   if (!dish) return null;
+  if (!(await restaurantBelongsToFamily(dish.restaurantId, familyId))) return null;
 
   const now = new Date().toISOString();
   const updateData: Record<string, unknown> = { updatedAt: now };
@@ -125,15 +147,20 @@ export async function updateRestaurantDish(
 }
 
 /**
- * Delete a restaurant dish (cascades ratings)
+ * Delete a restaurant dish (cascades ratings), scoped to a family via its
+ * parent restaurant
  */
 export async function deleteRestaurantDish(
-  dishId: string
+  dishId: string,
+  familyId: string
 ): Promise<{ success: boolean; error?: string }> {
   const dish = await db.query.restaurantDishes.findFirst({
     where: eq(schema.restaurantDishes.id, dishId),
   });
   if (!dish) {
+    return { success: false, error: 'Dish not found' };
+  }
+  if (!(await restaurantBelongsToFamily(dish.restaurantId, familyId))) {
     return { success: false, error: 'Dish not found' };
   }
 
@@ -142,9 +169,19 @@ export async function deleteRestaurantDish(
 }
 
 /**
- * Get all ratings for a dish
+ * Get all ratings for a dish, scoped to a family via its parent restaurant.
+ * Returns an empty array if the dish doesn't exist or belongs to another
+ * family.
  */
-export async function getDishRatings(dishId: string): Promise<RestaurantDishRatingResponse[]> {
+export async function getDishRatings(
+  dishId: string,
+  familyId: string
+): Promise<RestaurantDishRatingResponse[]> {
+  const dish = await db.query.restaurantDishes.findFirst({
+    where: eq(schema.restaurantDishes.id, dishId),
+  });
+  if (!dish || !(await restaurantBelongsToFamily(dish.restaurantId, familyId))) return [];
+
   const ratings = await db
     .select()
     .from(schema.restaurantDishRatings)
@@ -180,13 +217,21 @@ export async function getDishRatings(dishId: string): Promise<RestaurantDishRati
 }
 
 /**
- * Add or upsert a rating for a dish (one rating per user per dish)
+ * Add or upsert a rating for a dish (one rating per user per dish), scoped
+ * to a family via its parent restaurant. Returns null if the dish doesn't
+ * exist or belongs to another family.
  */
 export async function addDishRating(
   dishId: string,
   userId: string,
-  input: CreateRestaurantDishRatingInput
-): Promise<RestaurantDishRatingResponse> {
+  input: CreateRestaurantDishRatingInput,
+  familyId: string
+): Promise<RestaurantDishRatingResponse | null> {
+  const dish = await db.query.restaurantDishes.findFirst({
+    where: eq(schema.restaurantDishes.id, dishId),
+  });
+  if (!dish || !(await restaurantBelongsToFamily(dish.restaurantId, familyId))) return null;
+
   const now = new Date().toISOString();
 
   // Check for existing rating by this user on this dish
@@ -240,16 +285,22 @@ export async function addDishRating(
 }
 
 /**
- * Update an existing rating
+ * Update an existing rating, scoped to a family via its parent restaurant
  */
 export async function updateDishRating(
   ratingId: string,
-  input: UpdateRestaurantDishRatingInput
+  input: UpdateRestaurantDishRatingInput,
+  familyId: string
 ): Promise<RestaurantDishRatingResponse | null> {
   const rating = await db.query.restaurantDishRatings.findFirst({
     where: eq(schema.restaurantDishRatings.id, ratingId),
   });
   if (!rating) return null;
+
+  const dish = await db.query.restaurantDishes.findFirst({
+    where: eq(schema.restaurantDishes.id, rating.restaurantDishId),
+  });
+  if (!dish || !(await restaurantBelongsToFamily(dish.restaurantId, familyId))) return null;
 
   const now = new Date().toISOString();
   const updateData: Record<string, unknown> = { updatedAt: now };

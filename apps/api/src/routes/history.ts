@@ -33,7 +33,7 @@ export async function historyRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await historyService.getHistory(parseResult.data);
+      const result = await historyService.getHistory(parseResult.data, request.user.familyId);
       return reply.send(result);
     }
   );
@@ -47,7 +47,7 @@ export async function historyRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const result = await historyService.getDishHistory(id);
+      const result = await historyService.getDishHistory(id, request.user.familyId);
       return reply.send(result);
     }
   );
@@ -61,7 +61,10 @@ export async function historyRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const result = await historyService.deleteHistoryEntry(id);
+      const result = await historyService.deleteHistoryEntry(id, request.user.familyId);
+      if (!result.success) {
+        return reply.status(404).send({ error: 'History entry not found' });
+      }
       return reply.send(result);
     }
   );

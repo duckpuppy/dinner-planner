@@ -78,10 +78,10 @@ export async function patternsRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { date } = request.params as { date: string };
       // Ensure the week exists and get the canonical weekStartDate
-      const weekMenu = await getOrCreateWeekMenu(date);
-      const { applied } = await applyPatternsToWeek(weekMenu.weekStartDate);
+      const weekMenu = await getOrCreateWeekMenu(date, request.user.familyId);
+      const { applied } = await applyPatternsToWeek(weekMenu.weekStartDate, request.user.familyId);
       // Re-fetch to return updated data
-      const menu = await getOrCreateWeekMenu(date);
+      const menu = await getOrCreateWeekMenu(date, request.user.familyId);
       return reply.send({ applied, menu });
     }
   );

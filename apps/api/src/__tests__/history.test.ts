@@ -32,8 +32,9 @@ vi.mock('../db/index.js', () => ({
     preparations: { id: null, dinnerEntryId: null, dishId: null },
     preparationPreparers: { preparationId: null, userId: null },
     ratings: { id: null, preparationId: null, userId: null },
-    dishes: { id: null },
+    dishes: { id: null, familyId: null },
     users: { id: null },
+    weeklyMenus: { id: null, familyId: null },
   },
 }));
 
@@ -41,15 +42,30 @@ import { getHistory, getDishHistory, deleteHistoryEntry } from '../services/hist
 
 // Chain builders matching the drizzle query patterns in history.ts
 
-// select().from().where(and(...)).orderBy().limit().offset() — main entry query
+// select().from().innerJoin().where(and(...)).orderBy().limit().offset() — main entry query
 function selFromWhereOrderByLimitOffset(result: unknown[]) {
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        orderBy: vi.fn().mockReturnValue({
-          limit: vi.fn().mockReturnValue({
-            offset: vi.fn().mockResolvedValue(result),
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              offset: vi.fn().mockResolvedValue(result),
+            }),
           }),
+        }),
+      }),
+    }),
+  };
+}
+
+// select().from().innerJoin().where().limit() — deleteHistoryEntry family check
+function selFromInnerJoinWhereLimit(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(result),
         }),
       }),
     }),
@@ -97,6 +113,10 @@ const mockPreparerLink = { preparationId: 'prep-1', userId: 'user-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: dish under test belongs to the requesting family (used by
+  // getDishHistory's family check). Tests exercising the missing-dish path
+  // override with mockResolvedValueOnce before calling the service.
+  mockDb.query.dishes.findFirst.mockResolvedValue(mockDish);
 });
 
 describe('getHistory', () => {
@@ -206,6 +226,8 @@ describe('getDishHistory', () => {
 
 describe('deleteHistoryEntry', () => {
   it('cascades deletion: ratings → preparations → side dishes → entry', async () => {
+    // family check
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([{ familyId: 'family-1' }]));
     // get preparations
     mockDb.select.mockReturnValueOnce(selFromWhere([mockPrep]));
     // delete ratings for prep
@@ -217,19 +239,29 @@ describe('deleteHistoryEntry', () => {
     // delete entry
     mockDb.delete.mockReturnValueOnce(del());
 
-    const result = await deleteHistoryEntry('entry-1');
+    const result = await deleteHistoryEntry('entry-1', 'family-1');
     expect(result).toEqual({ success: true });
     expect(mockDb.delete).toHaveBeenCalledTimes(4);
   });
 
   it('handles entry with no preparations', async () => {
+    // family check
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([{ familyId: 'family-1' }]));
     mockDb.select.mockReturnValueOnce(selFromWhere([])); // no preps
     mockDb.delete.mockReturnValueOnce(del()); // preparations (no-op)
     mockDb.delete.mockReturnValueOnce(del()); // side dishes
     mockDb.delete.mockReturnValueOnce(del()); // entry
 
-    const result = await deleteHistoryEntry('entry-1');
+    const result = await deleteHistoryEntry('entry-1', 'family-1');
     expect(result).toEqual({ success: true });
     expect(mockDb.delete).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns { success: false } when entry belongs to another family', async () => {
+    mockDb.select.mockReturnValueOnce(selFromInnerJoinWhereLimit([{ familyId: 'other-family' }]));
+
+    const result = await deleteHistoryEntry('entry-1', 'family-1');
+    expect(result).toEqual({ success: false });
+    expect(mockDb.delete).not.toHaveBeenCalled();
   });
 });
