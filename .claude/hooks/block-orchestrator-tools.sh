@@ -27,7 +27,12 @@ if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -n "$TOOL_USE_ID" ]]; then
   fi
 fi
 
-[[ "$IS_SUBAGENT" == "true" ]] && exit 0
+if [[ "$IS_SUBAGENT" == "true" ]]; then
+  cat << 'INNEREOF'
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Subagent has full tool access"}}
+INNEREOF
+  exit 0
+fi
 
 # Allow Plan mode — orchestrator can write to ~/.claude/plans/
 # Allow CLAUDE.md — orchestrator maintains project documentation
