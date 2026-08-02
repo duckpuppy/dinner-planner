@@ -13,6 +13,7 @@ vi.mock('../services/families.js', () => ({
   getFamilyById: vi.fn(),
   createFamily: vi.fn(),
   updateFamily: vi.fn(),
+  isSoleAdminOrphaningFamily: vi.fn(),
 }));
 
 import * as familiesService from '../services/families.js';
@@ -113,6 +114,10 @@ describe('POST /api/families', () => {
   afterAll(async () => {
     await app.close();
   });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(familiesService.isSoleAdminOrphaningFamily).mockResolvedValue(false);
+  });
 
   it('returns 201 and creates a family for the requesting user', async () => {
     vi.mocked(familiesService.createFamily).mockResolvedValueOnce(mockFamily);
@@ -127,6 +132,53 @@ describe('POST /api/families', () => {
     expect(res.statusCode).toBe(201);
     expect(JSON.parse(res.body).family.name).toBe('The Smiths');
     expect(familiesService.createFamily).toHaveBeenCalledWith({ name: 'The Smiths' }, 'user-1');
+  });
+
+  it('returns 201 for a sole admin whose family has no other members', async () => {
+    vi.mocked(familiesService.isSoleAdminOrphaningFamily).mockResolvedValueOnce(false);
+    vi.mocked(familiesService.createFamily).mockResolvedValueOnce(mockFamily);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/families',
+      headers: jsonHeaders(app, 'admin'),
+      body: JSON.stringify({ name: 'The Smiths' }),
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(familiesService.createFamily).toHaveBeenCalled();
+  });
+
+  it('returns 409 when the caller is the sole admin of a family with other members', async () => {
+    vi.mocked(familiesService.isSoleAdminOrphaningFamily).mockResolvedValueOnce(true);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/families',
+      headers: jsonHeaders(app, 'admin'),
+      body: JSON.stringify({ name: 'The Smiths' }),
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toBe(
+      'You are the only admin of your current family. Promote another member to admin before creating a new family.'
+    );
+    expect(familiesService.createFamily).not.toHaveBeenCalled();
+  });
+
+  it('returns 201 when there are multiple admins and other members', async () => {
+    vi.mocked(familiesService.isSoleAdminOrphaningFamily).mockResolvedValueOnce(false);
+    vi.mocked(familiesService.createFamily).mockResolvedValueOnce(mockFamily);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/families',
+      headers: jsonHeaders(app, 'admin'),
+      body: JSON.stringify({ name: 'The Smiths' }),
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(familiesService.createFamily).toHaveBeenCalled();
   });
 
   it('returns 400 for invalid body', async () => {

@@ -51,6 +51,18 @@ export async function familiesRoutes(fastify: FastifyInstance) {
         });
       }
 
+      const wouldOrphanFamily = await familiesService.isSoleAdminOrphaningFamily(
+        request.user.familyId,
+        request.user.userId
+      );
+
+      if (wouldOrphanFamily) {
+        return reply.status(409).send({
+          error:
+            'You are the only admin of your current family. Promote another member to admin before creating a new family.',
+        });
+      }
+
       const family = await familiesService.createFamily(parseResult.data, request.user.userId);
 
       void logEvent({

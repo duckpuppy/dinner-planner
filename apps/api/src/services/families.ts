@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
+import { getAllUsers } from './users.js';
 import type { CreateFamilyInput, UpdateFamilyInput } from '@dinner-planner/shared';
 
 export interface FamilyResponse {
@@ -28,6 +29,31 @@ export async function getFamilyById(id: string): Promise<FamilyResponse | null> 
   });
 
   return family ? toFamilyResponse(family) : null;
+}
+
+/**
+ * Determine whether a user is the sole admin of a family that has other
+ * members besides them. Used to block a user from creating (and being
+ * reassigned into) a new family, which would orphan their current family's
+ * remaining members with no one able to manage users or rename the family.
+ *
+ * A lone admin with no other members is NOT considered "orphaning" -- there
+ * is no one left behind, so they're free to leave.
+ */
+export async function isSoleAdminOrphaningFamily(
+  familyId: string,
+  userId: string
+): Promise<boolean> {
+  const members = await getAllUsers(familyId);
+
+  if (members.length <= 1) {
+    return false;
+  }
+
+  const admins = members.filter((member) => member.role === 'admin');
+  const callerIsAdmin = members.some((member) => member.id === userId && member.role === 'admin');
+
+  return callerIsAdmin && admins.length === 1;
 }
 
 /**
