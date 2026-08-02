@@ -47,7 +47,12 @@ async function buildApp() {
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 function bearerHeader(app: TestApp) {
-  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role: 'member' });
+  const token = app.jwt.sign({
+    userId: 'user-1',
+    username: 'alice',
+    role: 'member',
+    familyId: 'family-1',
+  });
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -209,7 +214,8 @@ describe('POST /api/grocery/standing', () => {
       null,
       'Other',
       undefined,
-      'user-1'
+      'user-1',
+      'family-1'
     );
   });
 });

@@ -140,7 +140,7 @@ export async function getWeekGroceries(
   const groceries = aggregateIngredients(sources);
 
   // Mark pantry-covered items
-  const pantryItems = await listPantryItems();
+  const pantryItems = await listPantryItems(familyId);
   const pantryNames = new Set(pantryItems.map((p) => p.ingredientName.trim().toLowerCase()));
 
   for (const item of groceries) {

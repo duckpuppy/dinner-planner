@@ -62,6 +62,8 @@ import {
   getDishesByIds,
 } from '../services/dishes.js';
 
+const FAMILY_ID = 'family-1';
+
 // --- Chain helpers ---
 
 /** select().from().where() — awaits .where() */
@@ -282,8 +284,10 @@ function selLeftJoinGroupByOrderBy(result: unknown[]) {
     from: vi.fn().mockReturnValue({
       leftJoin: vi.fn().mockReturnValue({
         leftJoin: vi.fn().mockReturnValue({
-          groupBy: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockResolvedValue(result),
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue(result),
+            }),
           }),
         }),
       }),
@@ -583,7 +587,7 @@ describe('getAllTags', () => {
   it('returns empty array when no tags', async () => {
     mockDb.select.mockReturnValueOnce(selLeftJoinGroupByOrderBy([]));
 
-    const result = await getAllTags();
+    const result = await getAllTags(FAMILY_ID);
 
     expect(result).toEqual([]);
   });
@@ -591,7 +595,7 @@ describe('getAllTags', () => {
   it('returns tags with count', async () => {
     mockDb.select.mockReturnValueOnce(selLeftJoinGroupByOrderBy([{ name: 'italian', count: 3 }]));
 
-    const result = await getAllTags();
+    const result = await getAllTags(FAMILY_ID);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('italian');

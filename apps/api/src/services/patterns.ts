@@ -17,9 +17,15 @@ export interface PatternResponse {
   createdAt: string;
 }
 
-async function getPatternWithRelations(patternId: string): Promise<PatternResponse | null> {
+async function getPatternWithRelations(
+  patternId: string,
+  familyId: string
+): Promise<PatternResponse | null> {
   const pattern = await db.query.recurringPatterns.findFirst({
-    where: eq(schema.recurringPatterns.id, patternId),
+    where: and(
+      eq(schema.recurringPatterns.id, patternId),
+      eq(schema.recurringPatterns.familyId, familyId)
+    ),
   });
 
   if (!pattern) return null;
@@ -68,12 +74,15 @@ async function getPatternWithRelations(patternId: string): Promise<PatternRespon
 }
 
 /**
- * List all recurring patterns
+ * List all recurring patterns for a family
  */
-export async function listPatterns(): Promise<PatternResponse[]> {
-  const patterns = await db.select().from(schema.recurringPatterns);
+export async function listPatterns(familyId: string): Promise<PatternResponse[]> {
+  const patterns = await db
+    .select()
+    .from(schema.recurringPatterns)
+    .where(eq(schema.recurringPatterns.familyId, familyId));
 
-  const results = await Promise.all(patterns.map((p) => getPatternWithRelations(p.id)));
+  const results = await Promise.all(patterns.map((p) => getPatternWithRelations(p.id, familyId)));
 
   return results
     .filter((p): p is PatternResponse => p !== null)
@@ -81,24 +90,29 @@ export async function listPatterns(): Promise<PatternResponse[]> {
 }
 
 /**
- * Get a single pattern by ID
+ * Get a single pattern by ID, scoped to a family
  */
-export async function getPattern(patternId: string): Promise<PatternResponse | null> {
-  return getPatternWithRelations(patternId);
+export async function getPattern(
+  patternId: string,
+  familyId: string
+): Promise<PatternResponse | null> {
+  return getPatternWithRelations(patternId, familyId);
 }
 
 /**
- * Create a recurring pattern
+ * Create a recurring pattern, scoped to a family
  */
 export async function createPattern(
   input: CreatePatternInput,
-  createdById: string
+  createdById: string,
+  familyId: string
 ): Promise<PatternResponse> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.insert(schema.recurringPatterns).values({
     id,
+    familyId,
     label: input.label,
     dayOfWeek: input.dayOfWeek,
     type: input.type,
@@ -114,18 +128,22 @@ export async function createPattern(
       .values(input.sideDishIds.map((dishId) => ({ patternId: id, dishId })));
   }
 
-  return (await getPatternWithRelations(id))!;
+  return (await getPatternWithRelations(id, familyId))!;
 }
 
 /**
- * Update a recurring pattern
+ * Update a recurring pattern, scoped to a family
  */
 export async function updatePattern(
   patternId: string,
-  input: UpdatePatternInput
+  input: UpdatePatternInput,
+  familyId: string
 ): Promise<PatternResponse | null> {
   const pattern = await db.query.recurringPatterns.findFirst({
-    where: eq(schema.recurringPatterns.id, patternId),
+    where: and(
+      eq(schema.recurringPatterns.id, patternId),
+      eq(schema.recurringPatterns.familyId, familyId)
+    ),
   });
 
   if (!pattern) return null;
@@ -157,15 +175,18 @@ export async function updatePattern(
     }
   }
 
-  return getPatternWithRelations(patternId);
+  return getPatternWithRelations(patternId, familyId);
 }
 
 /**
- * Delete a recurring pattern
+ * Delete a recurring pattern, scoped to a family
  */
-export async function deletePattern(patternId: string): Promise<boolean> {
+export async function deletePattern(patternId: string, familyId: string): Promise<boolean> {
   const pattern = await db.query.recurringPatterns.findFirst({
-    where: eq(schema.recurringPatterns.id, patternId),
+    where: and(
+      eq(schema.recurringPatterns.id, patternId),
+      eq(schema.recurringPatterns.familyId, familyId)
+    ),
   });
 
   if (!pattern) return false;
@@ -202,7 +223,10 @@ export async function applyPatternsToWeek(
     .from(schema.dinnerEntries)
     .where(eq(schema.dinnerEntries.menuId, menu.id));
 
-  const allPatterns = await db.select().from(schema.recurringPatterns);
+  const allPatterns = await db
+    .select()
+    .from(schema.recurringPatterns)
+    .where(eq(schema.recurringPatterns.familyId, familyId));
   const now = new Date().toISOString();
   let applied = 0;
 

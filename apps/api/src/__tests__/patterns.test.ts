@@ -57,11 +57,17 @@ import {
   applyPatternsToWeek,
 } from '../services/patterns.js';
 
+const FAMILY_ID = 'family-1';
+
 // --- Chainable mock helpers ---
 
-/** db.select().from(x) — no .where() at end (awaits .from() directly) */
+/**
+ * db.select().from(x).where(y) — used for the recurringPatterns queries in
+ * listPatterns/applyPatternsToWeek, both now filtered by family_id
+ * (dinner-7pt.5).
+ */
 function selFrom(result: unknown[]) {
-  return { from: vi.fn().mockResolvedValue(result) };
+  return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
 }
 
 /** db.select().from(x).where(y) — awaits .where() result */
@@ -167,7 +173,7 @@ beforeEach(() => {
 describe('listPatterns', () => {
   it('returns empty array when no patterns exist', async () => {
     mockDb.select.mockReturnValueOnce(selFrom([]));
-    expect(await listPatterns()).toEqual([]);
+    expect(await listPatterns(FAMILY_ID)).toEqual([]);
   });
 
   it('sorts patterns by dayOfWeek ascending', async () => {
@@ -178,7 +184,7 @@ describe('listPatterns', () => {
     setupGetPatternRelations(patFri);
     setupGetPatternRelations(patMon);
 
-    const result = await listPatterns();
+    const result = await listPatterns(FAMILY_ID);
     expect(result.map((p) => p.id)).toEqual(['mon', 'fri']);
   });
 
@@ -190,7 +196,7 @@ describe('listPatterns', () => {
     setupGetPatternRelations(patB);
     setupGetPatternRelations(patA);
 
-    const result = await listPatterns();
+    const result = await listPatterns(FAMILY_ID);
     expect(result.map((p) => p.id)).toEqual(['a', 'b']);
   });
 
@@ -199,7 +205,7 @@ describe('listPatterns', () => {
     mockDb.select.mockReturnValueOnce(selFrom([pat]));
     setupGetPatternRelations(pat);
 
-    const [result] = await listPatterns();
+    const [result] = await listPatterns(FAMILY_ID);
     expect(result.mainDish).toEqual({ id: 'dish-1', name: 'Main Dish', type: 'main' });
   });
 
@@ -208,7 +214,7 @@ describe('listPatterns', () => {
     mockDb.select.mockReturnValueOnce(selFrom([pat]));
     setupGetPatternRelations(pat, [{ dishId: 'side-1' }]);
 
-    const [result] = await listPatterns();
+    const [result] = await listPatterns(FAMILY_ID);
     expect(result.sideDishIds).toEqual(['side-1']);
     expect(result.sideDishes).toHaveLength(1);
     expect(result.sideDishes[0].id).toBe('side-1');
@@ -219,7 +225,7 @@ describe('listPatterns', () => {
     mockDb.select.mockReturnValueOnce(selFrom([pat]));
     setupGetPatternRelations(pat);
 
-    const [result] = await listPatterns();
+    const [result] = await listPatterns(FAMILY_ID);
     expect(result.mainDish).toBeNull();
     expect(result.sideDishes).toEqual([]);
   });
@@ -239,7 +245,7 @@ describe('createPattern', () => {
     };
     setupGetPatternRelations(makePattern({ label: 'Pasta Night', dayOfWeek: 2 }));
 
-    await createPattern(input, 'user-1');
+    await createPattern(input, 'user-1', FAMILY_ID);
     expect(mockDb.insert).toHaveBeenCalledOnce();
   });
 
@@ -252,7 +258,7 @@ describe('createPattern', () => {
     };
     setupGetPatternRelations(makePattern(), [{ dishId: 's1' }, { dishId: 's2' }]);
 
-    await createPattern(input, 'user-1');
+    await createPattern(input, 'user-1', FAMILY_ID);
     // Called twice: once for pattern, once for sideDishes junction
     expect(mockDb.insert).toHaveBeenCalledTimes(2);
   });
@@ -261,7 +267,7 @@ describe('createPattern', () => {
     const input = { label: 'Test', dayOfWeek: 2, type: 'assembled' as const, sideDishIds: [] };
     setupGetPatternRelations(makePattern());
 
-    await createPattern(input, 'user-1');
+    await createPattern(input, 'user-1', FAMILY_ID);
     expect(mockDb.insert).toHaveBeenCalledTimes(1); // only pattern record
   });
 
@@ -275,7 +281,7 @@ describe('createPattern', () => {
     };
     setupGetPatternRelations(pat);
 
-    const result = await createPattern(input, 'user-1');
+    const result = await createPattern(input, 'user-1', FAMILY_ID);
     expect(result.label).toBe('Taco Tuesday');
     expect(result.dayOfWeek).toBe(2);
   });
@@ -288,7 +294,7 @@ describe('createPattern', () => {
 describe('updatePattern', () => {
   it('returns null when pattern does not exist', async () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(undefined);
-    expect(await updatePattern('nonexistent', { label: 'New' })).toBeNull();
+    expect(await updatePattern('nonexistent', { label: 'New' }, FAMILY_ID)).toBeNull();
   });
 
   it('calls db.update when label is provided', async () => {
@@ -296,7 +302,7 @@ describe('updatePattern', () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(existing);
     setupGetPatternRelations(makePattern({ label: 'New Label' }));
 
-    await updatePattern('pat-1', { label: 'New Label' });
+    await updatePattern('pat-1', { label: 'New Label' }, FAMILY_ID);
     expect(mockDb.update).toHaveBeenCalledOnce();
   });
 
@@ -305,7 +311,7 @@ describe('updatePattern', () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(existing);
     setupGetPatternRelations(existing);
 
-    await updatePattern('pat-1', {});
+    await updatePattern('pat-1', {}, FAMILY_ID);
     expect(mockDb.update).not.toHaveBeenCalled();
   });
 
@@ -314,7 +320,7 @@ describe('updatePattern', () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(existing);
     setupGetPatternRelations(existing, [{ dishId: 'new-s1' }]);
 
-    await updatePattern('pat-1', { sideDishIds: ['new-s1'] });
+    await updatePattern('pat-1', { sideDishIds: ['new-s1'] }, FAMILY_ID);
     expect(mockDb.delete).toHaveBeenCalledOnce(); // old side dishes deleted
     expect(mockDb.insert).toHaveBeenCalledOnce(); // new ones inserted
   });
@@ -324,7 +330,7 @@ describe('updatePattern', () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(existing);
     setupGetPatternRelations(existing);
 
-    await updatePattern('pat-1', { label: 'Updated label only' });
+    await updatePattern('pat-1', { label: 'Updated label only' }, FAMILY_ID);
     expect(mockDb.delete).not.toHaveBeenCalled();
   });
 
@@ -334,7 +340,7 @@ describe('updatePattern', () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(existing);
     setupGetPatternRelations(updated);
 
-    const result = await updatePattern('pat-1', { label: 'Updated' });
+    const result = await updatePattern('pat-1', { label: 'Updated' }, FAMILY_ID);
     expect(result?.label).toBe('Updated');
   });
 });
@@ -346,13 +352,13 @@ describe('updatePattern', () => {
 describe('deletePattern', () => {
   it('returns false when pattern does not exist', async () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(undefined);
-    expect(await deletePattern('nonexistent')).toBe(false);
+    expect(await deletePattern('nonexistent', FAMILY_ID)).toBe(false);
     expect(mockDb.delete).not.toHaveBeenCalled();
   });
 
   it('deletes the pattern and returns true', async () => {
     mockDb.query.recurringPatterns.findFirst.mockResolvedValueOnce(makePattern());
-    expect(await deletePattern('pat-1')).toBe(true);
+    expect(await deletePattern('pat-1', FAMILY_ID)).toBe(true);
     expect(mockDb.delete).toHaveBeenCalledOnce();
   });
 });
@@ -373,7 +379,7 @@ describe('applyPatternsToWeek', () => {
 
   it('returns {applied: 0} when menu does not exist', async () => {
     mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(undefined);
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
     expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
@@ -383,7 +389,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([])) // entries
       .mockReturnValueOnce(selFrom([])); // allPatterns
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
   });
 
   it('skips entries with mainDishId (already touched)', async () => {
@@ -392,7 +398,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([makeEntry({ mainDishId: 'dish-1' })]))
       .mockReturnValueOnce(selFrom([mondayPattern]));
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
     expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
@@ -402,7 +408,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([makeEntry({ customText: 'Already planned' })]))
       .mockReturnValueOnce(selFrom([mondayPattern]));
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
   });
 
   it('skips entries with type other than assembled', async () => {
@@ -411,7 +417,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([makeEntry({ type: 'fend_for_self' })]))
       .mockReturnValueOnce(selFrom([mondayPattern]));
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
   });
 
   it('skips entries with existing side dishes', async () => {
@@ -421,7 +427,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selFrom([mondayPattern]))
       .mockReturnValueOnce(selWhere([{ entryId: 'entry-1', dishId: 's1' }])); // existing side
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
     expect(mockDb.transaction).not.toHaveBeenCalled();
   });
 
@@ -433,7 +439,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selFrom([mondayPattern])) // only Monday pattern
       .mockReturnValueOnce(selWhere([])); // no existing sides for entry
 
-    expect(await applyPatternsToWeek('2024-01-01')).toEqual({ applied: 0 });
+    expect(await applyPatternsToWeek('2024-01-01', FAMILY_ID)).toEqual({ applied: 0 });
   });
 
   it('applies matching pattern to untouched entry and increments count', async () => {
@@ -445,7 +451,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([])) // no existing sides
       .mockReturnValueOnce(selWhere([])); // no pattern side links
 
-    const result = await applyPatternsToWeek('2024-01-01');
+    const result = await applyPatternsToWeek('2024-01-01', FAMILY_ID);
     expect(result).toEqual({ applied: 1 });
     expect(mockDb.transaction).toHaveBeenCalledOnce();
   });
@@ -482,7 +488,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([]))
       .mockReturnValueOnce(selWhere([]));
 
-    await applyPatternsToWeek('2024-01-01');
+    await applyPatternsToWeek('2024-01-01', FAMILY_ID);
     expect(capturedSet.restaurantName).toBe('Pizza Place');
     expect(capturedSet.customText).toBeNull();
   });
@@ -519,7 +525,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([]))
       .mockReturnValueOnce(selWhere([]));
 
-    await applyPatternsToWeek('2024-01-01');
+    await applyPatternsToWeek('2024-01-01', FAMILY_ID);
     expect(capturedSet.customText).toBe('Leftovers');
     expect(capturedSet.restaurantName).toBeNull();
   });
@@ -563,7 +569,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([]))
       .mockReturnValueOnce(selWhere([]));
 
-    await applyPatternsToWeek('2024-01-01');
+    await applyPatternsToWeek('2024-01-01', FAMILY_ID);
     expect(capturedSet.mainDishId).toBe('old-dish'); // older pattern wins
   });
 
@@ -580,7 +586,7 @@ describe('applyPatternsToWeek', () => {
       .mockReturnValueOnce(selWhere([])) // e2 no existing sides
       .mockReturnValueOnce(selWhere([])); // e2 pattern side links
 
-    const result = await applyPatternsToWeek('2024-01-01');
+    const result = await applyPatternsToWeek('2024-01-01', FAMILY_ID);
     expect(result).toEqual({ applied: 2 });
     expect(mockDb.transaction).toHaveBeenCalledTimes(2);
   });
