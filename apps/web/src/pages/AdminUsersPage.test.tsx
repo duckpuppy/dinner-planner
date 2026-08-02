@@ -1,58 +1,79 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdminUsersPage } from './AdminUsersPage';
 
-const { mockCurrentUser } = vi.hoisted(() => ({
+const { mockCurrentUser, mockCheckAuth, mockNavigate } = vi.hoisted(() => ({
   mockCurrentUser: {
     id: 'user-1',
     username: 'admin',
     displayName: 'Admin User',
     role: 'admin' as const,
   },
+  mockCheckAuth: vi.fn(),
+  mockNavigate: vi.fn(),
 }));
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: vi.fn((selector: (s: { user: typeof mockCurrentUser }) => unknown) =>
-    selector({ user: mockCurrentUser })
+  useAuthStore: vi.fn(
+    (selector: (s: { user: typeof mockCurrentUser; checkAuth: typeof mockCheckAuth }) => unknown) =>
+      selector({ user: mockCurrentUser, checkAuth: mockCheckAuth })
   ),
 }));
 
-vi.mock('@/lib/api', () => ({
-  users: {
-    list: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    resetPassword: vi.fn(),
-  },
-  families: {
-    getMine: vi.fn(),
-    update: vi.fn(),
-  },
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
+  return {
+    ApiError: actual.ApiError,
+    users: {
+      list: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      resetPassword: vi.fn(),
+    },
+    families: {
+      getMine: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+  };
+});
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-import { users, families } from '@/lib/api';
+import { users, families, ApiError } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 const mockFamily = { id: 'family-1', name: 'The Smiths', createdAt: '', updatedAt: '' };
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
 }
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.mocked(useAuthStore).mockImplementation(
-    (selector: (s: { user: typeof mockCurrentUser }) => unknown) =>
-      selector({ user: mockCurrentUser })
+    (selector: (s: { user: typeof mockCurrentUser; checkAuth: typeof mockCheckAuth }) => unknown) =>
+      selector({ user: mockCurrentUser, checkAuth: mockCheckAuth })
   );
   vi.mocked(families.getMine).mockResolvedValue({ family: mockFamily });
 });
@@ -335,6 +356,97 @@ describe('AdminUsersPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /Save family name/i }));
       expect(await screen.findByText('Family name is required')).toBeTruthy();
       expect(families.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('leave and create new family dialog', () => {
+    it('opens the dialog when the leave button is clicked', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Leave and create new family/i }));
+      expect(screen.getByText('Leave & create new family')).toBeTruthy();
+      expect(screen.getByText(/Shared dishes/)).toBeTruthy();
+      expect(screen.getByText(/Grocery lists/)).toBeTruthy();
+    });
+
+    it('closes the dialog when cancel is clicked', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Leave and create new family/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByText('Leave & create new family')).toBeNull();
+    });
+
+    it('disables submit until a name is typed', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Leave and create new family/i }));
+
+      const submitBtn = screen.getByRole('button', { name: /Leave & create family/i });
+      expect(submitBtn).toBeDisabled();
+
+      const input = screen.getByLabelText('New family name');
+      fireEvent.change(input, { target: { value: '   ' } });
+      expect(submitBtn).toBeDisabled();
+
+      fireEvent.change(input, { target: { value: 'The Joneses' } });
+      expect(submitBtn).not.toBeDisabled();
+
+      expect(families.create).not.toHaveBeenCalled();
+    });
+
+    it('calls families.create, refreshes auth, invalidates the cache, and navigates home on success', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      vi.mocked(families.create).mockResolvedValue({
+        family: { id: 'family-2', name: 'The Joneses', createdAt: '', updatedAt: '' },
+      });
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Leave and create new family/i }));
+
+      const input = screen.getByLabelText('New family name');
+      fireEvent.change(input, { target: { value: 'The Joneses' } });
+      fireEvent.click(screen.getByRole('button', { name: /Leave & create family/i }));
+
+      await waitFor(() => {
+        expect(families.create).toHaveBeenCalledWith('The Joneses');
+      });
+      await waitFor(() => {
+        expect(mockCheckAuth).toHaveBeenCalled();
+      });
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/');
+      });
+      expect(screen.queryByText('Leave & create new family')).toBeNull();
+    });
+
+    it('shows the exact 409 safeguard message inline instead of a toast', async () => {
+      vi.mocked(users.list).mockResolvedValue({ users: mockUsers });
+      vi.mocked(families.create).mockRejectedValue(
+        new ApiError(
+          409,
+          'You are the only admin of your current family. Promote another member to admin before creating a new family.'
+        )
+      );
+      render(<AdminUsersPage />, { wrapper });
+      await screen.findByText('The Smiths');
+      fireEvent.click(screen.getByRole('button', { name: /Leave and create new family/i }));
+
+      const input = screen.getByLabelText('New family name');
+      fireEvent.change(input, { target: { value: 'The Joneses' } });
+      fireEvent.click(screen.getByRole('button', { name: /Leave & create family/i }));
+
+      expect(
+        await screen.findByText(
+          'You are the only admin of your current family. Promote another member to admin before creating a new family.'
+        )
+      ).toBeTruthy();
+      // Dialog stays open so the user can fix the underlying problem and retry.
+      expect(screen.getByText('Leave & create new family')).toBeTruthy();
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 });
