@@ -1,0 +1,45 @@
+name: Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Branch to fast-forward promote into'
+        required: true
+        type: choice
+        options:
+          - testing
+          - release
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote ${{ github.event.inputs.target }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Fast-forward promote
+        run: |
+          TARGET="${{ github.event.inputs.target }}"
+
+          if [ "$TARGET" = "testing" ]; then
+            SOURCE="main"
+          elif [ "$TARGET" = "release" ]; then
+            SOURCE="testing"
+          else
+            echo "Unknown target: $TARGET"
+            exit 1
+          fi
+
+          echo "Fetching $SOURCE and $TARGET"
+          git fetch origin "${SOURCE}" "${TARGET}"
+
+          echo "Fast-forwarding $TARGET to $SOURCE"
+          git push origin "origin/${SOURCE}:refs/heads/${TARGET}"
