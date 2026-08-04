@@ -228,6 +228,19 @@ Log learnings: `bd comments add {ID} "LEARNED: [insight]"` — captured automati
 - Store model: `stores(id, name)` table + `ingredientStores(ingredientId, storeId)` junction; `customGroceryItems` and `standingItems` also have `storeId`
 - Custom items keyed as `custom::${id}`, standing items as `standing::${id}` in check state
 
+### Testing → Release deployment pipeline (dinner-8gj, PR #258)
+
+Three-branch model: `main` → `testing` → `release`, each promotion a fast-forward-only merge triggered via workflow, never a local `git` command (so promotion can be done from GitHub's mobile UI).
+
+- `gh workflow run promote.yml -f target=testing` — fast-forwards `main` → `testing`, which triggers `testing.yml` (builds/pushes `ghcr.io/duckpuppy/dinner-planner:testing` + `:testing-<short-sha>`, no version bump, no GitHub Release), which triggers `deploy-testing.yml` on the self-hosted runner.
+- `gh workflow run promote.yml -f target=release` — fast-forwards `testing` → `release`, which triggers `release.yml` (now push-triggered off `release`, in addition to its existing `workflow_dispatch`). Version-bump commit lands on `release` (not `main`), avoiding the race where `main` drifts ahead between cutting testing and promoting. After tagging, `release.yml` merges `release` back into `main` (`--no-ff`) so `main`'s `package.json` doesn't go stale — fails loudly on conflict rather than auto-resolving.
+- Deliberately **not** triggered on every `main` push — multi-phase epics leave `main` not-yet-feature-complete between phases, so testing/release cuts are always manual, deliberate actions.
+- `ci.yml` intentionally does NOT trigger on `testing`/`release` pushes.
+- GHCR package is confirmed **public** (verified via anonymous pull token — public packages are storage/bandwidth-unlimited on GitHub), so `release.yml`'s version cleanup was relaxed from keep-3 to keep-15 — rollback headroom is now cheap. Note: image availability doesn't guarantee rollback safety if a DB migration in between isn't backward-compatible; not solved by this pipeline.
+- Testing deploys to the **same** self-hosted runner as production (`[self-hosted, dinner-planner]`), as a second `dinner-planner-testing` container on port 3001 (prod stays on 3000), separate data volume, separate `TESTING_JWT_SECRET`/`TESTING_ADMIN_PASSWORD`. Fronted by Nginx Proxy Manager at `dinner-test.duckpuppy.net` → `192.168.0.95:3001`. No CORS/cookie-domain changes were needed for the new subdomain — the app already serves SPA+API same-origin and the refresh-cookie logic already binds to whatever host is used (see cookie-domain gotcha above).
+- Host-side compose/justfile changes live in `~/src/services` (external to this repo, on the `mediaserver`/`192.168.0.95` host) — `dinner-planner/compose.yml` gained the `dinner-planner-testing` service, `justfile` gained `dinner-planner-testing-deploy`/`-down`/`-logs` (deliberately not wired into the aggregate `up`/`down`/`pull-all` recipes).
+- **Still outstanding (manual, not automatable from here)**: GitHub branch protection on `testing`/`release` (linear history required, no force-push, no direct pushes except `RELEASE_PAT`'s identity) has not yet been configured — currently nothing stops a stray direct push to either branch.
+
 ### Branch cleanup preferences
 
 When cleaning up branches (local or remote), **preserve**:
