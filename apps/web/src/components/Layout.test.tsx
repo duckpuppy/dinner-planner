@@ -14,6 +14,7 @@ vi.mock('@/stores/auth', () => ({
       username: 'alice',
       displayName: 'Alice',
       role: 'user',
+      familyName: 'Aikens Family',
     },
     logout: mockLogout,
   })),
@@ -30,6 +31,7 @@ afterEach(() => {
       username: 'alice',
       displayName: 'Alice',
       role: 'user',
+      familyName: 'Aikens Family',
     },
     logout: mockLogout,
   }));
@@ -71,6 +73,11 @@ describe('Layout', () => {
     it('renders user display name in sidebar', () => {
       renderLayout();
       expect(screen.getByText('Alice')).toBeTruthy();
+    });
+
+    it('renders family name in sidebar', () => {
+      renderLayout();
+      expect(screen.getByText('Aikens Family')).toBeTruthy();
     });
 
     it('renders Sign out button in sidebar', () => {
