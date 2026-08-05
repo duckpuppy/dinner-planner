@@ -551,6 +551,7 @@ export interface User {
   homeView: 'today' | 'week';
   dietaryPreferences: string[];
   familyId: string;
+  familyName: string;
 }
 
 export interface Family {

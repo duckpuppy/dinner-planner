@@ -20,11 +20,24 @@ export interface AuthResult {
     displayName: string;
     role: 'admin' | 'member';
     familyId: string;
+    familyName: string;
     theme: 'light' | 'dark';
     homeView: 'today' | 'week';
   };
   accessToken: string;
   refreshToken: string;
+}
+
+/**
+ * Look up a family's display name by id.
+ * Falls back to an empty string if the family somehow doesn't exist
+ * (families.id is a NOT NULL FK on users, so this should not happen in practice).
+ */
+async function getFamilyName(familyId: string): Promise<string> {
+  const family = await db.query.families.findFirst({
+    where: eq(schema.families.id, familyId),
+  });
+  return family?.name ?? '';
 }
 
 /**
@@ -123,6 +136,8 @@ export async function login(
     expiresAt: expiresAt.toISOString(),
   });
 
+  const familyName = await getFamilyName(user.familyId);
+
   return {
     user: {
       id: user.id,
@@ -130,6 +145,7 @@ export async function login(
       displayName: user.displayName,
       role: user.role,
       familyId: user.familyId,
+      familyName,
       theme: user.theme,
       homeView: user.homeView,
     },
@@ -177,6 +193,8 @@ export async function refreshAccessToken(
     familyId: user.familyId,
   });
 
+  const familyName = await getFamilyName(user.familyId);
+
   return {
     accessToken,
     user: {
@@ -185,6 +203,7 @@ export async function refreshAccessToken(
       displayName: user.displayName,
       role: user.role,
       familyId: user.familyId,
+      familyName,
       theme: user.theme,
       homeView: user.homeView,
     },
@@ -220,10 +239,18 @@ export async function cleanupExpiredTokens(): Promise<number> {
 }
 
 /**
- * Get user by ID
+ * Get user by ID, including their family's display name.
  */
 export async function getUserById(userId: string) {
-  return db.query.users.findFirst({
+  const user = await db.query.users.findFirst({
     where: eq(schema.users.id, userId),
   });
+
+  if (!user) {
+    return user;
+  }
+
+  const familyName = await getFamilyName(user.familyId);
+
+  return { ...user, familyName };
 }

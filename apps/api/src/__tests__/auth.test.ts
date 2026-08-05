@@ -22,6 +22,7 @@ const mockDb = vi.hoisted(() => ({
   query: {
     users: { findFirst: vi.fn() },
     refreshTokens: { findFirst: vi.fn() },
+    families: { findFirst: vi.fn() },
   },
 }));
 
@@ -37,6 +38,7 @@ vi.mock('../db/index.js', () => ({
   schema: {
     users: { id: null, username: null },
     refreshTokens: { id: null, userId: null, tokenHash: null, expiresAt: null },
+    families: { id: null, name: null },
   },
 }));
 
@@ -68,8 +70,14 @@ const mockUser = {
   theme: 'light' as const,
   homeView: 'today' as const,
   passwordHash: 'hashed-pw',
+  familyId: 'family-1',
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
+};
+
+const mockFamily = {
+  id: 'family-1',
+  name: 'The Smiths',
 };
 
 const mockToken = {
@@ -125,12 +133,14 @@ describe('login', () => {
     mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
     vi.mocked(bcrypt.compare).mockResolvedValueOnce(true as never);
     mockDb.insert.mockReturnValueOnce(ins());
+    mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
 
     const result = await login('alice', 'secret', signToken);
 
     expect(result).not.toBeNull();
     expect(result!.user.id).toBe('user-1');
     expect(result!.user.username).toBe('alice');
+    expect(result!.user.familyName).toBe('The Smiths');
     expect(result!.accessToken).toBe('access-token');
     expect(typeof result!.refreshToken).toBe('string');
     expect(result!.refreshToken).toHaveLength(64); // 32 bytes hex
@@ -140,6 +150,7 @@ describe('login', () => {
     mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
     vi.mocked(bcrypt.compare).mockResolvedValueOnce(true as never);
     mockDb.insert.mockReturnValueOnce(ins());
+    mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
 
     await login('alice', 'secret', signToken);
 
@@ -147,7 +158,19 @@ describe('login', () => {
       userId: 'user-1',
       username: 'alice',
       role: 'member',
+      familyId: 'family-1',
     });
+  });
+
+  it('falls back to empty familyName when family lookup misses', async () => {
+    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
+    vi.mocked(bcrypt.compare).mockResolvedValueOnce(true as never);
+    mockDb.insert.mockReturnValueOnce(ins());
+    mockDb.query.families.findFirst.mockResolvedValueOnce(undefined);
+
+    const result = await login('alice', 'secret', signToken);
+
+    expect(result!.user.familyName).toBe('');
   });
 });
 
@@ -170,12 +193,14 @@ describe('refreshAccessToken', () => {
   it('returns new accessToken and user on success', async () => {
     mockDb.query.refreshTokens.findFirst.mockResolvedValueOnce(mockToken);
     mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
+    mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
 
     const result = await refreshAccessToken('valid-token', signToken);
 
     expect(result).not.toBeNull();
     expect(result!.accessToken).toBe('new-access-token');
     expect(result!.user.id).toBe('user-1');
+    expect(result!.user.familyName).toBe('The Smiths');
   });
 });
 
@@ -210,10 +235,11 @@ describe('cleanupExpiredTokens', () => {
 });
 
 describe('getUserById', () => {
-  it('returns user when found', async () => {
+  it('returns user with familyName when found', async () => {
     mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
+    mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
     const result = await getUserById('user-1');
-    expect(result).toEqual(mockUser);
+    expect(result).toEqual({ ...mockUser, familyName: 'The Smiths' });
   });
 
   it('returns undefined when not found', async () => {

@@ -180,7 +180,14 @@ export function Layout({ children }: LayoutProps) {
                 {user?.displayName?.[0]?.toUpperCase() ?? '?'}
               </span>
             </div>
-            {!collapsed && <span className="truncate">{user?.displayName}</span>}
+            {!collapsed && (
+              <span className="flex flex-col min-w-0 leading-tight">
+                <span className="truncate">{user?.displayName}</span>
+                {user?.familyName && (
+                  <span className="truncate text-xs text-muted-foreground">{user.familyName}</span>
+                )}
+              </span>
+            )}
           </NavLink>
 
           <button
