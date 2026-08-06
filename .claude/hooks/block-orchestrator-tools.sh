@@ -11,29 +11,19 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 # Always allow Task (delegation)
 [[ "$TOOL_NAME" == "Task" ]] && exit 0
 
-# Detect SUBAGENT context - subagents get full tool access
-IS_SUBAGENT="false"
-
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-
-# A subagent's own tool calls report transcript_path as ITS OWN transcript
-# file, which lives directly under a directory literally named 'subagents'
-# (e.g. .../subagents/agent-<id>.jsonl). The orchestrator's transcript does
-# not live under such a directory. This is simpler and correct, unlike the
-# previous approach of looking for a subagents/ child dir beneath the given
-# transcript path -- that only matches the orchestrator's own transcript,
-# which is backwards.
-if [[ -n "$TRANSCRIPT_PATH" ]]; then
-  PARENT_DIR_NAME=$(basename "$(dirname "$TRANSCRIPT_PATH")")
-  [[ "$PARENT_DIR_NAME" == "subagents" ]] && IS_SUBAGENT="true"
-fi
-
-if [[ "$IS_SUBAGENT" == "true" ]]; then
-  cat << 'INNEREOF'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Subagent has full tool access"}}
-INNEREOF
-  exit 0
-fi
+# NOTE: this hook previously tried to distinguish orchestrator vs. subagent
+# tool calls by checking whether transcript_path's parent directory was
+# literally named 'subagents'. That never matches in this harness -- a
+# subagent's transcript_path is a flat .jsonl directly under the project's
+# transcript directory, same shape as the orchestrator's. Detection was
+# always false, so every subagent Edit/Write fell through to the
+# orchestrator-only quick-fix-ask logic below, producing a permission
+# prompt on every single subagent edit. Since supervisors in this project
+# mostly work on feature branches directly in the main checkout (not
+# .worktrees/, see CLAUDE.md's "Feature branch dispatch (default)"), there
+# is no reliable cwd-based signal either. The orchestrator/subagent
+# distinction has been dropped entirely below -- only the main/master
+# branch check remains, applying equally to orchestrator and subagents.
 
 # Allow Plan mode — orchestrator can write to ~/.claude/plans/
 # Allow CLAUDE.md — orchestrator maintains project documentation
@@ -56,14 +46,13 @@ if [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NAME" == "Write" ]]; then
   fi
 fi
 
-# QUICK-FIX ESCAPE HATCH with branch enforcement
-# Orchestrators can make small edits on feature branches with user approval
-# But NEVER on main/master - must use full bead + worktree workflow
+# BRANCH ENFORCEMENT: block Edit/Write on main/master (orchestrator and
+# subagents alike). On any other branch (feature branch or worktree),
+# allow silently -- no per-edit prompt.
 if [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NAME" == "Write" ]]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-  FILE_NAME=$(basename "$FILE_PATH")
 
-  # Check if editing within a worktree (always allowed for orchestrator)
+  # Check if editing within a worktree (always allowed)
   if [[ "$FILE_PATH" == *"/.worktrees/"* ]]; then
     exit 0
   fi
@@ -74,31 +63,12 @@ if [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NAME" == "Write" ]]; then
   # On main/master → hard deny, guide to alternatives
   if [[ "$CURRENT_BRANCH" == "main" ]] || [[ "$CURRENT_BRANCH" == "master" ]]; then
     cat << EOF
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Cannot edit files on $CURRENT_BRANCH branch.\n\nFor quick fixes (<10 lines):\n  git checkout -b quick-fix-description\n  Then retry the edit (you'll be prompted for approval)\n\nFor larger changes:\n  Use the full bead workflow with supervisors."}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Cannot edit files on $CURRENT_BRANCH branch.\n\nFor quick fixes (<10 lines):\n  git checkout -b quick-fix-description\n  Then retry the edit.\n\nFor larger changes:\n  Use the full bead workflow with supervisors."}}
 EOF
     exit 0
   fi
 
-  # On feature branch → ask for quick-fix approval
-  # Estimate change size for Edit tool
-  if [[ "$TOOL_NAME" == "Edit" ]]; then
-    OLD_STRING=$(echo "$INPUT" | jq -r '.tool_input.old_string // empty')
-    NEW_STRING=$(echo "$INPUT" | jq -r '.tool_input.new_string // empty')
-    OLD_LINES=$(echo "$OLD_STRING" | wc -l | tr -d ' ')
-    NEW_LINES=$(echo "$NEW_STRING" | wc -l | tr -d ' ')
-    OLD_CHARS=${#OLD_STRING}
-    NEW_CHARS=${#NEW_STRING}
-    SIZE_INFO="~${NEW_LINES} lines (${OLD_CHARS} → ${NEW_CHARS} chars)"
-  else
-    # Write tool - estimate from content
-    CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // empty')
-    CONTENT_LINES=$(echo "$CONTENT" | wc -l | tr -d ' ')
-    SIZE_INFO="~${CONTENT_LINES} lines (new file)"
-  fi
-
-  cat << EOF
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"Quick fix on branch '$CURRENT_BRANCH'?\n  File: $FILE_NAME\n  Change: $SIZE_INFO\n\nApprove for trivial changes (<10 lines).\nDeny to use full bead workflow instead."}}
-EOF
+  # On any feature branch → allow silently
   exit 0
 fi
 
