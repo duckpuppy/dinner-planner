@@ -12,6 +12,7 @@ import {
   Package,
   ScrollText,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   User,
   Users,
@@ -40,6 +41,8 @@ const adminItems = [
   { to: '/admin/health', icon: Activity, label: 'Health' },
 ];
 
+const superAdminItems = [{ to: '/super-admin', icon: ShieldCheck, label: 'Super Admin' }];
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -47,6 +50,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isSuperAdmin = !!user?.isSuperAdmin;
 
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem('sidebarCollapsed') === 'true'
@@ -139,6 +143,27 @@ export function Layout({ children }: LayoutProps) {
                 </div>
               )}
               {adminItems.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  title={collapsed ? label : undefined}
+                  className={({ isActive }) => navLinkClass(isActive)}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+
+          {isSuperAdmin && (
+            <div>
+              {!collapsed && (
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Instance
+                </div>
+              )}
+              {superAdminItems.map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
                   to={to}
