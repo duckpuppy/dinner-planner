@@ -40,6 +40,16 @@ export const updateFamilySchema = z.object({
   name: z.string().min(1, 'Family name is required').max(100),
 });
 
+// Super-admin schemas (instance-wide, cross-family)
+export const adminReassignUserSchema = z
+  .object({
+    familyId: z.string().min(1).optional(),
+    role: z.enum(['admin', 'member']).optional(),
+  })
+  .refine((data) => data.familyId !== undefined || data.role !== undefined, {
+    message: 'At least one of familyId or role must be provided',
+  });
+
 // Dietary tags (M18)
 export const DIETARY_TAGS = [
   'vegetarian',
@@ -435,6 +445,7 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type SetupInput = z.infer<typeof setupSchema>;
 export type CreateFamilyInput = z.infer<typeof createFamilySchema>;
 export type UpdateFamilyInput = z.infer<typeof updateFamilySchema>;
+export type AdminReassignUserInput = z.infer<typeof adminReassignUserSchema>;
 export type UserPreferencesInput = z.infer<typeof userPreferencesSchema>;
 export type IngredientInput = z.infer<typeof ingredientSchema>;
 export type CreateDishInput = z.infer<typeof createDishSchema>;
