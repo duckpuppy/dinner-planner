@@ -152,6 +152,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           familyName: user.familyName,
           theme: user.theme,
           homeView: user.homeView,
+          isSuperAdmin: user.isSuperAdmin,
         },
       });
     }

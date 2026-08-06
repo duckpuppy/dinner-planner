@@ -42,6 +42,9 @@ export async function createFirstAdmin(
     passwordHash,
     familyId,
     role: 'admin',
+    // The very first user ever created (via this setup flow) also becomes
+    // the instance-wide super-admin. Independent of `role` above.
+    isSuperAdmin: true,
     theme: 'light',
     homeView: 'today',
     dietaryPreferences: '[]',

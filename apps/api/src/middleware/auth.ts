@@ -7,6 +7,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireSuperAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -17,12 +18,14 @@ declare module '@fastify/jwt' {
       username: string;
       role: 'admin' | 'member';
       familyId: string;
+      isSuperAdmin: boolean;
     };
     user: {
       userId: string;
       username: string;
       role: 'admin' | 'member';
       familyId: string;
+      isSuperAdmin: boolean;
     };
   }
 }
@@ -82,6 +85,34 @@ async function authPlugin(fastify: FastifyInstance) {
       });
     }
   });
+
+  /**
+   * Decorator to require instance-wide super-admin access.
+   * Fully independent of the family-scoped `requireAdmin`/`role` check above.
+   * Must be used after authenticate (this decorator authenticates itself).
+   */
+  fastify.decorate(
+    'requireSuperAdmin',
+    async function (request: FastifyRequest, reply: FastifyReply) {
+      // First authenticate
+      try {
+        await request.jwtVerify();
+      } catch {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid or expired access token',
+        });
+      }
+
+      // Then check super-admin flag
+      if (request.user.isSuperAdmin !== true) {
+        return reply.status(403).send({
+          error: 'Forbidden',
+          message: 'Super-admin access required',
+        });
+      }
+    }
+  );
 }
 
 export default fp(authPlugin, {

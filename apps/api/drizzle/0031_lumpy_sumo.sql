@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `is_super_admin` integer DEFAULT false NOT NULL;

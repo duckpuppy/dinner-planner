@@ -552,6 +552,7 @@ export interface User {
   dietaryPreferences: string[];
   familyId: string;
   familyName: string;
+  isSuperAdmin: boolean;
 }
 
 export interface Family {

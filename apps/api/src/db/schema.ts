@@ -47,6 +47,11 @@ export const users = sqliteTable('users', {
   role: text('role', { enum: ['admin', 'member'] })
     .notNull()
     .default('member'),
+  // Instance-wide super-admin flag, fully independent of the family-scoped
+  // `role` column above (NOT a superset of role: 'admin'). Grants
+  // cross-family management capability (dinner-apm epic). Set automatically
+  // on the first user created via POST /api/setup.
+  isSuperAdmin: integer('is_super_admin', { mode: 'boolean' }).notNull().default(false),
   theme: text('theme', { enum: ['light', 'dark'] })
     .notNull()
     .default('light'),
