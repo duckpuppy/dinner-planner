@@ -51,6 +51,22 @@ RUN apk add --no-cache ffmpeg python3 \
 COPY --from=builder /app/api-deploy/node_modules ./apps/api/node_modules
 COPY --from=builder /app/api-deploy/package.json ./apps/api/package.json
 
+# pnpm deploy --legacy creates node_modules/@dinner-planner/shared as a relative
+# symlink (../../../packages/shared) rather than a copy. That relative path
+# only resolves correctly from its original location
+# (api-deploy/node_modules/@dinner-planner/); the COPY above places it one
+# directory level deeper (apps/api/node_modules/@dinner-planner/), so the same
+# relative target resolves to a path that's never populated, leaving a
+# dangling symlink that crashes the server at boot with ERR_MODULE_NOT_FOUND.
+# Replace the symlink with a real copy of the built package so resolution
+# doesn't depend on relative-path depth. It has no node_modules of its own;
+# its "zod" dependency resolves by Node walking up the directory tree into
+# apps/api/node_modules, where --legacy deploy already hoisted a (correctly
+# relative, unbroken) symlink to zod. (dinner-wwa)
+RUN rm -rf ./apps/api/node_modules/@dinner-planner/shared
+COPY --from=builder /app/packages/shared/dist ./apps/api/node_modules/@dinner-planner/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./apps/api/node_modules/@dinner-planner/shared/package.json
+
 # Copy compiled API and migration files
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/drizzle ./apps/api/drizzle
