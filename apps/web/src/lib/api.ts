@@ -229,6 +229,19 @@ export const families = {
     }),
 };
 
+// Super-admin API (cross-family, requires isSuperAdmin)
+export const admin = {
+  listFamilies: () => request<{ families: AdminFamily[] }>('/admin/families'),
+
+  listUsers: () => request<{ users: AdminUser[] }>('/admin/users'),
+
+  updateUser: (id: string, data: { familyId?: string; role?: 'admin' | 'member' }) =>
+    request<{ user: AdminUser }>(`/admin/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+};
+
 // Dishes API
 export const dishes = {
   list: (params?: Record<string, string>) => {
@@ -552,6 +565,7 @@ export interface User {
   dietaryPreferences: string[];
   familyId: string;
   familyName: string;
+  isSuperAdmin: boolean;
 }
 
 export interface Family {
@@ -559,6 +573,24 @@ export interface Family {
   name: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminFamily {
+  id: string;
+  name: string;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: 'admin' | 'member';
+  familyId: string;
+  familyName: string;
+  isSuperAdmin: boolean;
 }
 
 export interface Dish {

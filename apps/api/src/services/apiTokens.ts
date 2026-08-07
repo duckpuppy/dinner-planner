@@ -43,6 +43,7 @@ export function validateApiToken(token: string) {
       username: schema.users.username,
       role: schema.users.role,
       familyId: schema.users.familyId,
+      isSuperAdmin: schema.users.isSuperAdmin,
     })
     .from(schema.apiTokens)
     .innerJoin(schema.users, eq(schema.apiTokens.userId, schema.users.id))
@@ -62,6 +63,7 @@ export function validateApiToken(token: string) {
     username: row.username,
     role: row.role as 'admin' | 'member',
     familyId: row.familyId,
+    isSuperAdmin: row.isSuperAdmin,
   };
 }
 

@@ -20,6 +20,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { SuperAdminPage } from './pages/SuperAdminPage';
 import { GroceryPage } from './pages/GroceryPage';
 import { PantryPage } from './pages/PantryPage';
 import { PatternsPage } from './pages/PatternsPage';
@@ -51,6 +52,14 @@ function HomeRedirect() {
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function SuperAdminGuard({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.isSuperAdmin) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;
@@ -149,6 +158,14 @@ export default function App() {
                 <AdminGuard>
                   <AdminHealthPage />
                 </AdminGuard>
+              }
+            />
+            <Route
+              path="/super-admin"
+              element={
+                <SuperAdminGuard>
+                  <SuperAdminPage />
+                </SuperAdminGuard>
               }
             />
             <Route path="*" element={<HomeRedirect />} />

@@ -11,6 +11,7 @@ export interface TokenPayload {
   username: string;
   role: 'admin' | 'member';
   familyId: string;
+  isSuperAdmin: boolean;
 }
 
 export interface AuthResult {
@@ -23,6 +24,7 @@ export interface AuthResult {
     familyName: string;
     theme: 'light' | 'dark';
     homeView: 'today' | 'week';
+    isSuperAdmin: boolean;
   };
   accessToken: string;
   refreshToken: string;
@@ -122,6 +124,7 @@ export async function login(
     username: user.username,
     role: user.role,
     familyId: user.familyId,
+    isSuperAdmin: user.isSuperAdmin,
   });
 
   const refreshToken = generateToken();
@@ -148,6 +151,7 @@ export async function login(
       familyName,
       theme: user.theme,
       homeView: user.homeView,
+      isSuperAdmin: user.isSuperAdmin,
     },
     accessToken,
     refreshToken,
@@ -191,6 +195,7 @@ export async function refreshAccessToken(
     username: user.username,
     role: user.role,
     familyId: user.familyId,
+    isSuperAdmin: user.isSuperAdmin,
   });
 
   const familyName = await getFamilyName(user.familyId);
@@ -206,6 +211,7 @@ export async function refreshAccessToken(
       familyName,
       theme: user.theme,
       homeView: user.homeView,
+      isSuperAdmin: user.isSuperAdmin,
     },
   };
 }

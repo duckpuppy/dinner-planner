@@ -218,6 +218,13 @@
       "when": 1785647618148,
       "tag": "0030_dry_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1786019740784,
+      "tag": "0031_lumpy_sumo",
+      "breakpoints": true
     }
   ]
 }
