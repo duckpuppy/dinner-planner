@@ -37,6 +37,7 @@ import { logEvent } from './services/appEvents.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
+import { APP_VERSION } from './version.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -60,7 +61,7 @@ if (config.NODE_ENV !== 'production') {
       info: {
         title: 'Dinner Planner API',
         description: 'REST API for the Dinner Planner application',
-        version: '1.0.0',
+        version: APP_VERSION,
       },
       components: {
         securitySchemes: {
