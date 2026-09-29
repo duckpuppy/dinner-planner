@@ -51,8 +51,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   // Handle 401 by trying to refresh
   if (response.status === 401 && !path.includes('/auth/')) {
-    const refreshed = await refreshToken();
-    if (refreshed) {
+    const outcome = await refreshToken();
+    if (outcome === 'refreshed') {
       headers['Authorization'] = `Bearer ${accessToken}`;
       const retryResponse = await fetch(`${API_BASE}${path}`, {
         ...options,
@@ -105,7 +105,53 @@ async function requestFormData<T>(path: string, body: FormData): Promise<T> {
   return response.json();
 }
 
-async function refreshToken(): Promise<boolean> {
+type RefreshOutcome = 'refreshed' | 'rejected' | 'network-error';
+
+type Listener<A extends unknown[]> = (...args: A) => void | Promise<void>;
+
+const refreshedListeners = new Set<Listener<[User]>>();
+const expiredListeners = new Set<Listener<[]>>();
+
+/** Subscribe to silent-refresh successes. Returns an unsubscribe function. */
+export function onSessionRefreshed(listener: (user: User) => void | Promise<void>): () => void {
+  refreshedListeners.add(listener);
+  return () => {
+    refreshedListeners.delete(listener);
+  };
+}
+
+/** Subscribe to a refresh the server rejected (session is dead). Returns an unsubscribe function. */
+export function onSessionExpired(listener: () => void | Promise<void>): () => void {
+  expiredListeners.add(listener);
+  return () => {
+    expiredListeners.delete(listener);
+  };
+}
+
+async function notify<A extends unknown[]>(listeners: Set<Listener<A>>, ...args: A) {
+  await Promise.all(
+    [...listeners].map(async (listener) => {
+      try {
+        await listener(...args);
+      } catch (err) {
+        console.error('[api] session listener failed:', err);
+      }
+    })
+  );
+}
+
+// Parallel 401s share one refresh so listeners fire once and the server sees one request.
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+function refreshToken(): Promise<RefreshOutcome> {
+  refreshInFlight ??= doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function doRefresh(): Promise<RefreshOutcome> {
+  let data: { user: User; accessToken: string };
   try {
     const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
@@ -113,15 +159,20 @@ async function refreshToken(): Promise<boolean> {
     });
 
     if (!response.ok) {
-      return false;
+      accessToken = null;
+      await notify(expiredListeners);
+      return 'rejected';
     }
 
-    const data = await response.json();
-    accessToken = data.accessToken;
-    return true;
+    data = await response.json();
   } catch {
-    return false;
+    // Network failure or unreadable body: not proof the session is dead.
+    return 'network-error';
   }
+  accessToken = data.accessToken;
+  // Await listeners so the cache owner is rebound before the retried request's data lands.
+  if (data.user) await notify(refreshedListeners, data.user);
+  return 'refreshed';
 }
 
 // API Token types
