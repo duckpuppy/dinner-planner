@@ -50,6 +50,10 @@ export default defineConfig({
       workbox: {
         // Precache app shell
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Let a newly activated SW take control of uncontrolled pages (e.g. after a
+        // force-refresh) so the update prompt's Reload can complete. Activation is still
+        // user-triggered (prompt mode); do NOT add skipWaiting here.
+        clientsClaim: true,
         // No runtime caching: API responses are authenticated and family-scoped, so they must
         // never be served from the SW cache. Offline data comes from the TanStack Query cache.
       },
