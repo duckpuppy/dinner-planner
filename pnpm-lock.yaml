@@ -250,6 +250,9 @@ importers:
       vitest:
         specifier: ^4.0.18
         version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.9)(yaml@2.9.0))
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
 
   packages/shared:
     dependencies:

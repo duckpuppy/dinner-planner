@@ -15,7 +15,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      // The app registers the SW itself via useRegisterSW (see UpdatePrompt)
+      injectRegister: false,
       includeAssets: ['icon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Dinner Planner',
@@ -48,25 +50,8 @@ export default defineConfig({
       workbox: {
         // Precache app shell
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Runtime caching strategies
-        runtimeCaching: [
-          {
-            // API calls: network-first with 5-minute cache
-            urlPattern: /^\/api\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 24 * 60 * 60, // 1 day
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-        ],
+        // No runtime caching: API responses are authenticated and family-scoped, so they must
+        // never be served from the SW cache. Offline data comes from the TanStack Query cache.
       },
       devOptions: {
         // Enable SW in development for testing
