@@ -8,6 +8,13 @@ import { useDeployDetection } from '@/hooks/useDeployDetection';
 export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
+ * Fallback for when no `controllerchange` arrives after asking the waiting SW to activate
+ * (e.g. the page is uncontrolled because it was force-refreshed): reload anyway, since
+ * index.html is served no-cache and will fetch the new shell.
+ */
+export const RELOAD_FALLBACK_MS = 3000;
+
+/**
  * Ask the browser to check for a new service worker hourly and whenever the tab becomes
  * visible again. Returns a teardown function.
  */
@@ -45,6 +52,9 @@ export function UpdatePrompt() {
   const unmountedRef = useRef(false);
   const [dismissed, setDismissed] = useState(false);
   const [reloadNeeded, setReloadNeeded] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const reloadingRef = useRef(false);
+  const reloadCleanupRef = useRef<(() => void) | null>(null);
 
   const isNative = Capacitor.isNativePlatform();
   const hasServiceWorker = 'serviceWorker' in navigator;
@@ -76,6 +86,8 @@ export function UpdatePrompt() {
       teardownRef.current?.();
       teardownRef.current = null;
       registrationRef.current = null;
+      reloadCleanupRef.current?.();
+      reloadCleanupRef.current = null;
     };
   }, []);
 
@@ -84,6 +96,24 @@ export function UpdatePrompt() {
 
   const handleReload = () => {
     if (hasServiceWorker) {
+      if (reloadingRef.current) return;
+      reloadingRef.current = true;
+      setReloading(true);
+
+      // The plugin only reloads on 'controlling' when the page was already controlled, so
+      // reload ourselves on controllerchange, with a timed fallback for uncontrolled pages.
+      const reloadOnce = () => {
+        reloadCleanupRef.current?.();
+        reloadCleanupRef.current = null;
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', reloadOnce, { once: true });
+      const timerId = setTimeout(reloadOnce, RELOAD_FALLBACK_MS);
+      reloadCleanupRef.current = () => {
+        clearTimeout(timerId);
+        navigator.serviceWorker.removeEventListener('controllerchange', reloadOnce);
+      };
+
       void updateServiceWorker(true);
     } else {
       window.location.reload();
@@ -109,16 +139,17 @@ export function UpdatePrompt() {
             <button
               type="button"
               onClick={handleReload}
-              className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={reloading}
+              className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Reload
+              {reloading ? 'Reloading…' : 'Reload'}
             </button>
           </div>
         </div>
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 rounded-md p-2 -m-2focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 rounded-md p-2 -m-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Dismiss update notice"
         >
           <X className="h-4 w-4" aria-hidden="true" />
