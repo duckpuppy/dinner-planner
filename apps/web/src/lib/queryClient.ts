@@ -1,0 +1,21 @@
+import { QueryClient } from '@tanstack/react-query';
+
+export const CACHE_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
+
+/**
+ * Shared QueryClient. Lives in its own module (no imports from the auth store or
+ * the persistence layer) so both can depend on it without a circular import.
+ */
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: CACHE_MAX_AGE,
+      retry: 1,
+      networkMode: 'offlineFirst',
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
+    },
+  },
+});

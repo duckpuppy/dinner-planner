@@ -1,16 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act } from '@testing-library/react';
 
-const { mockGetHealth, mockAuthRefresh, mockAuthLogin, mockAuthLogout, mockSetAccessToken } =
-  vi.hoisted(() => ({
-    mockGetHealth: vi.fn(),
-    mockAuthRefresh: vi.fn(),
-    mockAuthLogin: vi.fn(),
-    mockAuthLogout: vi.fn(),
-    mockSetAccessToken: vi.fn(),
-  }));
+const {
+  mockGetHealth,
+  mockAuthRefresh,
+  mockAuthLogin,
+  mockAuthLogout,
+  mockSetAccessToken,
+  mockBindCacheOwner,
+  mockClearCache,
+} = vi.hoisted(() => ({
+  mockGetHealth: vi.fn(),
+  mockAuthRefresh: vi.fn(),
+  mockAuthLogin: vi.fn(),
+  mockAuthLogout: vi.fn(),
+  mockSetAccessToken: vi.fn(),
+  mockBindCacheOwner: vi.fn(),
+  mockClearCache: vi.fn(),
+}));
+
+vi.mock('@/lib/queryPersistence', () => ({
+  bindCacheOwner: mockBindCacheOwner,
+  clearCache: mockClearCache,
+}));
 
 vi.mock('@/lib/api', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
   getHealth: mockGetHealth,
   setAccessToken: mockSetAccessToken,
   auth: {
@@ -22,6 +43,7 @@ vi.mock('@/lib/api', () => ({
 
 // Import AFTER mocking
 import { useAuthStore } from './auth';
+import { ApiError } from '@/lib/api';
 
 function getState() {
   return useAuthStore.getState();
@@ -38,6 +60,8 @@ function resetStore() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockBindCacheOwner.mockResolvedValue(undefined);
+  mockClearCache.mockResolvedValue(undefined);
   resetStore();
 });
 
@@ -92,6 +116,7 @@ describe('authStore', () => {
         theme: 'light' as const,
         homeView: 'today' as const,
         dietaryPreferences: [],
+        familyId: 'f1',
       };
       mockAuthRefresh.mockResolvedValue({ user: fakeUser, accessToken: 'token123' });
       await act(async () => {
@@ -101,6 +126,39 @@ describe('authStore', () => {
       expect(getState().user).toEqual(fakeUser);
       expect(getState().setupRequired).toBe(false);
       expect(mockSetAccessToken).toHaveBeenCalledWith('token123');
+      expect(mockBindCacheOwner).toHaveBeenCalledWith({ userId: '1', familyId: 'f1' });
+    });
+
+    it('clears both caches when the session is rejected', async () => {
+      mockGetHealth.mockResolvedValue({ status: 'ok', setupRequired: false });
+      mockAuthRefresh.mockRejectedValue(new ApiError(401, 'Unauthorized'));
+      await act(async () => {
+        await getState().checkAuth();
+      });
+      expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: false });
+    });
+
+    it('keeps the persisted cache on a network failure but still clears memory', async () => {
+      mockGetHealth.mockResolvedValue({ status: 'ok', setupRequired: false });
+      mockAuthRefresh.mockRejectedValue(new TypeError('Failed to fetch'));
+      await act(async () => {
+        await getState().checkAuth();
+      });
+      expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: true });
+    });
+
+    it('binds the cache before marking the user authenticated', async () => {
+      mockGetHealth.mockResolvedValue({ status: 'ok', setupRequired: false });
+      mockAuthRefresh.mockResolvedValue({ user: { id: '1', familyId: 'f1' }, accessToken: 't' });
+      let authedWhenBinding: boolean | undefined;
+      mockBindCacheOwner.mockImplementation(async () => {
+        authedWhenBinding = getState().isAuthenticated;
+      });
+      await act(async () => {
+        await getState().checkAuth();
+      });
+      expect(authedWhenBinding).toBe(false);
+      expect(getState().isAuthenticated).toBe(true);
     });
 
     it('falls through to auth check when health check fails', async () => {
@@ -113,6 +171,7 @@ describe('authStore', () => {
         theme: 'light' as const,
         homeView: 'today' as const,
         dietaryPreferences: [],
+        familyId: 'f1',
       };
       mockAuthRefresh.mockResolvedValue({ user: fakeUser, accessToken: 'token123' });
       await act(async () => {
@@ -144,6 +203,7 @@ describe('authStore', () => {
         theme: 'light' as const,
         homeView: 'today' as const,
         dietaryPreferences: [],
+        familyId: 'f1',
       };
       mockAuthLogin.mockResolvedValue({ user: fakeUser, accessToken: 'tok' });
       await act(async () => {
@@ -152,6 +212,7 @@ describe('authStore', () => {
       expect(getState().user).toEqual(fakeUser);
       expect(getState().isAuthenticated).toBe(true);
       expect(mockSetAccessToken).toHaveBeenCalledWith('tok');
+      expect(mockBindCacheOwner).toHaveBeenCalledWith({ userId: 'u1', familyId: 'f1' });
     });
 
     it('propagates error when login fails', async () => {
@@ -185,6 +246,7 @@ describe('authStore', () => {
       expect(getState().user).toBeNull();
       expect(getState().isAuthenticated).toBe(false);
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+      expect(mockClearCache).toHaveBeenCalledWith();
     });
 
     it('still clears user even when logout API throws', async () => {
@@ -195,6 +257,7 @@ describe('authStore', () => {
       });
       expect(getState().isAuthenticated).toBe(false);
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+      expect(mockClearCache).toHaveBeenCalled();
     });
   });
 
