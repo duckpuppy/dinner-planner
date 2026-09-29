@@ -38,6 +38,7 @@ import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
 import { APP_VERSION } from './version.js';
+import { cacheControlFor } from './staticCacheHeaders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -158,11 +159,7 @@ if (config.NODE_ENV === 'production') {
     root: webDistPath,
     prefix: '/',
     setHeaders: (reply, filePath) => {
-      if (filePath.endsWith('index.html')) {
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-      } else {
-        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
-      }
+      reply.header('Cache-Control', cacheControlFor(filePath, webDistPath));
     },
   });
 
