@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { ApiError, auth as authApi, getHealth, setAccessToken, type User } from '@/lib/api';
+import {
+  ApiError,
+  auth as authApi,
+  getHealth,
+  onSessionExpired,
+  onSessionRefreshed,
+  setAccessToken,
+  type User,
+} from '@/lib/api';
 import { bindCacheOwner, clearCache } from '@/lib/queryPersistence';
 
 interface AuthState {
@@ -82,3 +90,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ setupRequired: false });
   },
 }));
+
+// Silent refresh (api.ts) can outlive the state this store last saw: the user may have been
+// moved to another family, or the session may have died. Keep the store and cache owner in sync.
+onSessionRefreshed(async (user) => {
+  const current = useAuthStore.getState();
+  if (!current.isAuthenticated || !current.user) return;
+  if (current.user.id !== user.id || current.user.familyId !== user.familyId) {
+    // Owner change: resets in-memory queries and deletes the persisted cache.
+    await bindCacheOwner(ownerOf(user));
+    // Logout may have happened while we awaited.
+    if (!useAuthStore.getState().isAuthenticated) return;
+  }
+  useAuthStore.setState({ user });
+});
+
+onSessionExpired(async () => {
+  if (!useAuthStore.getState().isAuthenticated) return;
+  await clearCache();
+  useAuthStore.setState({ user: null, isAuthenticated: false });
+});

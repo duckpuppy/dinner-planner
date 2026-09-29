@@ -9,6 +9,7 @@ const {
   mockSetAccessToken,
   mockBindCacheOwner,
   mockClearCache,
+  sessionListeners,
 } = vi.hoisted(() => ({
   mockGetHealth: vi.fn(),
   mockAuthRefresh: vi.fn(),
@@ -17,6 +18,10 @@ const {
   mockSetAccessToken: vi.fn(),
   mockBindCacheOwner: vi.fn(),
   mockClearCache: vi.fn(),
+  sessionListeners: {
+    refreshed: null as ((user: unknown) => Promise<void> | void) | null,
+    expired: null as (() => Promise<void> | void) | null,
+  },
 }));
 
 vi.mock('@/lib/queryPersistence', () => ({
@@ -34,6 +39,14 @@ vi.mock('@/lib/api', () => ({
   },
   getHealth: mockGetHealth,
   setAccessToken: mockSetAccessToken,
+  onSessionRefreshed: (l: (user: unknown) => Promise<void> | void) => {
+    sessionListeners.refreshed = l;
+    return () => {};
+  },
+  onSessionExpired: (l: () => Promise<void> | void) => {
+    sessionListeners.expired = l;
+    return () => {};
+  },
   auth: {
     refresh: mockAuthRefresh,
     login: mockAuthLogin,
@@ -286,6 +299,75 @@ describe('authStore', () => {
         getState().updateUser({ displayName: 'Alice' });
       });
       expect(getState().user).toBeNull();
+    });
+  });
+
+  describe('session events from silent refresh', () => {
+    const baseUser = {
+      id: '1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: 'admin' as const,
+      theme: 'light' as const,
+      homeView: 'today' as const,
+      dietaryPreferences: [],
+      familyId: 'f1',
+    };
+
+    function signIn() {
+      useAuthStore.setState({ user: baseUser as never, isAuthenticated: true });
+    }
+
+    it('rebinds the cache owner and updates the user when the family changed', async () => {
+      signIn();
+      const moved = { ...baseUser, familyId: 'f2' };
+      await sessionListeners.refreshed!(moved);
+      expect(mockBindCacheOwner).toHaveBeenCalledWith({ userId: '1', familyId: 'f2' });
+      expect(getState().user).toEqual(moved);
+    });
+
+    it('rebinds the cache owner when the user id changed', async () => {
+      signIn();
+      await sessionListeners.refreshed!({ ...baseUser, id: '2' });
+      expect(mockBindCacheOwner).toHaveBeenCalledWith({ userId: '2', familyId: 'f1' });
+    });
+
+    it('updates user fields without rebinding when the owner is unchanged', async () => {
+      signIn();
+      await sessionListeners.refreshed!({ ...baseUser, displayName: 'Renamed', role: 'member' });
+      expect(mockBindCacheOwner).not.toHaveBeenCalled();
+      expect(getState().user?.displayName).toBe('Renamed');
+      expect(getState().user?.role).toBe('member');
+    });
+
+    it('ignores a refreshed event while logged out', async () => {
+      await sessionListeners.refreshed!({ ...baseUser, familyId: 'f2' });
+      expect(mockBindCacheOwner).not.toHaveBeenCalled();
+      expect(getState().user).toBeNull();
+    });
+
+    it('does not resurrect the user if logout happens while rebinding', async () => {
+      signIn();
+      mockBindCacheOwner.mockImplementation(async () => {
+        useAuthStore.setState({ user: null, isAuthenticated: false });
+      });
+      await sessionListeners.refreshed!({ ...baseUser, familyId: 'f2' });
+      expect(getState().user).toBeNull();
+      expect(getState().isAuthenticated).toBe(false);
+    });
+
+    it('logs out and clears the cache when the session expires', async () => {
+      signIn();
+      await sessionListeners.expired!();
+      expect(mockClearCache).toHaveBeenCalledWith();
+      expect(mockAuthLogout).not.toHaveBeenCalled();
+      expect(getState().isAuthenticated).toBe(false);
+      expect(getState().user).toBeNull();
+    });
+
+    it('ignores an expired event while logged out', async () => {
+      await sessionListeners.expired!();
+      expect(mockClearCache).not.toHaveBeenCalled();
     });
   });
 });
