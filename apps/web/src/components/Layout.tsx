@@ -47,7 +47,12 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+// Plain semver => a release build (shown as "v1.2.3"); anything else
+// (testing-<sha>, 1.2.3-dev, android-<sha>) is shown raw and highlighted.
+const RELEASE_VERSION_RE = /^\d+\.\d+\.\d+$/;
+
 export function Layout({ children }: LayoutProps) {
+  const isReleaseVersion = RELEASE_VERSION_RE.test(__APP_VERSION__);
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const isSuperAdmin = !!user?.isSuperAdmin;
@@ -180,8 +185,14 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Version */}
         {!collapsed && (
-          <div className="px-4 py-1 text-xs text-muted-foreground/50 select-none">
-            v{__APP_VERSION__}
+          <div
+            className={cn(
+              'px-4 py-1 text-xs select-none',
+              isReleaseVersion ? 'text-muted-foreground/50' : 'text-amber-600 dark:text-amber-400'
+            )}
+            data-testid="app-version"
+          >
+            {isReleaseVersion ? `v${__APP_VERSION__}` : __APP_VERSION__}
           </div>
         )}
 
