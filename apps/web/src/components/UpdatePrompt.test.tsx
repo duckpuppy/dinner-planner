@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { UpdatePrompt, UPDATE_CHECK_INTERVAL_MS } from './UpdatePrompt';
+import { DEPLOY_POLL_INTERVAL_MS } from '@/hooks/useDeployDetection';
 
 type RegisterOptions = {
   onRegisteredSW?: (url: string, registration: ServiceWorkerRegistration | undefined) => void;
@@ -8,12 +9,37 @@ type RegisterOptions = {
 
 const mockUpdateServiceWorker = vi.fn();
 const mockUseRegisterSW = vi.fn();
+const mockIsNativePlatform = vi.fn();
+const mockFetch = vi.fn();
+const mockReload = vi.fn();
+let instanceId = 'inst-1';
 let needRefresh = false;
 let capturedOptions: RegisterOptions | undefined;
 
 vi.mock('virtual:pwa-register/react', () => ({
   useRegisterSW: (options?: RegisterOptions) => mockUseRegisterSW(options),
 }));
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { isNativePlatform: () => mockIsNativePlatform() },
+}));
+
+function setServiceWorkerSupport(supported: boolean) {
+  if (supported) {
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {} });
+  } else {
+    delete (navigator as unknown as Record<string, unknown>).serviceWorker;
+  }
+}
+
+/** Flush pending promises (fetch + json) under fake timers. */
+async function flush() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
 
 function makeRegistration() {
   const update = vi.fn().mockResolvedValue(undefined);
@@ -29,6 +55,14 @@ beforeEach(() => {
   vi.useFakeTimers();
   needRefresh = false;
   capturedOptions = undefined;
+  instanceId = 'inst-1';
+  setServiceWorkerSupport(true);
+  mockIsNativePlatform.mockReturnValue(false);
+  mockFetch.mockImplementation(() =>
+    Promise.resolve({ ok: true, json: () => Promise.resolve({ instanceId }) })
+  );
+  vi.stubGlobal('fetch', mockFetch);
+  vi.stubGlobal('location', { ...window.location, reload: mockReload });
   mockUseRegisterSW.mockImplementation((options?: RegisterOptions) => {
     capturedOptions = options;
     return {
@@ -42,7 +76,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
+  setServiceWorkerSupport(false);
   setVisibility('visible');
 });
 
@@ -139,5 +175,115 @@ describe('UpdatePrompt', () => {
       setVisibility('visible');
     });
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('UpdatePrompt deploy detection', () => {
+  async function renderRegistered() {
+    const { registration, update } = makeRegistration();
+    render(<UpdatePrompt />);
+    act(() => capturedOptions?.onRegisteredSW?.('/sw.js', registration));
+    await flush(); // baseline health check
+    return update;
+  }
+
+  async function deployAndPoll(newId: string) {
+    instanceId = newId;
+    await act(async () => {
+      vi.advanceTimersByTime(DEPLOY_POLL_INTERVAL_MS);
+    });
+    await flush();
+  }
+
+  it('does nothing when instanceId is unchanged', async () => {
+    const update = await renderRegistered();
+    await deployAndPoll('inst-1');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(update).not.toHaveBeenCalled();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('checks the service worker (no reload, no toast) when instanceId changes', async () => {
+    const update = await renderRegistered();
+    await deployAndPoll('inst-2');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(mockReload).not.toHaveBeenCalled();
+    // banner only appears once the SW reports needRefresh
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('detects a second deploy after the first', async () => {
+    const update = await renderRegistered();
+    await deployAndPoll('inst-2');
+    await deployAndPoll('inst-2');
+    expect(update).toHaveBeenCalledTimes(1);
+    await deployAndPoll('inst-3');
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays silent on network errors and keeps polling', async () => {
+    const update = await renderRegistered();
+    mockFetch.mockRejectedValueOnce(new Error('offline'));
+    await deployAndPoll('inst-1');
+    await deployAndPoll('inst-2');
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('pauses polling while hidden and checks immediately when visible', async () => {
+    await renderRegistered();
+    act(() => setVisibility('hidden'));
+    mockFetch.mockClear();
+    await act(async () => {
+      vi.advanceTimersByTime(DEPLOY_POLL_INTERVAL_MS * 5);
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    act(() => setVisibility('visible'));
+    await flush();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops polling on unmount', async () => {
+    const { registration } = makeRegistration();
+    const { unmount } = render(<UpdatePrompt />);
+    act(() => capturedOptions?.onRegisteredSW?.('/sw.js', registration));
+    await flush();
+    unmount();
+    mockFetch.mockClear();
+    await act(async () => {
+      vi.advanceTimersByTime(DEPLOY_POLL_INTERVAL_MS * 3);
+      setVisibility('visible');
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  describe('without a service worker', () => {
+    beforeEach(() => setServiceWorkerSupport(false));
+
+    it('shows a reload banner on deploy and reloads the page', async () => {
+      render(<UpdatePrompt />);
+      await flush();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      await deployAndPoll('inst-2');
+      expect(screen.getByRole('status')).toHaveTextContent('A new version is available');
+      fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+      expect(mockReload).toHaveBeenCalledTimes(1);
+      expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('on Capacitor native', () => {
+    beforeEach(() => {
+      mockIsNativePlatform.mockReturnValue(true);
+      setServiceWorkerSupport(false);
+    });
+
+    it('shows nothing and does not poll', async () => {
+      const { container } = render(<UpdatePrompt />);
+      await flush();
+      await deployAndPoll('inst-2');
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(container.firstChild).toBeNull();
+    });
   });
 });

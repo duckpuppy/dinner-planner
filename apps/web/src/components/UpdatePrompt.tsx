@@ -1,6 +1,8 @@
 import { RefreshCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useDeployDetection } from '@/hooks/useDeployDetection';
 
 /** How often long-lived tabs / installed PWAs ask the browser to re-fetch sw.js. */
 export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -28,14 +30,24 @@ function startUpdateChecks(registration: ServiceWorkerRegistration): () => void 
 }
 
 /**
- * Registers the service worker (registerType: 'prompt') and shows a non-blocking banner
- * when a new build is waiting. No-op where service workers are unavailable (e.g. some
- * Capacitor WebViews): the plugin only registers when `navigator.serviceWorker` exists.
+ * The single "new version" UX. Registers the service worker (registerType: 'prompt') and
+ * shows a non-blocking banner when a new build is waiting.
+ *
+ * Deploy detection: /health `instanceId` polling is a fast hint that triggers
+ * `registration.update()`; the banner only appears if a new SW is actually waiting, so plain
+ * container restarts stay silent. Without a service worker (plain browser, unsupported
+ * context) a page reload loads the new bundle, so the same banner offers a reload instead.
+ * On Capacitor native the web assets are bundled in the APK, so nothing is shown.
  */
 export function UpdatePrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const teardownRef = useRef<(() => void) | null>(null);
   const unmountedRef = useRef(false);
   const [dismissed, setDismissed] = useState(false);
+  const [reloadNeeded, setReloadNeeded] = useState(false);
+
+  const isNative = Capacitor.isNativePlatform();
+  const hasServiceWorker = 'serviceWorker' in navigator;
 
   const {
     needRefresh: [needRefresh],
@@ -43,9 +55,19 @@ export function UpdatePrompt() {
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
       if (!registration || unmountedRef.current || teardownRef.current) return;
+      registrationRef.current = registration;
       teardownRef.current = startUpdateChecks(registration);
     },
   });
+
+  useDeployDetection(() => {
+    setDismissed(false);
+    if (hasServiceWorker) {
+      registrationRef.current?.update().catch(() => undefined);
+    } else {
+      setReloadNeeded(true);
+    }
+  }, !isNative);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -53,10 +75,20 @@ export function UpdatePrompt() {
       unmountedRef.current = true;
       teardownRef.current?.();
       teardownRef.current = null;
+      registrationRef.current = null;
     };
   }, []);
 
-  if (!needRefresh || dismissed) return null;
+  const show = hasServiceWorker ? needRefresh : reloadNeeded;
+  if (isNative || !show || dismissed) return null;
+
+  const handleReload = () => {
+    if (hasServiceWorker) {
+      void updateServiceWorker(true);
+    } else {
+      window.location.reload();
+    }
+  };
 
   return (
     <div
@@ -76,7 +108,7 @@ export function UpdatePrompt() {
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              onClick={() => void updateServiceWorker(true)}
+              onClick={handleReload}
               className="flex-1 px-3 py-2.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Reload
