@@ -1049,7 +1049,11 @@ export const pantry = {
 };
 
 // Health / Setup API
-export async function getHealth(): Promise<{ status: string; setupRequired: boolean }> {
+export async function getHealth(): Promise<{
+  status: string;
+  setupRequired: boolean;
+  version?: string;
+}> {
   const response = await fetch('/health');
   if (!response.ok) throw new Error('Health check failed');
   return response.json();

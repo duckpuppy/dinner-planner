@@ -45,6 +45,31 @@ function renderLayout(content?: React.ReactNode) {
   );
 }
 
+describe('Layout version label', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('prefixes plain semver release versions with v and uses the muted style', () => {
+    vi.stubGlobal('__APP_VERSION__', '1.19.0');
+    renderLayout();
+    const el = screen.getByTestId('app-version');
+    expect(el.textContent).toBe('v1.19.0');
+    expect(el.className).not.toContain('amber');
+  });
+
+  it.each(['testing-abc1234', '1.18.1-dev', 'android-abc1234'])(
+    'renders non-release version %s raw with the amber style',
+    (version) => {
+      vi.stubGlobal('__APP_VERSION__', version);
+      renderLayout();
+      const el = screen.getByTestId('app-version');
+      expect(el.textContent).toBe(version);
+      expect(el.className).toContain('amber');
+    }
+  );
+});
+
 describe('Layout', () => {
   describe('rendering', () => {
     it('renders the Dinner Planner title in sidebar', () => {

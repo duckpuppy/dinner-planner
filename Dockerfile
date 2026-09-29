@@ -20,6 +20,12 @@ RUN pnpm install --frozen-lockfile
 # Copy source files
 COPY . .
 
+# Build identifier baked into the web bundle (vite reads APP_VERSION) and the
+# runtime image. Declared late so a changing value only busts the build layer,
+# not `pnpm install`. Empty => vite falls back to "<package version>-dev".
+ARG APP_VERSION=""
+ENV APP_VERSION=$APP_VERSION
+
 # Build all packages
 RUN pnpm build
 
@@ -82,6 +88,8 @@ RUN mkdir -p /app/data /app/data/videos /app/data/uploads && \
 
 USER dinner-planner
 
+ARG APP_VERSION=""
+ENV APP_VERSION=$APP_VERSION
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0

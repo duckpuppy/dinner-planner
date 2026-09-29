@@ -3,9 +3,11 @@ import { CACHE_MAX_AGE, queryClient } from './queryClient';
 
 export const CACHE_KEY = 'dinner-planner-query-cache';
 
-// TODO(dinner-1hs): switch to `__APP_VERSION__` once a build-identifying version lands.
-// Bump this manually whenever the shape of cached query data changes.
-export const CACHE_VERSION = '1';
+// Every build (testing-<sha>, release semver) discards the persisted cache, so a new
+// bundle never hydrates data cached by an older one. Bump CACHE_SCHEMA when the shape of
+// cached data changes; it still matters in local dev, where __APP_VERSION__ is a constant.
+const CACHE_SCHEMA = '1';
+export const CACHE_VERSION = `${CACHE_SCHEMA}:${__APP_VERSION__}`;
 
 const SAVE_DEBOUNCE_MS = 1000;
 

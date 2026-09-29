@@ -38,7 +38,9 @@ jobs:
         run: pnpm --filter @dinner-planner/shared build
 
       - name: Build web app
-        run: pnpm --filter @dinner-planner/web build
+        # Not a release: distinguishable from semver, mirrors testing-<sha>
+        run: |
+          APP_VERSION="android-${GITHUB_SHA::7}" pnpm --filter @dinner-planner/web build
         env:
           NODE_ENV: production
 

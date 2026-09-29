@@ -9,7 +9,7 @@ const { version } = require('../../package.json') as { version: string };
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(version),
+    __APP_VERSION__: JSON.stringify(process.env.APP_VERSION || `${version}-dev`),
   },
   plugins: [
     react(),
