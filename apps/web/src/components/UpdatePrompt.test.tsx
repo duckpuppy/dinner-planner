@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
-import { UpdatePrompt, UPDATE_CHECK_INTERVAL_MS } from './UpdatePrompt';
+import { UpdatePrompt, UPDATE_CHECK_INTERVAL_MS, RELOAD_FALLBACK_MS } from './UpdatePrompt';
 import { DEPLOY_POLL_INTERVAL_MS } from '@/hooks/useDeployDetection';
 
 type RegisterOptions = {
@@ -26,7 +26,10 @@ vi.mock('@capacitor/core', () => ({
 
 function setServiceWorkerSupport(supported: boolean) {
   if (supported) {
-    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {} });
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: new EventTarget(),
+    });
   } else {
     delete (navigator as unknown as Record<string, unknown>).serviceWorker;
   }
@@ -100,6 +103,68 @@ describe('UpdatePrompt', () => {
     render(<UpdatePrompt />);
     fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
     expect(mockUpdateServiceWorker).toHaveBeenCalledWith(true);
+  });
+
+  describe('Reload click (service worker path)', () => {
+    function clickReload() {
+      needRefresh = true;
+      const view = render(<UpdatePrompt />);
+      fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+      return view;
+    }
+
+    it('disables the button and shows Reloading...', () => {
+      clickReload();
+      const button = screen.getByRole('button', { name: 'Reloading…' });
+      expect(button).toBeDisabled();
+      expect(mockUpdateServiceWorker).toHaveBeenCalledWith(true);
+    });
+
+    it('ignores repeat clicks', () => {
+      clickReload();
+      fireEvent.click(screen.getByRole('button', { name: 'Reloading…' }));
+      expect(mockUpdateServiceWorker).toHaveBeenCalledTimes(1);
+    });
+
+    it('reloads exactly once on controllerchange', () => {
+      clickReload();
+      act(() => {
+        navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+        navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+      });
+      expect(mockReload).toHaveBeenCalledTimes(1);
+    });
+
+    it('reloads after the fallback delay when no controllerchange fires', () => {
+      clickReload();
+      act(() => {
+        vi.advanceTimersByTime(RELOAD_FALLBACK_MS - 1);
+      });
+      expect(mockReload).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(mockReload).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not reload twice when the timer fires after controllerchange', () => {
+      clickReload();
+      act(() => {
+        navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+        vi.advanceTimersByTime(RELOAD_FALLBACK_MS * 2);
+      });
+      expect(mockReload).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears the timer and listener on unmount', () => {
+      const { unmount } = clickReload();
+      unmount();
+      act(() => {
+        navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+        vi.advanceTimersByTime(RELOAD_FALLBACK_MS * 2);
+      });
+      expect(mockReload).not.toHaveBeenCalled();
+    });
   });
 
   it('dismiss hides the banner', () => {
