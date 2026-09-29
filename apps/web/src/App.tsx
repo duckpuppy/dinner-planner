@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useOfflineSync } from './hooks/useOfflineSync';
-import { useVersionCheck } from './hooks/useVersionCheck';
 import { Toaster } from 'sonner';
 import { Layout } from './components/Layout';
 import { useAuthStore } from './stores/auth';
@@ -31,6 +30,7 @@ import { AdminHealthPage } from './pages/AdminHealthPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
+import { UpdatePrompt } from './components/UpdatePrompt';
 
 function LoadingScreen() {
   return (
@@ -66,10 +66,18 @@ function SuperAdminGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  return (
+    <>
+      <AppContent />
+      <UpdatePrompt />
+    </>
+  );
+}
+
+function AppContent() {
   const { isAuthenticated, isLoading, setupRequired, checkAuth, user } = useAuthStore();
   const initTheme = useThemeStore((s) => s.initTheme);
   useOfflineSync();
-  useVersionCheck();
 
   useEffect(() => {
     checkAuth();
