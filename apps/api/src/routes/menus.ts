@@ -3,7 +3,7 @@ import { updateDinnerEntrySchema, createPreparationSchema } from '@dinner-planne
 import * as menusService from '../services/menus.js';
 import * as groceriesService from '../services/groceries.js';
 import { getCustomItemsForWeek } from '../services/customGroceries.js';
-import { getCheckedKeys } from '../services/groceryChecks.js';
+import { getCheckedKeys, getChecks } from '../services/groceryChecks.js';
 import { listStandingItems } from '../services/standingItems.js';
 import { z } from 'zod';
 
@@ -68,8 +68,9 @@ export async function menusRoutes(fastify: FastifyInstance) {
       );
       const customItems = await getCustomItemsForWeek(result.weekStartDate, request.user.familyId);
       const checkedKeys = await getCheckedKeys(result.weekStartDate, request.user.familyId);
+      const checks = await getChecks(result.weekStartDate, request.user.familyId);
       const standingItems = await listStandingItems(request.user.familyId);
-      return reply.send({ ...result, customItems, checkedKeys, standingItems });
+      return reply.send({ ...result, customItems, checkedKeys, checks, standingItems });
     }
   );
 

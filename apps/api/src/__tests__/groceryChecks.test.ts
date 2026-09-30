@@ -1,191 +1,244 @@
 /**
- * Service unit tests for groceryChecks (mocked db).
+ * Service tests for groceryChecks against a real in-memory SQLite database
+ * (all migrations applied), so the last-write-wins SQL is actually exercised.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import * as schema from '../db/schema.js';
 
-// ============================================================
-// Mock db before importing services
-// ============================================================
+const holder = vi.hoisted(() => ({ db: null as unknown }));
 
-const mockDb = vi.hoisted(() => ({
-  select: vi.fn(),
-  insert: vi.fn(),
-  delete: vi.fn(),
-}));
-
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn().mockReturnValue(null),
-  and: vi.fn().mockReturnValue(null),
-}));
-
-vi.mock('../db/index.js', () => ({
-  db: mockDb,
-  schema: {
-    groceryChecks: {
-      weekDate: null,
-      itemKey: null,
-      itemName: null,
-      checkedByUserId: null,
-      checkedAt: null,
+vi.mock('../db/index.js', async () => {
+  const actualSchema = await import('../db/schema.js');
+  return {
+    schema: actualSchema,
+    get db() {
+      return holder.db;
     },
-  },
-}));
-
-import { getCheckedKeys, toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
-
-// --- Chain helpers ---
-
-function selFrom(result: unknown[]) {
-  return {
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(result),
-    }),
   };
-}
+});
 
-function makeInsert() {
-  return { values: vi.fn().mockResolvedValue(undefined) };
-}
+import {
+  getChecks,
+  getCheckedKeys,
+  setCheck,
+  toggleCheck,
+  clearChecks,
+  clearAllChecks,
+} from '../services/groceryChecks.js';
 
-function makeDelete() {
-  return { where: vi.fn().mockResolvedValue(undefined) };
-}
+const WEEK = '2026-02-24';
+const NOW = 1_800_000_000_000;
 
-// --- Fixtures ---
+let sqlite: Database.Database;
+let testDb: ReturnType<typeof drizzle<typeof schema>>;
 
-function makeCheckRow(overrides: Record<string, unknown> = {}) {
-  return {
-    weekDate: '2026-02-24',
-    itemKey: 'flour::cup',
-    itemName: 'Flour',
-    checkedByUserId: 'user-1',
-    checkedAt: '2026-02-24T10:00:00.000Z',
-    ...overrides,
-  };
-}
+beforeAll(() => {
+  sqlite = new Database(':memory:');
+  sqlite.pragma('foreign_keys = OFF');
+  testDb = drizzle(sqlite, { schema });
+  migrate(testDb, { migrationsFolder: './drizzle' });
+  sqlite.pragma('foreign_keys = ON');
+  holder.db = testDb;
+});
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  mockDb.insert.mockReturnValue(makeInsert());
-  mockDb.delete.mockReturnValue(makeDelete());
+  vi.useFakeTimers();
+  vi.setSystemTime(NOW);
+  sqlite.exec('DELETE FROM grocery_checks; DELETE FROM users; DELETE FROM families;');
+  for (const f of ['fam-a', 'fam-b']) {
+    testDb.insert(schema.families).values({ id: f, name: f }).run();
+  }
+  const mk = (id: string, name: string, familyId: string) =>
+    testDb
+      .insert(schema.users)
+      .values({ id, username: id, displayName: name, passwordHash: 'x', familyId })
+      .run();
+  mk('u1', 'Alice', 'fam-a');
+  mk('u2', 'Bob', 'fam-a');
+  mk('u3', 'Carol', 'fam-b');
 });
 
-// ===========================================================================
-// getCheckedKeys
-// ===========================================================================
-
-describe('getCheckedKeys', () => {
-  it('returns empty array when no checks exist', async () => {
-    mockDb.select.mockReturnValueOnce(selFrom([]));
-    const result = await getCheckedKeys('2026-02-24');
-    expect(result).toEqual([]);
-  });
-
-  it('returns array of itemKey strings', async () => {
-    const row1 = makeCheckRow({ itemKey: 'flour::cup' });
-    const row2 = makeCheckRow({ itemKey: 'eggs::' });
-    mockDb.select.mockReturnValueOnce(selFrom([row1, row2]));
-
-    const result = await getCheckedKeys('2026-02-24');
-    expect(result).toEqual(['flour::cup', 'eggs::']);
-  });
-
-  it('returns only itemKey field (not full row)', async () => {
-    const row = makeCheckRow();
-    mockDb.select.mockReturnValueOnce(selFrom([row]));
-
-    const result = await getCheckedKeys('2026-02-24');
-    expect(result).toHaveLength(1);
-    expect(typeof result[0]).toBe('string');
-  });
+afterEach(() => {
+  vi.useRealTimers();
 });
 
-// ===========================================================================
-// toggleCheck
-// ===========================================================================
-
-describe('toggleCheck', () => {
-  it('inserts and returns true when no existing row', async () => {
-    // select returns empty (no existing check)
-    mockDb.select.mockReturnValueOnce(selFrom([]));
-
-    const result = await toggleCheck('2026-02-24', 'flour::cup', 'Flour', 'user-1');
-
-    expect(result).toBe(true);
-    expect(mockDb.insert).toHaveBeenCalledOnce();
-    expect(mockDb.delete).not.toHaveBeenCalled();
+const put = (over: Partial<Parameters<typeof setCheck>[0]> = {}): ReturnType<typeof setCheck> =>
+  setCheck({
+    weekDate: WEEK,
+    itemKey: 'flour::cup',
+    itemName: 'Flour',
+    checked: true,
+    clientUpdatedAt: NOW - 1000,
+    userId: 'u1',
+    familyId: 'fam-a',
+    ...over,
   });
 
-  it('deletes and returns false when row already exists', async () => {
-    const existing = makeCheckRow();
-    mockDb.select.mockReturnValueOnce(selFrom([existing]));
-
-    const result = await toggleCheck('2026-02-24', 'flour::cup', 'Flour', 'user-1');
-
-    expect(result).toBe(false);
-    expect(mockDb.delete).toHaveBeenCalledOnce();
-    expect(mockDb.insert).not.toHaveBeenCalled();
-  });
-
-  it('inserts with correct values', async () => {
-    mockDb.select.mockReturnValueOnce(selFrom([]));
-    const insertValues = vi.fn().mockResolvedValue(undefined);
-    mockDb.insert.mockReturnValueOnce({ values: insertValues });
-
-    await toggleCheck('2026-02-24', 'flour::cup', 'Flour', 'user-42');
-
-    expect(insertValues).toHaveBeenCalledWith({
-      weekDate: '2026-02-24',
+describe('setCheck (last-write-wins)', () => {
+  it('inserts a new check and returns the winning row', async () => {
+    const r = await put();
+    expect(r.changed).toBe(true);
+    expect(r.check).toEqual({
       itemKey: 'flour::cup',
-      itemName: 'Flour',
-      checkedByUserId: 'user-42',
+      checked: true,
+      updatedAt: NOW - 1000,
+      checkedBy: { id: 'u1', displayName: 'Alice' },
     });
   });
 
-  it('check-uncheck-check cycle works correctly', async () => {
-    // First toggle: no existing → insert → returns true
-    mockDb.select.mockReturnValueOnce(selFrom([]));
-    const first = await toggleCheck('2026-02-24', 'eggs::', 'Eggs', 'user-1');
-    expect(first).toBe(true);
+  it('ignores an older timestamp and returns the existing winner', async () => {
+    await put({ checked: true, clientUpdatedAt: NOW - 1000, userId: 'u1' });
+    const r = await put({ checked: false, clientUpdatedAt: NOW - 5000, userId: 'u2' });
+    expect(r.changed).toBe(false);
+    expect(r.check.checked).toBe(true);
+    expect(r.check.updatedAt).toBe(NOW - 1000);
+    expect(r.check.checkedBy?.id).toBe('u1');
+  });
 
-    // Second toggle: existing → delete → returns false
-    mockDb.select.mockReturnValueOnce(selFrom([makeCheckRow({ itemKey: 'eggs::' })]));
-    const second = await toggleCheck('2026-02-24', 'eggs::', 'Eggs', 'user-1');
-    expect(second).toBe(false);
+  it('ignores an equal timestamp (strictly newer wins)', async () => {
+    await put({ clientUpdatedAt: NOW - 1000 });
+    const r = await put({ checked: false, clientUpdatedAt: NOW - 1000, userId: 'u2' });
+    expect(r.changed).toBe(false);
+    expect(r.check.checked).toBe(true);
+  });
 
-    // Third toggle: no existing → insert → returns true
-    mockDb.select.mockReturnValueOnce(selFrom([]));
-    const third = await toggleCheck('2026-02-24', 'eggs::', 'Eggs', 'user-1');
-    expect(third).toBe(true);
+  it('a newer write wins and records the caller', async () => {
+    await put({ clientUpdatedAt: NOW - 5000 });
+    const r = await put({ checked: false, clientUpdatedAt: NOW - 1000, userId: 'u2' });
+    expect(r.changed).toBe(true);
+    expect(r.check).toMatchObject({ checked: false, checkedBy: { id: 'u2', displayName: 'Bob' } });
+  });
+
+  it('is idempotent when replayed', async () => {
+    await put();
+    const r = await put();
+    expect(r.changed).toBe(false);
+    expect((await getChecks(WEEK, 'fam-a')).length).toBe(1);
+  });
+
+  it('clamps a future timestamp to server time', async () => {
+    const r = await put({ clientUpdatedAt: NOW + 10 * 60 * 60 * 1000 });
+    expect(r.check.updatedAt).toBe(NOW);
+    // a later honest write (after the server clock advances) still beats it
+    vi.setSystemTime(NOW + 1000);
+    const r2 = await put({ checked: false, clientUpdatedAt: NOW + 500, userId: 'u2' });
+    expect(r2.changed).toBe(true);
+    expect(r2.check.checked).toBe(false);
+  });
+
+  it('a legacy row (updated_at_ms=0) is superseded by any client write', async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO grocery_checks (family_id, week_date, item_key, item_name, checked_by_user_id)
+         VALUES ('fam-a', ?, 'legacy', 'Legacy', 'u1')`
+      )
+      .run(WEEK);
+    const before = await getChecks(WEEK, 'fam-a');
+    expect(before[0]).toMatchObject({ checked: true, updatedAt: 0 });
+    const r = await put({ itemKey: 'legacy', checked: false, clientUpdatedAt: 1 });
+    expect(r.changed).toBe(true);
+    expect(r.check.checked).toBe(false);
   });
 });
 
-// ===========================================================================
-// clearAllChecks
-// ===========================================================================
-
-describe('clearAllChecks', () => {
-  it('calls delete with the given weekDate', async () => {
-    const deleteFn = vi.fn().mockResolvedValue(undefined);
-    mockDb.delete.mockReturnValueOnce({ where: deleteFn });
-
-    await clearAllChecks('2026-02-24');
-
-    expect(mockDb.delete).toHaveBeenCalledOnce();
-    expect(deleteFn).toHaveBeenCalledOnce();
+describe('clearChecks', () => {
+  it('a check made after the clear survives', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    await put({ itemKey: 'b', clientUpdatedAt: NOW - 1000 });
+    const cleared = await clearChecks(WEEK, NOW - 2000, 'fam-a');
+    expect(cleared).toBe(1);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual(['b']);
   });
 
-  it('resolves without error when no checks exist', async () => {
-    const deleteFn = vi.fn().mockResolvedValue(undefined);
-    mockDb.delete.mockReturnValueOnce({ where: deleteFn });
-
-    await expect(clearAllChecks('2026-02-24')).resolves.toBeUndefined();
+  it('a check then a later clear clears it', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    const cleared = await clearChecks(WEEK, NOW - 1000, 'fam-a');
+    expect(cleared).toBe(1);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
   });
 
-  it('resolves without error when checks exist', async () => {
-    const deleteFn = vi.fn().mockResolvedValue({ rowsAffected: 3 });
-    mockDb.delete.mockReturnValueOnce({ where: deleteFn });
+  it('a clear, then a replayed older check does not resurrect the item', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    await clearChecks(WEEK, NOW - 1000, 'fam-a');
+    const r = await put({ itemKey: 'a', clientUpdatedAt: NOW - 2000 });
+    expect(r.changed).toBe(false);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
+  });
 
-    await expect(clearAllChecks('2026-01-01')).resolves.toBeUndefined();
+  it('clamps a future clear timestamp', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    await clearChecks(WEEK, NOW + 99_999_999, 'fam-a');
+    const [c] = await getChecks(WEEK, 'fam-a');
+    expect(c.updatedAt).toBe(NOW);
+  });
+
+  it('only affects the given week', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    await put({ itemKey: 'a', weekDate: '2026-03-03', clientUpdatedAt: NOW - 3000 });
+    await clearChecks(WEEK, NOW - 1000, 'fam-a');
+    expect(await getCheckedKeys('2026-03-03', 'fam-a')).toEqual(['a']);
+  });
+});
+
+describe('legacy shims', () => {
+  it('toggleCheck checks, then unchecks leaving a tombstone', async () => {
+    expect(await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).toBe(true);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual(['k']);
+    expect(await toggleCheck(WEEK, 'k', 'K', 'u2', 'fam-a')).toBe(false);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
+    const checks = await getChecks(WEEK, 'fam-a');
+    expect(checks).toHaveLength(1);
+    expect(checks[0]).toMatchObject({ checked: false, checkedBy: { id: 'u2' } });
+    // toggles within the same millisecond still flip
+    expect(await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).toBe(true);
+  });
+
+  it('clearAllChecks turns rows into tombstones instead of deleting', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
+    await put({ itemKey: 'b', clientUpdatedAt: NOW - 2000 });
+    vi.setSystemTime(NOW + 10);
+    await clearAllChecks(WEEK, 'fam-a');
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
+    const checks = await getChecks(WEEK, 'fam-a');
+    expect(checks).toHaveLength(2);
+    expect(checks.every((c) => !c.checked && c.updatedAt === NOW + 10)).toBe(true);
+  });
+});
+
+describe('reads and family isolation', () => {
+  it('getChecks returns checkedBy and getCheckedKeys excludes tombstones', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000, userId: 'u1' });
+    await put({ itemKey: 'b', clientUpdatedAt: NOW - 3000, userId: 'u2' });
+    await put({ itemKey: 'b', checked: false, clientUpdatedAt: NOW - 1000, userId: 'u2' });
+    const checks = await getChecks(WEEK, 'fam-a');
+    expect(checks).toHaveLength(2);
+    expect(checks.find((c) => c.itemKey === 'a')).toEqual({
+      itemKey: 'a',
+      checked: true,
+      updatedAt: NOW - 3000,
+      checkedBy: { id: 'u1', displayName: 'Alice' },
+    });
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual(['a']);
+  });
+
+  it('families are isolated for writes, reads and clears', async () => {
+    await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000, userId: 'u1', familyId: 'fam-a' });
+    // same item key in another family is an independent row, even with an older timestamp
+    const r = await put({
+      itemKey: 'a',
+      clientUpdatedAt: NOW - 9000,
+      userId: 'u3',
+      familyId: 'fam-b',
+    });
+    expect(r.changed).toBe(true);
+    expect(await getCheckedKeys(WEEK, 'fam-b')).toEqual(['a']);
+
+    await clearChecks(WEEK, NOW - 1000, 'fam-b');
+    expect(await getCheckedKeys(WEEK, 'fam-b')).toEqual([]);
+    expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual(['a']);
+    expect((await getChecks(WEEK, 'fam-a'))[0].checkedBy?.id).toBe('u1');
   });
 });
