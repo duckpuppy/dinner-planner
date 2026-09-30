@@ -28,6 +28,8 @@ export interface AuthResult {
   };
   accessToken: string;
   refreshToken: string;
+  /** ISO timestamp at which the stored refresh token expires */
+  refreshExpiresAt: string;
 }
 
 /**
@@ -96,12 +98,20 @@ function calculateExpiry(duration: string): Date {
 }
 
 /**
+ * Refresh token lifetime (duration string) for the given client platform.
+ */
+export function getRefreshExpiry(native: boolean): string {
+  return native ? config.JWT_REFRESH_EXPIRY_NATIVE : config.JWT_REFRESH_EXPIRY;
+}
+
+/**
  * Authenticate a user and return tokens
  */
 export async function login(
   username: string,
   password: string,
-  signAccessToken: (payload: TokenPayload) => string
+  signAccessToken: (payload: TokenPayload) => string,
+  native = false
 ): Promise<AuthResult | null> {
   // Find user by username
   const user = await db.query.users.findFirst({
@@ -129,7 +139,7 @@ export async function login(
 
   const refreshToken = generateToken();
   const refreshTokenHash = hashToken(refreshToken);
-  const expiresAt = calculateExpiry(config.JWT_REFRESH_EXPIRY);
+  const expiresAt = calculateExpiry(getRefreshExpiry(native));
 
   // Store refresh token
   await db.insert(schema.refreshTokens).values({
@@ -155,6 +165,7 @@ export async function login(
     },
     accessToken,
     refreshToken,
+    refreshExpiresAt: expiresAt.toISOString(),
   };
 }
 
@@ -163,8 +174,13 @@ export async function login(
  */
 export async function refreshAccessToken(
   refreshToken: string,
-  signAccessToken: (payload: TokenPayload) => string
-): Promise<{ accessToken: string; user: AuthResult['user'] } | null> {
+  signAccessToken: (payload: TokenPayload) => string,
+  native = false
+): Promise<{
+  accessToken: string;
+  user: AuthResult['user'];
+  refreshExpiresAt: string;
+} | null> {
   const tokenHash = hashToken(refreshToken);
   const now = new Date().toISOString();
 
@@ -198,10 +214,19 @@ export async function refreshAccessToken(
     isSuperAdmin: user.isSuperAdmin,
   });
 
+  // Sliding expiry: every successful refresh extends the token's lifetime
+  // (no rotation — the token value stays the same).
+  const refreshExpiresAt = calculateExpiry(getRefreshExpiry(native)).toISOString();
+  await db
+    .update(schema.refreshTokens)
+    .set({ expiresAt: refreshExpiresAt })
+    .where(eq(schema.refreshTokens.id, storedToken.id));
+
   const familyName = await getFamilyName(user.familyId);
 
   return {
     accessToken,
+    refreshExpiresAt,
     user: {
       id: user.id,
       username: user.username,

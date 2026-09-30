@@ -14,6 +14,9 @@ export async function registerMediaStatic(fastify: FastifyInstance): Promise<voi
 
   const setHeaders = (reply: { header(name: string, value: string): unknown }) => {
     reply.header('Cache-Control', MEDIA_CACHE_CONTROL);
+    // Helmet defaults to same-origin, which blocks <img>/<video> from the native
+    // app's https://localhost origin. Media URLs are unguessable UUIDs.
+    reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
   };
 
   await fastify.register(fastifyStatic, {

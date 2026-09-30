@@ -11,6 +11,7 @@ import rateLimit from '@fastify/rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from './config.js';
+import { buildCorsOptions } from './cors.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
@@ -89,10 +90,7 @@ await fastify.register(helmet, {
     config.NODE_ENV === 'production' ? { directives: productionCspDirectives } : false,
 });
 
-await fastify.register(cors, {
-  origin: config.CORS_ORIGIN,
-  credentials: true,
-});
+await fastify.register(cors, buildCorsOptions(config.CORS_ORIGIN));
 
 await fastify.register(cookie);
 

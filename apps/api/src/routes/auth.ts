@@ -14,8 +14,29 @@ const REFRESH_COOKIE_OPTIONS = {
   secure: config.NODE_ENV === 'production',
   sameSite: 'strict' as const,
   path: '/api/auth',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };
+
+/**
+ * Cookie options with maxAge derived from the token's (sliding) expiry.
+ * @fastify/cookie's maxAge is in SECONDS (the old hardcoded value was in ms,
+ * making the cookie effectively never expire client-side).
+ */
+function refreshCookieOptions(refreshExpiresAt: string) {
+  return {
+    ...REFRESH_COOKIE_OPTIONS,
+    maxAge: Math.max(0, Math.floor((new Date(refreshExpiresAt).getTime() - Date.now()) / 1000)),
+  };
+}
+
+/**
+ * Native (Capacitor) clients send X-Client-Platform: native. They cannot rely on
+ * sameSite=strict cookies cross-origin, so the refresh token travels in the body.
+ */
+function isNativeClient(request: FastifyRequest): boolean {
+  return request.headers['x-client-platform'] === 'native';
+}
+
+const refreshBodySchema = z.object({ refreshToken: z.string().min(1) });
 
 const CLEAR_COOKIE_OPTIONS = {
   path: '/api/auth',
@@ -41,8 +62,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const { username, password } = parseResult.data;
 
-      const result = await authService.login(username, password, (payload) =>
-        fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
+      const native = isNativeClient(request);
+
+      const result = await authService.login(
+        username,
+        password,
+        (payload) => fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY }),
+        native
       );
 
       if (!result) {
@@ -56,8 +82,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Set refresh token as httpOnly cookie
-      reply.setCookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+      if (!native) {
+        // Web: refresh token as httpOnly cookie
+        reply.setCookie(
+          'refreshToken',
+          result.refreshToken,
+          refreshCookieOptions(result.refreshExpiresAt)
+        );
+      }
 
       void logEvent({
         level: 'info',
@@ -69,6 +101,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.send({
         user: result.user,
         accessToken: result.accessToken,
+        ...(native ? { refreshToken: result.refreshToken } : {}),
       });
     }
   );
@@ -81,7 +114,23 @@ export async function authRoutes(fastify: FastifyInstance) {
     '/api/auth/refresh',
     { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const refreshToken = request.cookies.refreshToken;
+      const native = isNativeClient(request);
+      let refreshToken: string | undefined;
+
+      if (native) {
+        if (request.body !== undefined && request.body !== null) {
+          const parsed = refreshBodySchema.safeParse(request.body);
+          if (!parsed.success) {
+            return reply.status(400).send({
+              error: 'Validation failed',
+              details: parsed.error.flatten().fieldErrors,
+            });
+          }
+          refreshToken = parsed.data.refreshToken;
+        }
+      } else {
+        refreshToken = request.cookies.refreshToken;
+      }
 
       if (!refreshToken) {
         return reply.status(401).send({
@@ -89,16 +138,29 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await authService.refreshAccessToken(refreshToken, (payload) =>
-        fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY })
+      const result = await authService.refreshAccessToken(
+        refreshToken,
+        (payload) => fastify.jwt.sign(payload, { expiresIn: config.JWT_ACCESS_EXPIRY }),
+        native
       );
 
       if (!result) {
-        // Clear invalid cookie
-        reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
+        if (!native) {
+          // Clear invalid cookie
+          reply.clearCookie('refreshToken', CLEAR_COOKIE_OPTIONS);
+        }
         return reply.status(401).send({
           error: 'Invalid or expired refresh token',
         });
+      }
+
+      if (!native) {
+        // Re-issue the cookie so its maxAge slides along with the DB expiry
+        reply.setCookie(
+          'refreshToken',
+          refreshToken,
+          refreshCookieOptions(result.refreshExpiresAt)
+        );
       }
 
       return reply.send({
@@ -113,6 +175,20 @@ export async function authRoutes(fastify: FastifyInstance) {
    * Invalidate refresh token and clear cookie
    */
   fastify.post('/api/auth/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (isNativeClient(request)) {
+      if (request.body !== undefined && request.body !== null) {
+        const parsed = refreshBodySchema.safeParse(request.body);
+        if (!parsed.success) {
+          return reply.status(400).send({
+            error: 'Validation failed',
+            details: parsed.error.flatten().fieldErrors,
+          });
+        }
+        await authService.logout(parsed.data.refreshToken);
+      }
+      return reply.send({ success: true });
+    }
+
     const refreshToken = request.cookies.refreshToken;
 
     if (refreshToken) {
