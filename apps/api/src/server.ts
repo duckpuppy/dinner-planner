@@ -39,6 +39,7 @@ import { seedAdmin } from './services/seed.js';
 import { productionCspDirectives } from './csp.js';
 import { APP_VERSION } from './version.js';
 import { cacheControlFor } from './staticCacheHeaders.js';
+import { registerMediaStatic } from './mediaStatic.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -110,19 +111,8 @@ if (config.NODE_ENV !== 'test') {
 // Register multipart (file uploads)
 await fastify.register(multipart);
 
-// Serve uploaded photos at /uploads/ (all environments)
-await fastify.register(fastifyStatic, {
-  root: join(__dirname, '../../data/uploads'),
-  prefix: '/uploads/',
-  decorateReply: false,
-});
-
-// Serve downloaded videos at /videos/
-await fastify.register(fastifyStatic, {
-  root: join(__dirname, '../../data/videos'),
-  prefix: '/videos/',
-  decorateReply: false,
-});
+// Serve uploaded photos (/uploads/) and videos (/videos/) from the data volume
+await registerMediaStatic(fastify);
 
 // Register auth middleware (must be after jwt)
 await fastify.register(authPlugin);

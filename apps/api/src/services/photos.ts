@@ -3,15 +3,11 @@ import { randomUUID } from 'crypto';
 import { createWriteStream, unlink } from 'fs';
 import { join, extname } from 'path';
 import { pipeline } from 'stream/promises';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { db } from '../db/index.js';
+import { UPLOADS_DIR } from '../dataPaths.js';
 import { photos, preparations, dinnerEntries, weeklyMenus } from '../db/schema.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-export const UPLOADS_DIR = join(__dirname, '../../data/uploads');
+export { UPLOADS_DIR };
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB

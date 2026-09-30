@@ -172,6 +172,19 @@ describe('uploadPhoto', () => {
     expect(result.url).toBe('/uploads/abc.jpg');
   });
 
+  it('writes the upload into UPLOADS_DIR', async () => {
+    const { createWriteStream } = await import('fs');
+    const { UPLOADS_DIR } = await import('../dataPaths.js');
+    mockFamilyCheck();
+    mockDb.insert.mockReturnValueOnce(makeInsertReturning(mockPhoto));
+    vi.mocked(createWriteStream).mockClear();
+
+    await uploadPhoto('prep-1', 'user-1', makeFile(), FAMILY_ID);
+
+    const written = vi.mocked(createWriteStream).mock.calls[0][0] as string;
+    expect(written.startsWith(`${UPLOADS_DIR}/`)).toBe(true);
+  });
+
   it('cleans up file and rethrows when pipeline fails', async () => {
     const pipelineError = new Error('Write error');
     vi.mocked(streamPromises.pipeline).mockRejectedValueOnce(pipelineError);
