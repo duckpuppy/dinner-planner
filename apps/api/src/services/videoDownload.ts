@@ -3,7 +3,9 @@ import { mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-export const VIDEOS_DIR = process.env.VIDEOS_DIR || join(process.cwd(), 'data', 'videos');
+import { VIDEOS_DIR } from '../dataPaths.js';
+
+export { VIDEOS_DIR };
 
 const YTDLP_PATH = process.env.YTDLP_PATH || 'yt-dlp';
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
