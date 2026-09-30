@@ -147,9 +147,11 @@ The Capacitor Android project lives in `apps/web/android`. Gradle configuration 
 | Flavor    | Application ID                        | Launcher name         |
 | --------- | ------------------------------------- | --------------------- |
 | `prod`    | `com.duckpuppy.dinnerplanner`         | Dinner Planner        |
-| `testing` | `com.duckpuppy.dinnerplanner.testing` | Dinner Planner (Test) |
+| `staging` | `com.duckpuppy.dinnerplanner.testing` | Dinner Planner (Test) |
 
-Both can be installed side by side (the FileProvider authority uses `${applicationId}`). Gradle tasks follow `assemble<Flavor><BuildType>`, for example `assembleProdDebug`, `assembleTestingDebug`, `assembleProdRelease`. There is no bare `assembleDebug` any more, so always name the flavor.
+The second flavor is named `staging` (not `testing`) because the Android Gradle plugin rejects flavor names starting with `test`; its application ID suffix is still `.testing`.
+
+Both can be installed side by side (the FileProvider authority uses `${applicationId}`). Gradle tasks follow `assemble<Flavor><BuildType>`, for example `assembleProdDebug`, `assembleStagingDebug`, `assembleProdRelease`. There is no bare `assembleDebug` any more, so always name the flavor.
 
 ```bash
 cd apps/web

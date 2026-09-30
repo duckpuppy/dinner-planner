@@ -54,7 +54,7 @@ jobs:
 
       - name: TEMP verify other variants
         working-directory: apps/web/android
-        run: ./gradlew assembleTestingDebug assembleProdRelease
+        run: ./gradlew assembleStagingDebug assembleProdRelease
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
