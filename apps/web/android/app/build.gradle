@@ -23,6 +23,9 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        resValues true
+    }
     flavorDimensions "env"
     productFlavors {
         prod {
