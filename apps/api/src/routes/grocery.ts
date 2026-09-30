@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
-import { toggleCheck, clearAllChecks } from '../services/groceryChecks.js';
+import { toggleCheck, clearAllChecks, setCheck, clearChecks } from '../services/groceryChecks.js';
 import { listStores } from '../services/stores.js';
 import {
   listStandingItems,
@@ -13,6 +13,21 @@ const toggleCheckSchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
   itemKey: z.string().min(1, 'itemKey must not be empty'),
   itemName: z.string().min(1, 'itemName must not be empty'),
+});
+
+const weekDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD');
+
+const setCheckSchema = z.object({
+  weekDate: weekDateSchema,
+  itemKey: z.string().min(1, 'itemKey must not be empty'),
+  itemName: z.string().min(1, 'itemName must not be empty'),
+  checked: z.boolean(),
+  clientUpdatedAt: z.number().int().nonnegative(),
+});
+
+const clearChecksBodySchema = z.object({
+  weekDate: weekDateSchema,
+  clientUpdatedAt: z.number().int().nonnegative(),
 });
 
 const clearChecksQuerySchema = z.object({
@@ -140,6 +155,56 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       const userId = request.user.userId;
       const checked = await toggleCheck(weekDate, itemKey, itemName, userId, request.user.familyId);
       return reply.send({ itemKey, checked });
+    }
+  );
+
+  /**
+   * PUT /api/grocery/checks
+   * Idempotent per-item last-write-wins set. Loses to any stored write with an
+   * equal or newer updatedAt. Returns the winning row plus `changed`.
+   */
+  fastify.put(
+    '/api/grocery/checks',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const parsed = setCheckSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
+      }
+
+      const { check, changed } = await setCheck({
+        ...parsed.data,
+        userId: request.user.userId,
+        familyId: request.user.familyId,
+      });
+      // Future: emit a live-sync event here when `changed` is true.
+      return reply.send({ ...check, changed });
+    }
+  );
+
+  /**
+   * POST /api/grocery/checks/clear
+   * Clear a week's checks as of clientUpdatedAt; newer checks survive.
+   */
+  fastify.post(
+    '/api/grocery/checks/clear',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const parsed = clearChecksBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
+      }
+
+      const cleared = await clearChecks(
+        parsed.data.weekDate,
+        parsed.data.clientUpdatedAt,
+        request.user.familyId
+      );
+      return reply.send({ cleared });
     }
   );
 

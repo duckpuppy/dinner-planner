@@ -225,6 +225,13 @@
       "when": 1786019740784,
       "tag": "0031_lumpy_sumo",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1790804177313,
+      "tag": "0032_flat_naoko",
+      "breakpoints": true
     }
   ]
 }
