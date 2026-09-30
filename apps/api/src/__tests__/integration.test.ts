@@ -116,6 +116,7 @@ vi.mock('../services/customGroceries.js', () => ({
 
 vi.mock('../services/groceryChecks.js', () => ({
   getCheckedKeys: vi.fn().mockResolvedValue([]),
+  getChecks: vi.fn().mockResolvedValue([]),
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
 }));

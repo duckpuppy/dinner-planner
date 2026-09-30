@@ -473,6 +473,11 @@ export const groceryChecks = sqliteTable(
     checkedAt: text('checked_at')
       .notNull()
       .default(sql`(datetime('now'))`),
+    // Per-item last-write-wins (dinner-4kj.3): a row with checked=0 is a
+    // tombstone. updatedAtMs is the (server-clamped) client write time; legacy
+    // rows get 0 so any client write supersedes them.
+    checked: integer('checked', { mode: 'boolean' }).notNull().default(true),
+    updatedAtMs: integer('updated_at_ms').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.familyId, table.weekDate, table.itemKey] })]
 );
