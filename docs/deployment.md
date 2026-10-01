@@ -197,6 +197,52 @@ rm keystore.b64
 
 Also set `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as secrets.
 
+### CI workflows
+
+`android-apk.yml` is a reusable workflow (`workflow_call`) that checks out the requested ref, builds the web bundle with `APP_VERSION=<version_name>` and `VITE_API_ORIGIN=<api_origin>`, runs `cap sync android`, assembles `assemble<Flavor><BuildType>`, verifies the APK with `apksigner verify --print-certs`, and uploads it as an artifact. For `release` builds it fails immediately if `ANDROID_KEYSTORE_BASE64` is missing, because an unsigned release APK cannot be installed and must never be published. Three workflows call it:
+
+| Workflow              | Trigger                                                                                                            | Builds                                                         | Result                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `android-pr.yml`      | Pull requests touching `apps/web/android/**`, Capacitor config, `apps/web/package.json` or `android-*.yml`; manual | `prod` debug, unsigned compile check                           | Artifact only (placeholder API origin, not distributed)               |
+| `android-release.yml` | Push of a `v*.*.*` tag; manual with a `tag` input                                                                  | `prod` release, signed, `https://dinner.duckpuppy.net`         | `dinner-planner-<tag>.apk` attached to the GitHub Release             |
+| `android-testing.yml` | Push to the `testing` branch; manual                                                                               | `staging` release, signed, `https://dinner-test.duckpuppy.net` | `dinner-planner-testing.apk` on the rolling `testing-apk` pre-release |
+
+Pushes to `main` no longer build an APK.
+
+`android-release.yml` is deliberately separate from `release.yml`, so an APK failure never blocks `deploy.yml`. `release.yml` creates the GitHub Release after pushing the tag, so the APK job polls for the release (every 20 seconds, up to 15 minutes) before uploading with `--clobber`. If it times out, re-run it, or dispatch it with the tag.
+
+#### Required secrets
+
+| Secret                      | Meaning                                    |
+| --------------------------- | ------------------------------------------ |
+| `ANDROID_KEYSTORE_BASE64`   | Base64 of the release keystore (see above) |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password                          |
+| `ANDROID_KEY_ALIAS`         | Key alias inside the keystore              |
+| `ANDROID_KEY_PASSWORD`      | Key password                               |
+
+#### Version codes
+
+- Release: `versionName` is the tag without the `v`, and `versionCode = MAJOR * 1000000 + MINOR * 1000 + PATCH` (so `v1.18.2` is `1018002`). MINOR and PATCH must stay below 1000.
+- Testing: `versionName` is `testing-<sha7>` and `versionCode` is the workflow `run_number`, which only ever increases, so each testing build installs as an upgrade over the previous one.
+
+#### Testing builds: the `testing-apk` rolling pre-release
+
+Every push to `testing` force-moves the `testing-apk` tag to the new commit and replaces the APK on the single pre-release of the same name. The tag is `testing-apk` and not `testing` on purpose: a tag called `testing` would collide with the `testing` branch that `promote.yml` fetches. The publish job only runs on `refs/heads/testing`; a manual dispatch from any other ref builds and uploads an artifact but never touches the release.
+
+Stable install URL (always the latest testing build):
+
+```
+https://github.com/duckpuppy/dinner-planner/releases/download/testing-apk/dinner-planner-testing.apk
+```
+
+Production APKs follow `https://github.com/duckpuppy/dinner-planner/releases/download/<tag>/dinner-planner-<tag>.apk`. The testing app installs side by side with production as "Dinner Planner (Test)" (application ID suffix `.testing`).
+
+#### First install: remove old debug-signed builds
+
+Android refuses to update an app signed with a different key. Before installing the first CI-signed APK, uninstall any earlier debug-signed Dinner Planner (and Dinner Planner (Test)) from the device. After that, updates install in place as long as the same keystore signs them.
+
+**The keystore is irreplaceable. Keep an offline backup and the passwords in a password manager; if it is lost, installed apps can never be updated.**
+
 ### Backup
 
 `allowBackup` is `false`, and `backup_rules.xml` (Android 11 and below) plus `data_extraction_rules.xml` (Android 12+) exclude all data, because the refresh token is stored on the device.

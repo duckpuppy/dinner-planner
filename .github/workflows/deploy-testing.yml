@@ -5,6 +5,10 @@ on:
     workflows: ['Testing']
     types: [completed]
 
+concurrency:
+  group: deploy-testing
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to Testing

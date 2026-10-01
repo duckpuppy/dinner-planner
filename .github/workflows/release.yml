@@ -19,9 +19,41 @@ env:
   IMAGE_NAME: duckpuppy/dinner-planner
 
 jobs:
+  # The PAT-pushed "chore: release vX.Y.Z" bump commit re-triggers this
+  # workflow. Skip it (a skipped run's conclusion is 'skipped', so deploy.yml's
+  # workflow_run 'success' gate does not fire) and skip any commit that a v*
+  # tag already points at, so re-runs are idempotent.
+  guard:
+    name: Check release is needed
+    if: "${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}"
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.tagged.outputs.skip }}
+    steps:
+      - name: Skip if a v* tag already points at this commit
+        id: tagged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          EXISTING=$(gh api "repos/$REPO/git/matching-refs/tags/v" \
+            --jq ".[] | select(.object.sha == \"$SHA\") | .ref")
+          if [ -n "$EXISTING" ]; then
+            echo "Commit $SHA is already released ($EXISTING); nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
     name: Create Release
+    needs: guard
+    if: ${{ needs.guard.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v7

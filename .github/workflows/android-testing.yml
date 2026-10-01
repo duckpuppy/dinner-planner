@@ -1,0 +1,90 @@
+name: Android Testing
+
+# Builds the signed staging APK ("Dinner Planner (Test)", side by side with
+# prod) on every push to the testing branch and publishes it to the rolling
+# `testing-apk` pre-release. The tag is NOT named `testing` so it cannot shadow
+# the `testing` branch (promote.yml runs `git fetch origin testing`).
+# testing.yml (Docker image) does not depend on this workflow.
+
+on:
+  push:
+    branches: [testing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-testing
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.v.outputs.name }}
+    steps:
+      - name: Compute versionName
+        id: v
+        run: echo "name=testing-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build signed staging APK
+    needs: version
+    uses: ./.github/workflows/android-apk.yml
+    with:
+      flavor: staging
+      build_type: release
+      api_origin: https://dinner-test.duckpuppy.net
+      version_name: ${{ needs.version.outputs.name }}
+      # run_number is monotonic per workflow, so installs always upgrade.
+      version_code: ${{ fromJSON(github.run_number) }}
+      artifact_name: dinner-planner-testing.apk
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+  publish:
+    name: Publish rolling pre-release
+    needs: build
+    # A dispatch on any other ref only builds; it must never move the tag.
+    if: ${{ github.ref == 'refs/heads/testing' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: testing-apk
+      SHA: ${{ github.sha }}
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: apk
+
+      - name: Create or move the rolling release
+        run: |
+          SHORT="${SHA::7}"
+          NOTES="Rolling build of the testing branch. Commit $SHA, built $(date -u +%Y-%m-%dT%H:%M:%SZ), run $RUN_URL. Installs side by side with production as 'Dinner Planner (Test)'."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --target "$SHA" \
+              --title "Testing $SHORT" --notes "$NOTES"
+          elif gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$TAG" -f sha="$SHA" -F force=true
+          else
+            gh api -X POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA"
+          fi
+
+      - name: Upload APK and refresh release metadata
+        run: |
+          SHORT="${SHA::7}"
+          NOTES="Rolling build of the testing branch. Commit $SHA, built $(date -u +%Y-%m-%dT%H:%M:%SZ), run $RUN_URL. Installs side by side with production as 'Dinner Planner (Test)'."
+          gh release upload "$TAG" "apk/$APK_NAME" --clobber
+          gh release edit "$TAG" --title "Testing $SHORT" --prerelease --notes "$NOTES"
