@@ -185,22 +185,22 @@ describe('clearChecks', () => {
 
 describe('legacy shims', () => {
   it('toggleCheck checks, then unchecks leaving a tombstone', async () => {
-    expect(await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).toBe(true);
+    expect((await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).checked).toBe(true);
     expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual(['k']);
-    expect(await toggleCheck(WEEK, 'k', 'K', 'u2', 'fam-a')).toBe(false);
+    expect((await toggleCheck(WEEK, 'k', 'K', 'u2', 'fam-a')).checked).toBe(false);
     expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
     const checks = await getChecks(WEEK, 'fam-a');
     expect(checks).toHaveLength(1);
     expect(checks[0]).toMatchObject({ checked: false, checkedBy: { id: 'u2' } });
     // toggles within the same millisecond still flip
-    expect(await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).toBe(true);
+    expect((await toggleCheck(WEEK, 'k', 'K', 'u1', 'fam-a')).checked).toBe(true);
   });
 
   it('clearAllChecks turns rows into tombstones instead of deleting', async () => {
     await put({ itemKey: 'a', clientUpdatedAt: NOW - 3000 });
     await put({ itemKey: 'b', clientUpdatedAt: NOW - 2000 });
     vi.setSystemTime(NOW + 10);
-    await clearAllChecks(WEEK, 'fam-a');
+    expect(await clearAllChecks(WEEK, 'fam-a')).toEqual({ cleared: 2, at: NOW + 10 });
     expect(await getCheckedKeys(WEEK, 'fam-a')).toEqual([]);
     const checks = await getChecks(WEEK, 'fam-a');
     expect(checks).toHaveLength(2);

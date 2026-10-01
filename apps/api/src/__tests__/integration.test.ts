@@ -119,6 +119,7 @@ vi.mock('../services/groceryChecks.js', () => ({
   getChecks: vi.fn().mockResolvedValue([]),
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
+  clampClientTime: (t: number) => t,
 }));
 
 vi.mock('../services/standingItems.js', () => ({

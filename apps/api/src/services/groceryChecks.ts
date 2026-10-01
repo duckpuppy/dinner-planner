@@ -160,7 +160,7 @@ export async function toggleCheck(
   itemName: string,
   userId: string,
   familyId: string
-): Promise<boolean> {
+): Promise<{ checked: boolean; check: CheckState }> {
   return db.transaction((tx) => {
     const current = tx
       .select({
@@ -173,8 +173,8 @@ export async function toggleCheck(
     const checked = !(current?.checked ?? false);
     // Ensure strictly newer than the stored state even within the same millisecond.
     const t = Math.max(Date.now(), (current?.updatedAtMs ?? 0) + 1);
-    applySet(tx, { weekDate, itemKey, itemName, checked, t, userId, familyId });
-    return checked;
+    const { check } = applySet(tx, { weekDate, itemKey, itemName, checked, t, userId, familyId });
+    return { checked, check };
   });
 }
 
@@ -200,6 +200,11 @@ export async function clearChecks(
 /**
  * Legacy clear-all: a clear at Date.now().
  */
-export async function clearAllChecks(weekDate: string, familyId: string): Promise<void> {
-  await clearChecks(weekDate, Date.now(), familyId);
+export async function clearAllChecks(
+  weekDate: string,
+  familyId: string
+): Promise<{ cleared: number; at: number }> {
+  const at = Date.now();
+  const cleared = await clearChecks(weekDate, at, familyId);
+  return { cleared, at };
 }

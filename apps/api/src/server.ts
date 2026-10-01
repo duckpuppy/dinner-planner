@@ -34,6 +34,7 @@ import { videoJobsRoutes } from './routes/videoJobs.js';
 import { startVideoCleanupScheduler } from './services/videoCleanupScheduler.js';
 import { restaurantsRoutes } from './routes/restaurants.js';
 import { appEventsRoutes } from './routes/appEvents.js';
+import { eventsRoutes } from './routes/events.js';
 import { logEvent } from './services/appEvents.js';
 import authPlugin from './middleware/auth.js';
 import { seedAdmin } from './services/seed.js';
@@ -137,6 +138,7 @@ await fastify.register(groceryRoutes);
 await fastify.register(videoJobsRoutes);
 await fastify.register(restaurantsRoutes);
 await fastify.register(appEventsRoutes);
+await fastify.register(eventsRoutes);
 
 // Serve static files in production
 if (config.NODE_ENV === 'production') {
