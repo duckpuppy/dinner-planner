@@ -11,6 +11,7 @@ vi.mock('bcrypt', () => ({
 vi.mock('../config.js', () => ({
   config: {
     JWT_REFRESH_EXPIRY: '7d',
+    JWT_REFRESH_EXPIRY_NATIVE: '30d',
     JWT_ACCESS_EXPIRY: '15m',
     NODE_ENV: 'test',
   },
@@ -19,6 +20,7 @@ vi.mock('../config.js', () => ({
 const mockDb = vi.hoisted(() => ({
   insert: vi.fn(),
   delete: vi.fn(),
+  update: vi.fn(),
   query: {
     users: { findFirst: vi.fn() },
     refreshTokens: { findFirst: vi.fn() },
@@ -56,6 +58,12 @@ import bcrypt from 'bcrypt';
 
 function ins() {
   return { values: vi.fn().mockResolvedValue(undefined) };
+}
+
+function upd() {
+  const where = vi.fn().mockResolvedValue(undefined);
+  const set = vi.fn().mockReturnValue({ where });
+  return { set, where };
 }
 
 function del(changes = 0) {
@@ -194,6 +202,7 @@ describe('refreshAccessToken', () => {
     mockDb.query.refreshTokens.findFirst.mockResolvedValueOnce(mockToken);
     mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
     mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
+    mockDb.update.mockReturnValueOnce(upd());
 
     const result = await refreshAccessToken('valid-token', signToken);
 
@@ -201,6 +210,26 @@ describe('refreshAccessToken', () => {
     expect(result!.accessToken).toBe('new-access-token');
     expect(result!.user.id).toBe('user-1');
     expect(result!.user.familyName).toBe('The Smiths');
+  });
+
+  it.each([
+    ['web', false, 7],
+    ['native', true, 30],
+  ])('slides expiresAt to now + expiry for %s', async (_name, native, days) => {
+    mockDb.query.refreshTokens.findFirst.mockResolvedValueOnce(mockToken);
+    mockDb.query.users.findFirst.mockResolvedValueOnce(mockUser);
+    mockDb.query.families.findFirst.mockResolvedValueOnce(mockFamily);
+    const u = upd();
+    mockDb.update.mockReturnValueOnce(u);
+
+    const before = Date.now();
+    const result = await refreshAccessToken('valid-token', signToken, native);
+
+    const set = u.set.mock.calls[0][0] as { expiresAt: string };
+    const delta = new Date(set.expiresAt).getTime() - before;
+    expect(delta).toBeGreaterThan(days * 86_400_000 - 5_000);
+    expect(delta).toBeLessThan(days * 86_400_000 + 5_000);
+    expect(result!.refreshExpiresAt).toBe(set.expiresAt);
   });
 });
 

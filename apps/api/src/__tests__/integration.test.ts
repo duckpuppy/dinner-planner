@@ -116,6 +116,7 @@ vi.mock('../services/customGroceries.js', () => ({
 
 vi.mock('../services/groceryChecks.js', () => ({
   getCheckedKeys: vi.fn().mockResolvedValue([]),
+  getChecks: vi.fn().mockResolvedValue([]),
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
 }));
@@ -413,6 +414,7 @@ describe('Auth routes', () => {
       },
       accessToken: 'access-tok',
       refreshToken: 'refresh-tok',
+      refreshExpiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     });
     const res = await app.inject({
       method: 'POST',
@@ -445,6 +447,7 @@ describe('Auth routes', () => {
   it('POST /api/auth/refresh → 200 on success', async () => {
     vi.mocked(authService.refreshAccessToken).mockResolvedValueOnce({
       accessToken: 'new-tok',
+      refreshExpiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
       user: {
         id: 'u-1',
         username: 'alice',

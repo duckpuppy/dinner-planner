@@ -9,9 +9,20 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
+  // Refresh token lifetime for native (Capacitor) clients, sent via X-Client-Platform: native
+  JWT_REFRESH_EXPIRY_NATIVE: z.string().default('30d'),
   ADMIN_USERNAME: z.string().default('admin'),
   ADMIN_PASSWORD: z.string().optional(),
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  // Comma-separated list of allowed origins; a single value still works
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((o) => o.trim())
+        .filter((o) => o.length > 0)
+    ),
   OLLAMA_URL: z.string().url().optional(),
   OLLAMA_MODEL: z.string().default('gemma4-e4b'),
   LLM_MODE: z.enum(['disabled', 'direct', 'n8n']).default('disabled'),

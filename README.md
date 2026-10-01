@@ -197,19 +197,20 @@ pnpm test -- --watch
 
 ### Environment Variables
 
-| Variable             | Description                                                      | Default                     |
-| -------------------- | ---------------------------------------------------------------- | --------------------------- |
-| `NODE_ENV`           | Environment mode (`development` or `production`)                 | `development`               |
-| `PORT`               | API server port                                                  | `3000`                      |
-| `HOST`               | API server host                                                  | `0.0.0.0`                   |
-| `DATABASE_URL`       | SQLite database path                                             | `file:./data/dinner.db`     |
-| `JWT_SECRET`         | Secret for JWT signing (generate with `openssl rand -base64 32`) | **(required)**              |
-| `JWT_ACCESS_EXPIRY`  | Access token expiry duration                                     | `15m`                       |
-| `JWT_REFRESH_EXPIRY` | Refresh token expiry duration                                    | `7d`                        |
-| `ADMIN_USERNAME`     | Initial admin account username                                   | `admin`                     |
-| `ADMIN_PASSWORD`     | Initial admin account password                                   | **(required on first run)** |
-| `CORS_ORIGIN`        | Allowed CORS origin for API requests                             | `http://localhost:5173`     |
-| `TZ`                 | Timezone for scheduled tasks                                     | (optional)                  |
+| Variable                    | Description                                                                               | Default                     |
+| --------------------------- | ----------------------------------------------------------------------------------------- | --------------------------- |
+| `NODE_ENV`                  | Environment mode (`development` or `production`)                                          | `development`               |
+| `PORT`                      | API server port                                                                           | `3000`                      |
+| `HOST`                      | API server host                                                                           | `0.0.0.0`                   |
+| `DATABASE_URL`              | SQLite database path                                                                      | `file:./data/dinner.db`     |
+| `JWT_SECRET`                | Secret for JWT signing (generate with `openssl rand -base64 32`)                          | **(required)**              |
+| `JWT_ACCESS_EXPIRY`         | Access token expiry duration                                                              | `15m`                       |
+| `JWT_REFRESH_EXPIRY`        | Refresh token expiry duration (web, sliding)                                              | `7d`                        |
+| `JWT_REFRESH_EXPIRY_NATIVE` | Refresh token expiry for the native app (sliding)                                         | `30d`                       |
+| `ADMIN_USERNAME`            | Initial admin account username                                                            | `admin`                     |
+| `ADMIN_PASSWORD`            | Initial admin account password                                                            | **(required on first run)** |
+| `CORS_ORIGIN`               | Allowed CORS origin(s), comma-separated (e.g. add `https://localhost` for the native app) | `http://localhost:5173`     |
+| `TZ`                        | Timezone for scheduled tasks                                                              | (optional)                  |
 
 ### Docker Development
 

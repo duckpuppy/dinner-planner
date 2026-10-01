@@ -19,6 +19,8 @@ vi.mock('../services/customGroceries.js', () => ({
 vi.mock('../services/groceryChecks.js', () => ({
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
+  setCheck: vi.fn(),
+  clearChecks: vi.fn(),
 }));
 
 vi.mock('../services/stores.js', () => ({
@@ -619,5 +621,111 @@ describe('PATCH /api/grocery/custom/:id with storeId', () => {
 
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).item.storeId).toBeNull();
+  });
+});
+
+// ===========================================================================
+// PUT /api/grocery/checks
+// ===========================================================================
+
+describe('PUT /api/grocery/checks', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const validBody = {
+    weekDate: '2026-02-24',
+    itemKey: 'flour::cup',
+    itemName: 'Flour',
+    checked: true,
+    clientUpdatedAt: 1000,
+  };
+
+  it('returns the winning row with changed flag, scoped to the caller family', async () => {
+    const check = {
+      itemKey: 'flour::cup',
+      checked: true,
+      updatedAt: 1000,
+      checkedBy: { id: 'user-1', displayName: 'Alice' },
+    };
+    vi.mocked(groceryChecksService.setCheck).mockResolvedValueOnce({ check, changed: true });
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/grocery/checks',
+      headers: jsonHeaders(app),
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ ...check, changed: true });
+    expect(groceryChecksService.setCheck).toHaveBeenCalledWith({
+      ...validBody,
+      userId: 'user-1',
+      familyId: 'family-1',
+    });
+  });
+
+  it('returns 400 for invalid body', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/grocery/checks',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ ...validBody, checked: 'yes' }),
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/grocery/checks',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(validBody),
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ===========================================================================
+// POST /api/grocery/checks/clear
+// ===========================================================================
+
+describe('POST /api/grocery/checks/clear', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns the number of rows cleared', async () => {
+    vi.mocked(groceryChecksService.clearChecks).mockResolvedValueOnce(3);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/clear',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ weekDate: '2026-02-24', clientUpdatedAt: 5000 }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ cleared: 3 });
+    expect(groceryChecksService.clearChecks).toHaveBeenCalledWith('2026-02-24', 5000, 'family-1');
+  });
+
+  it('returns 400 for invalid body', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/checks/clear',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ weekDate: 'bad', clientUpdatedAt: 5000 }),
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
