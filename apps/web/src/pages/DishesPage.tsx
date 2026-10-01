@@ -40,6 +40,7 @@ import { useSwipeActions } from '@/hooks/useSwipeActions';
 import { SkeletonList } from '@/components/Skeleton';
 import { ErrorState } from '@/components/ErrorState';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { mediaUrl } from '@/lib/apiOrigin';
 import { RecipeImportModal } from '@/components/RecipeImportModal';
 
 type SortOption = 'name' | 'rating' | 'recent' | 'created';
@@ -802,7 +803,7 @@ export function DishDetail({ dish, onBack }: { dish: Dish; onBack: () => void })
         {/* Local Video Player */}
         {currentDish.localVideoFilename && (
           <VideoPlayer
-            dishId={currentDish.id}
+            videoFilename={currentDish.localVideoFilename}
             thumbnailFilename={currentDish.videoThumbnailFilename}
             className="w-full"
           />
@@ -1481,7 +1482,7 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
             >
               {dish.videoThumbnailFilename ? (
                 <img
-                  src={`/videos/${dish.videoThumbnailFilename}`}
+                  src={mediaUrl(`/videos/${dish.videoThumbnailFilename}`)}
                   alt="Video thumbnail"
                   width={128}
                   height={80}
@@ -1523,7 +1524,12 @@ export function DishForm({ dish, prefill, onClose }: DishFormProps) {
               >
                 <X className="h-6 w-6" />
               </button>
-              <VideoPlayer dishId={dish.id} thumbnailFilename={dish.videoThumbnailFilename} />
+              {dish.localVideoFilename && (
+                <VideoPlayer
+                  videoFilename={dish.localVideoFilename}
+                  thumbnailFilename={dish.videoThumbnailFilename}
+                />
+              )}
             </div>
           </div>
         )}

@@ -7,10 +7,19 @@ import type {
   CreateRestaurantDishRatingInput,
   UpdateRestaurantDishRatingInput,
 } from '@dinner-planner/shared';
+import { Capacitor } from '@capacitor/core';
+import { apiUrl } from './apiOrigin';
+import { nativeTokenStore } from './nativeTokenStore';
 export { DIETARY_TAGS } from '@dinner-planner/shared';
 export type { DietaryTag } from '@dinner-planner/shared';
 
 const API_BASE = '/api';
+
+const TIMEOUT_GET_MS = 15_000;
+const TIMEOUT_WRITE_MS = 20_000;
+const TIMEOUT_REFRESH_MS = 10_000;
+const TIMEOUT_UPLOAD_MS = 120_000;
+const TIMEOUT_HEALTH_MS = 5_000;
 
 let accessToken: string | null = null;
 
@@ -33,79 +42,146 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+/**
+ * The request never produced an HTTP response. Distinct from ApiError so that network trouble
+ * is never mistaken for a rejected session.
+ */
+export class NetworkError extends Error {
+  constructor(public kind: 'offline' | 'timeout' | 'aborted') {
+    super(
+      kind === 'timeout'
+        ? 'The request timed out'
+        : kind === 'aborted'
+          ? 'The request was aborted'
+          : 'Network unavailable'
+    );
+    this.name = 'NetworkError';
   }
+}
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
+function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
+  // Fallback for WebViews without AbortSignal.any.
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (a.aborted || b.aborted) abort();
+  a.addEventListener('abort', abort, { once: true });
+  b.addEventListener('abort', abort, { once: true });
+  return controller.signal;
+}
+
+/**
+ * Run `fn` with an abort signal that fires after `timeoutMs` or when the caller's signal aborts.
+ * The timer covers the whole of `fn` (headers and body). Failures are normalised to NetworkError;
+ * a caller abort is rethrown untouched.
+ */
+async function withTimeout<T>(
+  timeoutMs: number,
+  callerSignal: AbortSignal | null | undefined,
+  fn: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const timeout = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    timeout.abort();
+  }, timeoutMs);
+  const signal = callerSignal ? combineSignals(callerSignal, timeout.signal) : timeout.signal;
+  try {
+    return await fn(signal);
+  } catch (err) {
+    if (timedOut) throw new NetworkError('timeout');
+    if (callerSignal?.aborted) throw err;
+    if (err instanceof TypeError) throw new NetworkError('offline');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const isNative = () => Capacitor.isNativePlatform();
+
+function platformHeaders(): Record<string, string> {
+  return isNative() ? { 'X-Client-Platform': 'native' } : {};
+}
+
+function credentialsMode(): RequestCredentials {
+  return isNative() ? 'omit' : 'include';
+}
+
+interface ParsedResponse {
+  status: number;
+  ok: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any;
+}
+
+async function parseResponse(response: Response): Promise<ParsedResponse> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: 'Request failed' }));
+    return { status: response.status, ok: false, body };
+  }
+  // Handle 204 No Content
+  if (response.status === 204) return { status: 204, ok: true, body: {} };
+  return { status: response.status, ok: true, body: await response.json() };
+}
+
+function execute(path: string, options: RequestInit, timeoutMs: number): Promise<ParsedResponse> {
+  return withTimeout(timeoutMs, options.signal, async (signal) => {
+    const headers: Record<string, string> = {
+      ...(options.body !== undefined && !(options.body instanceof FormData)
+        ? { 'Content-Type': 'application/json' }
+        : {}),
+      ...platformHeaders(),
+      ...(options.headers as Record<string, string>),
+    };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const response = await fetch(apiUrl(`${API_BASE}${path}`), {
+      ...options,
+      headers,
+      credentials: credentialsMode(),
+      signal,
+    });
+    return parseResponse(response);
   });
+}
 
-  // Handle 401 by trying to refresh
-  if (response.status === 401 && !path.includes('/auth/')) {
+function timeoutFor(path: string, options: RequestInit): number {
+  if (path === '/auth/refresh') return TIMEOUT_REFRESH_MS;
+  if (options.body instanceof FormData) return TIMEOUT_UPLOAD_MS;
+  const method = (options.method ?? 'GET').toUpperCase();
+  return method === 'GET' ? TIMEOUT_GET_MS : TIMEOUT_WRITE_MS;
+}
+
+function toApiError(res: ParsedResponse): ApiError {
+  return new ApiError(res.status, res.body?.error || 'Request failed', res.body?.details);
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const timeoutMs = timeoutFor(path, options);
+  let res = await execute(path, options, timeoutMs);
+
+  // Handle 401 by trying to refresh (a NetworkError from the refresh propagates as-is)
+  if (res.status === 401 && !path.includes('/auth/')) {
     const outcome = await refreshToken();
-    if (outcome === 'refreshed') {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-      const retryResponse = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers,
-        credentials: 'include',
-      });
-
-      if (!retryResponse.ok) {
-        const error = await retryResponse.json().catch(() => ({ error: 'Request failed' }));
-        throw new ApiError(retryResponse.status, error.error || 'Request failed', error.details);
-      }
-
-      return retryResponse.json();
-    } else {
-      // Refresh failed, clear token and throw error
+    if (outcome !== 'refreshed') {
+      // Refresh rejected: clear token and throw error
       // Let the auth store handle logout via React Router
       accessToken = null;
       throw new ApiError(401, 'Session expired');
     }
+    res = await execute(path, options, timeoutMs);
   }
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new ApiError(response.status, error.error || 'Request failed', error.details);
-  }
-
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return {} as T;
-  }
-
-  return response.json();
+  if (!res.ok) throw toApiError(res);
+  return res.body as T;
 }
 
-async function requestFormData<T>(path: string, body: FormData): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body,
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new ApiError(response.status, error.error || 'Request failed');
-  }
-  return response.json();
+function requestFormData<T>(path: string, body: FormData): Promise<T> {
+  return request<T>(path, { method: 'POST', body });
 }
 
-type RefreshOutcome = 'refreshed' | 'rejected' | 'network-error';
+type RefreshOutcome = 'refreshed' | 'rejected';
 
 type Listener<A extends unknown[]> = (...args: A) => void | Promise<void>;
 
@@ -140,6 +216,42 @@ async function notify<A extends unknown[]>(listeners: Set<Listener<A>>, ...args:
   );
 }
 
+/**
+ * POST /auth/refresh. Web relies on the httpOnly cookie; native sends the stored refresh token
+ * in the body. A 401 means the server rejected the token, so the native copy is dropped too.
+ * Throws NetworkError when no response arrives.
+ */
+async function callRefresh(): Promise<ParsedResponse> {
+  let body: string | undefined;
+  if (isNative()) {
+    const token = await nativeTokenStore.get();
+    if (!token) return { status: 401, ok: false, body: { error: 'No refresh token' } };
+    body = JSON.stringify({ refreshToken: token });
+  }
+  let res: ParsedResponse;
+  try {
+    res = await withTimeout(TIMEOUT_REFRESH_MS, null, async (signal) => {
+      const response = await fetch(apiUrl(`${API_BASE}/auth/refresh`), {
+        method: 'POST',
+        headers: {
+          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...platformHeaders(),
+        },
+        body,
+        credentials: credentialsMode(),
+        signal,
+      });
+      return parseResponse(response);
+    });
+  } catch (err) {
+    if (err instanceof NetworkError) throw err;
+    // Unreadable body etc: not proof the session is dead.
+    throw new NetworkError('offline');
+  }
+  if (res.status === 401 && isNative()) await nativeTokenStore.clear();
+  return res;
+}
+
 // Parallel 401s share one refresh so listeners fire once and the server sees one request.
 let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
@@ -151,24 +263,13 @@ function refreshToken(): Promise<RefreshOutcome> {
 }
 
 async function doRefresh(): Promise<RefreshOutcome> {
-  let data: { user: User; accessToken: string };
-  try {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      accessToken = null;
-      await notify(expiredListeners);
-      return 'rejected';
-    }
-
-    data = await response.json();
-  } catch {
-    // Network failure or unreadable body: not proof the session is dead.
-    return 'network-error';
+  const res = await callRefresh(); // NetworkError propagates: network trouble is not a logout
+  if (!res.ok) {
+    accessToken = null;
+    await notify(expiredListeners);
+    return 'rejected';
   }
+  const data = res.body as { user: User; accessToken: string };
   accessToken = data.accessToken;
   // Await listeners so the cache owner is rebound before the retried request's data lands.
   if (data.user) await notify(refreshedListeners, data.user);
@@ -186,21 +287,39 @@ export interface ApiTokenRow {
 
 // Auth API
 export const auth = {
-  login: (username: string, password: string) =>
-    request<{ user: User; accessToken: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    }),
+  login: async (username: string, password: string) => {
+    const result = await request<{ user: User; accessToken: string; refreshToken?: string }>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }
+    );
+    // Native: the server returns the refresh token in the body (web gets an httpOnly cookie).
+    if (isNative() && result.refreshToken) await nativeTokenStore.set(result.refreshToken);
+    return { user: result.user, accessToken: result.accessToken };
+  },
 
-  refresh: () =>
-    request<{ user: User; accessToken: string }>('/auth/refresh', {
-      method: 'POST',
-    }),
+  refresh: async () => {
+    const res = await callRefresh();
+    if (!res.ok) throw toApiError(res);
+    return res.body as { user: User; accessToken: string };
+  },
 
-  logout: () =>
-    request<{ success: boolean }>('/auth/logout', {
-      method: 'POST',
-    }),
+  logout: async () => {
+    try {
+      if (!isNative()) {
+        return await request<{ success: boolean }>('/auth/logout', { method: 'POST' });
+      }
+      const token = await nativeTokenStore.get();
+      return await request<{ success: boolean }>('/auth/logout', {
+        method: 'POST',
+        ...(token ? { body: JSON.stringify({ refreshToken: token }) } : {}),
+      });
+    } finally {
+      if (isNative()) await nativeTokenStore.clear();
+    }
+  },
 
   me: () => request<{ user: User }>('/auth/me'),
 };
@@ -1054,9 +1173,20 @@ export async function getHealth(): Promise<{
   setupRequired: boolean;
   version?: string;
 }> {
-  const response = await fetch('/health');
+  const response = await fetchHealth();
   if (!response.ok) throw new Error('Health check failed');
   return response.json();
+}
+
+/** GET /health with a 5s timeout. Throws NetworkError if no response arrives. */
+export function fetchHealth(): Promise<Response> {
+  return withTimeout(TIMEOUT_HEALTH_MS, null, (signal) =>
+    fetch(apiUrl('/health'), {
+      headers: platformHeaders(),
+      credentials: credentialsMode(),
+      signal,
+    })
+  );
 }
 
 export async function postSetup(
@@ -1064,11 +1194,15 @@ export async function postSetup(
   password: string,
   familyName: string
 ): Promise<void> {
-  const response = await fetch('/api/setup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, familyName }),
-  });
+  const response = await withTimeout(TIMEOUT_WRITE_MS, null, (signal) =>
+    fetch(apiUrl('/api/setup'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...platformHeaders() },
+      body: JSON.stringify({ username, password, familyName }),
+      credentials: credentialsMode(),
+      signal,
+    })
+  );
   if (response.status === 404) throw new Error('already_complete');
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
