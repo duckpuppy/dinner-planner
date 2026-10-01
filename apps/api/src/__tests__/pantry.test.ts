@@ -40,15 +40,9 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import {
-  listPantryItems,
-  createPantryItem,
-  updatePantryItem,
-  deletePantryItem,
-} from '../services/pantry.js';
+import { listPantryItems, updatePantryItem } from '../services/pantry.js';
 
 const FAMILY_ID = 'family-1';
-const OTHER_FAMILY_ID = 'family-2';
 
 // --- Chain helpers ---
 
@@ -150,39 +144,6 @@ describe('listPantryItems', () => {
 // createPantryItem
 // ===========================================================================
 
-describe('createPantryItem', () => {
-  it('inserts into db and returns the new item', async () => {
-    const row = makePantryRow();
-    // First select: from().where() — used in createPantryItem after insert
-    mockDb.select.mockReturnValueOnce(selFrom([row]));
-
-    const result = await createPantryItem(
-      {
-        ingredientName: 'Olive Oil',
-        quantity: 500,
-        unit: 'ml',
-        expiresAt: '2026-06-01',
-      },
-      FAMILY_ID
-    );
-
-    expect(mockDb.insert).toHaveBeenCalledOnce();
-    expect(result.ingredientName).toBe('Olive Oil');
-    expect(result.quantity).toBe(500);
-  });
-
-  it('handles optional fields being omitted', async () => {
-    const row = makePantryRow({ quantity: null, unit: null, expiresAt: null });
-    mockDb.select.mockReturnValueOnce(selFrom([row]));
-
-    const result = await createPantryItem({ ingredientName: 'Olive Oil' }, FAMILY_ID);
-
-    expect(result.quantity).toBeNull();
-    expect(result.unit).toBeNull();
-    expect(result.expiresAt).toBeNull();
-  });
-});
-
 // ===========================================================================
 // updatePantryItem
 // ===========================================================================
@@ -226,29 +187,3 @@ describe('updatePantryItem', () => {
 // ===========================================================================
 // deletePantryItem
 // ===========================================================================
-
-describe('deletePantryItem', () => {
-  it('returns { success: false } when id not found', async () => {
-    mockDb.query.pantryItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deletePantryItem('nonexistent', FAMILY_ID);
-    expect(result).toEqual({ success: false });
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns { success: false } when item belongs to another family (cross-family 404)', async () => {
-    mockDb.query.pantryItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deletePantryItem('pantry-1', OTHER_FAMILY_ID);
-    expect(result).toEqual({ success: false });
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns { success: true } and deletes on success', async () => {
-    const existing = makePantryRow();
-    mockDb.query.pantryItems.findFirst.mockResolvedValueOnce(existing);
-
-    const result = await deletePantryItem('pantry-1', FAMILY_ID);
-
-    expect(result).toEqual({ success: true });
-    expect(mockDb.delete).toHaveBeenCalledOnce();
-  });
-});

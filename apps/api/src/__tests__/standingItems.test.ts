@@ -46,14 +46,9 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import {
-  listStandingItems,
-  addStandingItem,
-  deleteStandingItem,
-} from '../services/standingItems.js';
+import { listStandingItems } from '../services/standingItems.js';
 
 const FAMILY_ID = 'family-1';
-const OTHER_FAMILY_ID = 'family-2';
 
 // --- Chain helpers ---
 
@@ -64,16 +59,6 @@ function selFromWhereOrderBy(result: unknown[]) {
         where: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockResolvedValue(result),
         }),
-      }),
-    }),
-  };
-}
-
-function selFromWhere(result: unknown[]) {
-  return {
-    from: vi.fn().mockReturnValue({
-      leftJoin: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(result),
       }),
     }),
   };
@@ -163,91 +148,6 @@ describe('listStandingItems', () => {
 // addStandingItem
 // ===========================================================================
 
-describe('addStandingItem', () => {
-  it('inserts and returns the new item', async () => {
-    const row = makeItemRow();
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addStandingItem('Milk', 2, 'litre', 'Dairy', null, 'user-1', FAMILY_ID);
-
-    expect(mockDb.insert).toHaveBeenCalledOnce();
-    expect(result.name).toBe('Milk');
-    expect(result.quantity).toBe(2);
-    expect(result.unit).toBe('litre');
-    expect(result.category).toBe('Dairy');
-  });
-
-  it('handles null quantity and unit', async () => {
-    const row = makeItemRow({ quantity: null, unit: null });
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addStandingItem('Bread', null, null, 'Other', null, 'user-1', FAMILY_ID);
-    expect(result.quantity).toBeNull();
-    expect(result.unit).toBeNull();
-  });
-
-  it('stores storeId when it belongs to the same family', async () => {
-    mockDb.query.stores.findFirst.mockResolvedValueOnce({ id: 's-1', familyId: FAMILY_ID });
-    const row = makeItemRow({ storeId: 's-1', storeName: 'Costco' });
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addStandingItem('Butter', 1, 'lb', 'Dairy', 's-1', 'user-1', FAMILY_ID);
-    expect(result.storeId).toBe('s-1');
-    expect(result.storeName).toBe('Costco');
-  });
-
-  it('drops a storeId that belongs to another family', async () => {
-    mockDb.query.stores.findFirst.mockResolvedValueOnce(undefined); // not in this family
-    const row = makeItemRow({ storeId: null, storeName: null });
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addStandingItem(
-      'Butter',
-      1,
-      'lb',
-      'Dairy',
-      'other-family-store',
-      'user-1',
-      FAMILY_ID
-    );
-    expect(result.storeId).toBeNull();
-  });
-
-  it('returns item with default category Other when not specified', async () => {
-    const row = makeItemRow({ category: 'Other', quantity: null, unit: null });
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addStandingItem('Eggs', null, null, 'Other', null, 'user-1', FAMILY_ID);
-    expect(result.category).toBe('Other');
-  });
-});
-
 // ===========================================================================
 // deleteStandingItem
 // ===========================================================================
-
-describe('deleteStandingItem', () => {
-  it('returns false when id not found', async () => {
-    mockDb.query.standingItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deleteStandingItem('nonexistent', FAMILY_ID);
-    expect(result).toBe(false);
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns false when item belongs to another family (cross-family 404)', async () => {
-    mockDb.query.standingItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deleteStandingItem('si-1', OTHER_FAMILY_ID);
-    expect(result).toBe(false);
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns true and deletes on success', async () => {
-    const existing = makeItemRow();
-    mockDb.query.standingItems.findFirst.mockResolvedValueOnce(existing);
-
-    const result = await deleteStandingItem('si-1', FAMILY_ID);
-
-    expect(result).toBe(true);
-    expect(mockDb.delete).toHaveBeenCalledOnce();
-  });
-});

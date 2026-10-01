@@ -135,7 +135,10 @@ describe('POST /api/grocery/standing', () => {
   });
 
   it('returns 201 with created item', async () => {
-    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce(mockStandingItem);
+    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce({
+      item: mockStandingItem,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -152,7 +155,10 @@ describe('POST /api/grocery/standing', () => {
 
   it('returns 201 with name only (optional fields omitted)', async () => {
     const minItem = { ...mockStandingItem, quantity: null, unit: null, category: 'Other' };
-    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce(minItem);
+    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce({
+      item: minItem,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -199,7 +205,10 @@ describe('POST /api/grocery/standing', () => {
   });
 
   it('passes userId from JWT to service', async () => {
-    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce(mockStandingItem);
+    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce({
+      item: mockStandingItem,
+      created: true,
+    });
 
     await app.inject({
       method: 'POST',
@@ -215,7 +224,8 @@ describe('POST /api/grocery/standing', () => {
       'Other',
       undefined,
       'user-1',
-      'family-1'
+      'family-1',
+      undefined
     );
   });
 });
@@ -223,6 +233,54 @@ describe('POST /api/grocery/standing', () => {
 // ===========================================================================
 // DELETE /api/grocery/standing/:id
 // ===========================================================================
+
+describe('POST /api/grocery/standing idempotent ids', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const post = (body: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/grocery/standing',
+      headers: jsonHeaders(app),
+      body: JSON.stringify(body),
+    });
+
+  it('returns 200 with the existing item on a replayed id', async () => {
+    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce({
+      item: mockStandingItem,
+      created: false,
+    });
+    const res = await post({ id: '11111111-1111-4111-8111-111111111111', name: 'Other' });
+    expect(res.statusCode).toBe(200);
+    expect(standingItemsService.addStandingItem).toHaveBeenLastCalledWith(
+      'Other',
+      null,
+      null,
+      'Other',
+      undefined,
+      'user-1',
+      'family-1',
+      '11111111-1111-4111-8111-111111111111'
+    );
+  });
+
+  it('returns 404 when the id belongs to another family', async () => {
+    vi.mocked(standingItemsService.addStandingItem).mockResolvedValueOnce(null);
+    const res = await post({ id: '11111111-1111-4111-8111-111111111111', name: 'Milk' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 with an invalid uuid id', async () => {
+    const res = await post({ id: 'nope', name: 'Milk' });
+    expect(res.statusCode).toBe(400);
+  });
+});
 
 describe('DELETE /api/grocery/standing/:id', () => {
   let app: TestApp;
@@ -234,7 +292,7 @@ describe('DELETE /api/grocery/standing/:id', () => {
   });
 
   it('returns 204 on success', async () => {
-    vi.mocked(standingItemsService.deleteStandingItem).mockResolvedValueOnce(true);
+    vi.mocked(standingItemsService.deleteStandingItem).mockResolvedValueOnce({ deleted: true });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -245,8 +303,8 @@ describe('DELETE /api/grocery/standing/:id', () => {
     expect(res.statusCode).toBe(204);
   });
 
-  it('returns 404 when item does not exist', async () => {
-    vi.mocked(standingItemsService.deleteStandingItem).mockResolvedValueOnce(false);
+  it('returns 204 (idempotent) when item does not exist', async () => {
+    vi.mocked(standingItemsService.deleteStandingItem).mockResolvedValueOnce({ deleted: false });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -254,8 +312,7 @@ describe('DELETE /api/grocery/standing/:id', () => {
       headers: bearerHeader(app),
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body)).toMatchObject({ error: 'Standing item not found' });
+    expect(res.statusCode).toBe(204);
   });
 
   it('returns 401 without auth', async () => {

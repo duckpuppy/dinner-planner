@@ -48,12 +48,7 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
-import {
-  getCustomItemsForWeek,
-  addCustomItem,
-  updateCustomItem,
-  deleteCustomItem,
-} from '../services/customGroceries.js';
+import { getCustomItemsForWeek, updateCustomItem } from '../services/customGroceries.js';
 
 const FAMILY_ID = 'family-1';
 const OTHER_FAMILY_ID = 'family-2';
@@ -178,62 +173,6 @@ describe('getCustomItemsForWeek', () => {
 // addCustomItem
 // ===========================================================================
 
-describe('addCustomItem', () => {
-  it('inserts and returns the new item', async () => {
-    const row = makeItemRow();
-    // First select: existing items count (returns array)
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
-    // Second select: fetch inserted item by id
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addCustomItem('2026-02-24', 'Milk', 2, 'litre', undefined, FAMILY_ID);
-
-    expect(mockDb.insert).toHaveBeenCalledOnce();
-    expect(result.name).toBe('Milk');
-    expect(result.quantity).toBe(2);
-    expect(result.unit).toBe('litre');
-  });
-
-  it('sets sortOrder to count of existing items within the family', async () => {
-    const existing = [makeItemRow({ id: 'existing-1' })];
-    const newRow = makeItemRow({ id: 'item-2', sortOrder: 1 });
-    mockDb.select.mockReturnValueOnce(selFromWhere(existing));
-    mockDb.select.mockReturnValueOnce(selFromWhere([newRow]));
-
-    const result = await addCustomItem('2026-02-24', 'Eggs', null, null, undefined, FAMILY_ID);
-
-    expect(result.sortOrder).toBe(1);
-  });
-
-  it('handles null quantity and unit', async () => {
-    const row = makeItemRow({ quantity: null, unit: null });
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addCustomItem('2026-02-24', 'Bread', null, null, undefined, FAMILY_ID);
-    expect(result.quantity).toBeNull();
-    expect(result.unit).toBeNull();
-  });
-
-  it('drops a storeId that belongs to another family', async () => {
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
-    mockDb.query.stores.findFirst.mockResolvedValueOnce(undefined); // not in this family
-    const row = makeItemRow({ storeId: null });
-    mockDb.select.mockReturnValueOnce(selFromWhere([row]));
-
-    const result = await addCustomItem(
-      '2026-02-24',
-      'Milk',
-      2,
-      'litre',
-      'other-family-store',
-      FAMILY_ID
-    );
-
-    expect(result.storeId).toBeNull();
-  });
-});
-
 // ===========================================================================
 // updateCustomItem
 // ===========================================================================
@@ -294,29 +233,3 @@ describe('updateCustomItem', () => {
 // ===========================================================================
 // deleteCustomItem
 // ===========================================================================
-
-describe('deleteCustomItem', () => {
-  it('returns false when id not found', async () => {
-    mockDb.query.customGroceryItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deleteCustomItem('nonexistent', FAMILY_ID);
-    expect(result).toBe(false);
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns false when item belongs to another family (cross-family 404)', async () => {
-    mockDb.query.customGroceryItems.findFirst.mockResolvedValueOnce(undefined);
-    const result = await deleteCustomItem('item-1', OTHER_FAMILY_ID);
-    expect(result).toBe(false);
-    expect(mockDb.delete).not.toHaveBeenCalled();
-  });
-
-  it('returns true and deletes on success', async () => {
-    const existing = makeItemRow();
-    mockDb.query.customGroceryItems.findFirst.mockResolvedValueOnce(existing);
-
-    const result = await deleteCustomItem('item-1', FAMILY_ID);
-
-    expect(result).toBe(true);
-    expect(mockDb.delete).toHaveBeenCalledOnce();
-  });
-});

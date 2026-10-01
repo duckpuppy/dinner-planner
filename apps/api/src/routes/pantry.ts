@@ -22,8 +22,12 @@ export async function pantryRoutes(fastify: FastifyInstance) {
         .status(400)
         .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
     }
-    const item = await createPantryItem(parsed.data, request.user.familyId);
-    return reply.status(201).send({ item });
+    const result = await createPantryItem(parsed.data, request.user.familyId);
+    // null: client-supplied id belongs to another family. 404 (not 403) so we
+    // don't disclose that it exists.
+    if (!result) return reply.status(404).send({ error: 'Pantry item not found' });
+    // Future: emit pantry.add here when `result.created` is true.
+    return reply.status(result.created ? 201 : 200).send({ item: result.item });
   });
 
   // PATCH /api/pantry/:id
@@ -50,8 +54,10 @@ export async function pantryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const result = await deletePantryItem(id, request.user.familyId);
-      if (!result.success) return reply.status(404).send({ error: 'Pantry item not found' });
+      // Idempotent: 204 whether or not a row was removed (already gone, never
+      // existed, or another family's row, which is left untouched).
+      const { deleted } = await deletePantryItem(id, request.user.familyId);
+      void deleted; // Future: emit pantry.delete here when `deleted` is true.
       return reply.status(204).send();
     }
   );

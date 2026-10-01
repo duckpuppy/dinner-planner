@@ -315,6 +315,8 @@ const pantryDateSchema = z
   .optional();
 
 export const createPantryItemSchema = z.object({
+  // Optional client-generated id so offline creates are safe to replay.
+  id: z.string().uuid().optional(),
   ingredientName: z.string().min(1).max(200),
   quantity: z.number().positive().nullable().optional(),
   unit: z.string().max(50).nullable().optional(),
@@ -327,6 +329,37 @@ export const updatePantryItemSchema = z.object({
   unit: z.string().max(50).nullable().optional(),
   expiresAt: pantryDateSchema,
 });
+
+// Grocery custom/standing item schemas. `id` is an optional client-generated
+// UUID that makes creates idempotent (offline queue replay).
+export const createCustomItemSchema = z.object({
+  id: z.string().uuid().optional(),
+  weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
+  name: z.string().min(1, 'name must not be empty'),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  storeId: z.string().optional(),
+});
+
+export const createStandingItemSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1, 'name must not be empty'),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  category: z.string().optional(),
+  storeId: z.string().optional(),
+});
+
+export const updateCustomItemSchema = z
+  .object({
+    name: z.string().min(1, 'name must not be empty').optional(),
+    quantity: z.number().nullable().optional(),
+    unit: z.string().nullable().optional(),
+    storeId: z.string().nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
 
 export type PantryItem = {
   id: string;
@@ -475,6 +508,9 @@ export type CreateDishNoteInput = z.infer<typeof createDishNoteSchema>;
 export type DishNote = z.infer<typeof dishNoteSchema>;
 export type CreatePantryItemInput = z.infer<typeof createPantryItemSchema>;
 export type UpdatePantryItemInput = z.infer<typeof updatePantryItemSchema>;
+export type CreateCustomItemInput = z.infer<typeof createCustomItemSchema>;
+export type CreateStandingItemInput = z.infer<typeof createStandingItemSchema>;
+export type UpdateCustomItemInput = z.infer<typeof updateCustomItemSchema>;
 export type ImportVideoUrlInput = z.infer<typeof importVideoUrlSchema>;
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
