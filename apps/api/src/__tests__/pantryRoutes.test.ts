@@ -116,7 +116,10 @@ describe('POST /api/pantry', () => {
   });
 
   it('returns 201 with created item', async () => {
-    vi.mocked(pantryService.createPantryItem).mockResolvedValueOnce(mockItem);
+    vi.mocked(pantryService.createPantryItem).mockResolvedValueOnce({
+      item: mockItem,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -170,6 +173,48 @@ describe('POST /api/pantry', () => {
 // PATCH /api/pantry/:id
 // ===========================================================================
 
+describe('POST /api/pantry idempotent ids', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const post = (body: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/pantry',
+      headers: jsonHeaders(app),
+      body: JSON.stringify(body),
+    });
+
+  it('returns 200 with the existing item on a replayed id', async () => {
+    vi.mocked(pantryService.createPantryItem).mockResolvedValueOnce({
+      item: mockItem,
+      created: false,
+    });
+    const res = await post({
+      id: '11111111-1111-4111-8111-111111111111',
+      ingredientName: 'Different',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).item.id).toBe(mockItem.id);
+  });
+
+  it('returns 404 when the id belongs to another family', async () => {
+    vi.mocked(pantryService.createPantryItem).mockResolvedValueOnce(null);
+    const res = await post({ id: '11111111-1111-4111-8111-111111111111', ingredientName: 'Flour' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 with an invalid uuid id', async () => {
+    const res = await post({ id: 'nope', ingredientName: 'Flour' });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 describe('PATCH /api/pantry/:id', () => {
   let app: TestApp;
   beforeAll(async () => {
@@ -209,7 +254,7 @@ describe('PATCH /api/pantry/:id', () => {
     expect(JSON.parse(res.body)).toMatchObject({ error: 'Pantry item not found' });
   });
 
-  it('returns 404 (not 403) when item belongs to another family', async () => {
+  it('returns 204 (not 403/404) when item belongs to another family', async () => {
     // The service returns null for both "doesn't exist" and "belongs to
     // another family" -- the route can't tell the difference, which is the
     // point (dinner-7pt.5: cross-family access looks identical to not-found).
@@ -267,7 +312,7 @@ describe('DELETE /api/pantry/:id', () => {
   });
 
   it('returns 204 on success', async () => {
-    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ success: true });
+    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ deleted: true });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -279,7 +324,7 @@ describe('DELETE /api/pantry/:id', () => {
   });
 
   it('returns 404 (not 403) when item belongs to another family', async () => {
-    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ success: false });
+    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ deleted: false });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -287,12 +332,12 @@ describe('DELETE /api/pantry/:id', () => {
       headers: bearerHeader(app),
     });
 
-    expect(res.statusCode).toBe(404);
+    expect(res.statusCode).toBe(204);
     expect(pantryService.deletePantryItem).toHaveBeenCalledWith('other-familys-item', 'family-1');
   });
 
-  it('returns 404 when item does not exist', async () => {
-    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ success: false });
+  it('returns 204 (idempotent) when item does not exist', async () => {
+    vi.mocked(pantryService.deletePantryItem).mockResolvedValueOnce({ deleted: false });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -300,8 +345,7 @@ describe('DELETE /api/pantry/:id', () => {
       headers: bearerHeader(app),
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body)).toMatchObject({ error: 'Pantry item not found' });
+    expect(res.statusCode).toBe(204);
   });
 
   it('returns 401 without auth', async () => {

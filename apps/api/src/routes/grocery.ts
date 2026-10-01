@@ -4,6 +4,11 @@ import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/c
 import { toggleCheck, clearAllChecks, setCheck, clearChecks } from '../services/groceryChecks.js';
 import { listStores } from '../services/stores.js';
 import {
+  createCustomItemSchema,
+  createStandingItemSchema,
+  updateCustomItemSchema,
+} from '@dinner-planner/shared';
+import {
   listStandingItems,
   addStandingItem,
   deleteStandingItem,
@@ -34,33 +39,6 @@ const clearChecksQuerySchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
 });
 
-const createCustomItemSchema = z.object({
-  weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
-  name: z.string().min(1, 'name must not be empty'),
-  quantity: z.number().optional(),
-  unit: z.string().optional(),
-  storeId: z.string().optional(),
-});
-
-const createStandingItemSchema = z.object({
-  name: z.string().min(1, 'name must not be empty'),
-  quantity: z.number().optional(),
-  unit: z.string().optional(),
-  category: z.string().optional(),
-  storeId: z.string().optional(),
-});
-
-const updateCustomItemSchema = z
-  .object({
-    name: z.string().min(1, 'name must not be empty').optional(),
-    quantity: z.number().nullable().optional(),
-    unit: z.string().nullable().optional(),
-    storeId: z.string().nullable().optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field must be provided',
-  });
-
 export async function groceryRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/stores
@@ -86,16 +64,20 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      const { weekDate, name, quantity = null, unit = null, storeId } = parsed.data;
-      const item = await addCustomItem(
+      const { id, weekDate, name, quantity = null, unit = null, storeId } = parsed.data;
+      const result = await addCustomItem(
         weekDate,
         name,
         quantity ?? null,
         unit ?? null,
         storeId,
-        request.user.familyId
+        request.user.familyId,
+        id
       );
-      return reply.status(201).send({ item });
+      // null: client-supplied id belongs to another family -> 404, no disclosure.
+      if (!result) return reply.status(404).send({ error: 'Custom grocery item not found' });
+      // Future: emit grocery.custom.add here when `result.created` is true.
+      return reply.status(result.created ? 201 : 200).send({ item: result.item });
     }
   );
 
@@ -130,8 +112,9 @@ export async function groceryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deleteCustomItem(id, request.user.familyId);
-      if (!deleted) return reply.status(404).send({ error: 'Custom grocery item not found' });
+      // Idempotent: 204 even if already gone or owned by another family.
+      const { deleted } = await deleteCustomItem(id, request.user.familyId);
+      void deleted; // Future: emit grocery.custom.delete here when `deleted` is true.
       return reply.status(204).send();
     }
   );
@@ -257,18 +240,21 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      const { name, quantity = null, unit = null, category = 'Other', storeId } = parsed.data;
+      const { id, name, quantity = null, unit = null, category = 'Other', storeId } = parsed.data;
       const userId = request.user.userId;
-      const item = await addStandingItem(
+      const result = await addStandingItem(
         name,
         quantity ?? null,
         unit ?? null,
         category,
         storeId,
         userId,
-        request.user.familyId
+        request.user.familyId,
+        id
       );
-      return reply.status(201).send({ item });
+      if (!result) return reply.status(404).send({ error: 'Standing item not found' });
+      // Future: emit grocery.standing.add here when `result.created` is true.
+      return reply.status(result.created ? 201 : 200).send({ item: result.item });
     }
   );
 
@@ -281,8 +267,9 @@ export async function groceryRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const deleted = await deleteStandingItem(id, request.user.familyId);
-      if (!deleted) return reply.status(404).send({ error: 'Standing item not found' });
+      // Idempotent: 204 even if already gone or owned by another family.
+      const { deleted } = await deleteStandingItem(id, request.user.familyId);
+      void deleted; // Future: emit grocery.standing.delete here when `deleted` is true.
       return reply.status(204).send();
     }
   );

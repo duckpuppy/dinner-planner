@@ -38,27 +38,36 @@ export async function listPantryItems(familyId: string): Promise<PantryItem[]> {
 
 /**
  * Create a new pantry item, scoped to a family.
+ *
+ * Idempotent when `input.id` is supplied (ON CONFLICT DO NOTHING, first write
+ * wins; `created: false` on replay). Returns null when the id belongs to
+ * another family (callers respond 404).
  */
 export async function createPantryItem(
   input: CreatePantryItemInput,
   familyId: string
-): Promise<PantryItem> {
-  const id = crypto.randomUUID();
+): Promise<{ item: PantryItem; created: boolean } | null> {
+  const id = input.id ?? crypto.randomUUID();
   const now = new Date().toISOString();
 
-  await db.insert(schema.pantryItems).values({
-    id,
-    familyId,
-    ingredientName: input.ingredientName,
-    quantity: input.quantity ?? null,
-    unit: input.unit ?? null,
-    expiresAt: input.expiresAt ?? null,
-    createdAt: now,
-  });
+  const inserted = await db
+    .insert(schema.pantryItems)
+    .values({
+      id,
+      familyId,
+      ingredientName: input.ingredientName,
+      quantity: input.quantity ?? null,
+      unit: input.unit ?? null,
+      expiresAt: input.expiresAt ?? null,
+      createdAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: schema.pantryItems.id });
 
   const rows = await db.select().from(schema.pantryItems).where(eq(schema.pantryItems.id, id));
+  if (rows.length === 0 || rows[0].familyId !== familyId) return null;
 
-  return rowToPantryItem(rows[0]);
+  return { item: rowToPantryItem(rows[0]), created: inserted.length > 0 };
 }
 
 /**
@@ -89,18 +98,17 @@ export async function updatePantryItem(
 }
 
 /**
- * Delete a pantry item by id, scoped to a family.
+ * Delete a pantry item by id, scoped to a family. Idempotent: `deleted` is
+ * true only when a row was actually removed.
  */
 export async function deletePantryItem(
   id: string,
   familyId: string
-): Promise<{ success: boolean }> {
-  const existing = await db.query.pantryItems.findFirst({
-    where: and(eq(schema.pantryItems.id, id), eq(schema.pantryItems.familyId, familyId)),
-  });
-  if (!existing) return { success: false };
+): Promise<{ deleted: boolean }> {
+  const removed = await db
+    .delete(schema.pantryItems)
+    .where(and(eq(schema.pantryItems.id, id), eq(schema.pantryItems.familyId, familyId)))
+    .returning({ id: schema.pantryItems.id });
 
-  await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, id));
-
-  return { success: true };
+  return { deleted: removed.length > 0 };
 }

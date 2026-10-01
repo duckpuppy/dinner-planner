@@ -91,7 +91,10 @@ describe('POST /api/grocery/custom', () => {
   });
 
   it('returns 201 with created item', async () => {
-    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce(mockItem);
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce({
+      item: mockItem,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -110,7 +113,10 @@ describe('POST /api/grocery/custom', () => {
 
   it('returns 201 with name only (optional fields omitted)', async () => {
     const minItem = { ...mockItem, quantity: null, unit: null };
-    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce(minItem);
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce({
+      item: minItem,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -120,6 +126,84 @@ describe('POST /api/grocery/custom', () => {
     });
 
     expect(res.statusCode).toBe(201);
+  });
+
+  it('passes a client id through and returns 201 when created', async () => {
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce({
+      item: { ...mockItem, id: '11111111-1111-4111-8111-111111111111' },
+      created: true,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/custom',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        id: '11111111-1111-4111-8111-111111111111',
+        weekDate: '2026-02-24',
+        name: 'Milk',
+      }),
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(customGroceriesService.addCustomItem).toHaveBeenLastCalledWith(
+      '2026-02-24',
+      'Milk',
+      null,
+      null,
+      undefined,
+      'family-1',
+      '11111111-1111-4111-8111-111111111111'
+    );
+  });
+
+  it('returns 200 with the existing item on a replayed id', async () => {
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce({
+      item: mockItem,
+      created: false,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/custom',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        id: '11111111-1111-4111-8111-111111111111',
+        weekDate: '2026-02-24',
+        name: 'Different',
+      }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).item.name).toBe('Milk');
+  });
+
+  it('returns 404 when the id belongs to another family', async () => {
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/custom',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({
+        id: '11111111-1111-4111-8111-111111111111',
+        weekDate: '2026-02-24',
+        name: 'Milk',
+      }),
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 with an invalid uuid id', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/grocery/custom',
+      headers: jsonHeaders(app),
+      body: JSON.stringify({ id: 'not-a-uuid', weekDate: '2026-02-24', name: 'Milk' }),
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 with empty name', async () => {
@@ -263,7 +347,7 @@ describe('DELETE /api/grocery/custom/:id', () => {
   });
 
   it('returns 204 on success', async () => {
-    vi.mocked(customGroceriesService.deleteCustomItem).mockResolvedValueOnce(true);
+    vi.mocked(customGroceriesService.deleteCustomItem).mockResolvedValueOnce({ deleted: true });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -274,8 +358,8 @@ describe('DELETE /api/grocery/custom/:id', () => {
     expect(res.statusCode).toBe(204);
   });
 
-  it('returns 404 when item does not exist', async () => {
-    vi.mocked(customGroceriesService.deleteCustomItem).mockResolvedValueOnce(false);
+  it('returns 204 (idempotent) when item does not exist', async () => {
+    vi.mocked(customGroceriesService.deleteCustomItem).mockResolvedValueOnce({ deleted: false });
 
     const res = await app.inject({
       method: 'DELETE',
@@ -283,8 +367,7 @@ describe('DELETE /api/grocery/custom/:id', () => {
       headers: bearerHeader(app),
     });
 
-    expect(res.statusCode).toBe(404);
-    expect(JSON.parse(res.body)).toMatchObject({ error: 'Custom grocery item not found' });
+    expect(res.statusCode).toBe(204);
   });
 
   it('returns 401 without auth', async () => {
@@ -548,7 +631,10 @@ describe('POST /api/grocery/custom with storeId', () => {
 
   it('passes storeId to service when provided', async () => {
     const itemWithStore = { ...mockItem, storeId: 's-1', storeName: 'Aldi' };
-    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce(itemWithStore);
+    vi.mocked(customGroceriesService.addCustomItem).mockResolvedValueOnce({
+      item: itemWithStore,
+      created: true,
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -573,7 +659,8 @@ describe('POST /api/grocery/custom with storeId', () => {
       2,
       'litre',
       's-1',
-      'family-1'
+      'family-1',
+      undefined
     );
   });
 });
