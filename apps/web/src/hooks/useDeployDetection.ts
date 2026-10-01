@@ -1,3 +1,4 @@
+import { fetchHealth } from '@/lib/api';
 import { useEffect, useRef } from 'react';
 
 export const DEPLOY_POLL_INTERVAL_MS = 60_000;
@@ -42,7 +43,7 @@ export function useDeployDetection(onDeployDetected: () => void, enabled = true)
       timeoutId = null;
       if (cancelled) return;
       try {
-        const res = await fetch('/health');
+        const res = await fetchHealth();
         if (res.ok) {
           const { instanceId } = await res.json();
           if (!cancelled && instanceId) {

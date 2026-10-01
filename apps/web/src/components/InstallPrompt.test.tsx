@@ -14,13 +14,26 @@ vi.mock('@/hooks/usePWAInstall', () => ({
   }),
 }));
 
+const { mockIsNative } = vi.hoisted(() => ({ mockIsNative: vi.fn(() => false) }));
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { isNativePlatform: () => mockIsNative() },
+}));
+
 afterEach(() => {
+  mockIsNative.mockReturnValue(false);
   cleanup();
   vi.clearAllMocks();
   mockCanInstall.value = false;
 });
 
 describe('InstallPrompt', () => {
+  it('renders nothing on native even when installable', () => {
+    mockIsNative.mockReturnValue(true);
+    mockCanInstall.value = true;
+    const { container } = render(<InstallPrompt />);
+    expect(container.firstChild).toBeNull();
+  });
+
   it('renders nothing when canInstall is false', () => {
     mockCanInstall.value = false;
     const { container } = render(<InstallPrompt />);
