@@ -6,7 +6,10 @@ import App from './App';
 import { queryClient } from './lib/queryClient';
 import { isMissingNativeOrigin } from './lib/apiOrigin';
 import { MissingServerScreen } from './components/MissingServerScreen';
+import { startConnectivity } from './lib/connectivity';
 import './index.css';
+
+startConnectivity();
 
 // The persisted query cache is restored by the auth store (see lib/queryPersistence.ts)
 // once the session resolves, and only if it belongs to the signed-in user + family.

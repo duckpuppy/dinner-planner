@@ -1,20 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
+import { onlineManager } from '@tanstack/react-query';
 
-export function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+const subscribe = (onChange: () => void) => onlineManager.subscribe(onChange);
+const getSnapshot = () => onlineManager.isOnline();
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  return isOnline;
+/** Reactive view of TanStack Query's online state, which lib/connectivity.ts keeps accurate. */
+export function useOnlineStatus(): boolean {
+  return useSyncExternalStore(subscribe, getSnapshot, () => true);
 }
