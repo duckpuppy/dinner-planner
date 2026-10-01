@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// Version and signing inputs: Gradle property first, then env var, then default.
+def resolveProp = { String prop, String env, String fallback ->
+    project.findProperty(prop)?.toString() ?: System.getenv(env) ?: fallback
+}
+def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def hasReleaseKeystore = keystorePath && file(keystorePath).exists()
+
 android {
     namespace = "com.duckpuppy.dinnerplanner"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +14,8 @@ android {
         applicationId "com.duckpuppy.dinnerplanner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode resolveProp('versionCode', 'ANDROID_VERSION_CODE', '1').toInteger()
+        versionName resolveProp('versionName', 'ANDROID_VERSION_NAME', 'dev')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +23,36 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        resValues true
+    }
+    flavorDimensions "env"
+    productFlavors {
+        prod {
+            dimension "env"
+            resValue "string", "app_name", "Dinner Planner"
+        }
+        staging {
+            dimension "env"
+            applicationIdSuffix ".testing"
+            resValue "string", "app_name", "Dinner Planner (Test)"
+        }
+    }
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

@@ -138,3 +138,65 @@ curl http://localhost:3000/health
 ```
 
 Docker Compose checks this every 30 seconds with a 10-second timeout.
+
+## Android App Build
+
+The Capacitor Android project lives in `apps/web/android`. Gradle configuration is in `apps/web/android/app/build.gradle`.
+
+### Flavors
+
+| Flavor    | Application ID                        | Launcher name         |
+| --------- | ------------------------------------- | --------------------- |
+| `prod`    | `com.duckpuppy.dinnerplanner`         | Dinner Planner        |
+| `staging` | `com.duckpuppy.dinnerplanner.testing` | Dinner Planner (Test) |
+
+The second flavor is named `staging` (not `testing`) because the Android Gradle plugin rejects flavor names starting with `test`; its application ID suffix is still `.testing`.
+
+Both can be installed side by side (the FileProvider authority uses `${applicationId}`). Gradle tasks follow `assemble<Flavor><BuildType>`, for example `assembleProdDebug`, `assembleStagingDebug`, `assembleProdRelease`. There is no bare `assembleDebug` any more, so always name the flavor.
+
+```bash
+cd apps/web
+pnpm build && npx cap sync android
+cd android && ./gradlew assembleProdDebug   # APK: app/build/outputs/apk/prod/debug/
+```
+
+### Version
+
+`versionCode` and `versionName` come from a Gradle property (`-PversionCode=12 -PversionName=1.18.0`), else the env vars `ANDROID_VERSION_CODE` / `ANDROID_VERSION_NAME`, else the defaults `1` and `dev`.
+
+### Release signing
+
+The `release` build type is signed only when `ANDROID_KEYSTORE_PATH` is set and the file exists. Otherwise the release APK is unsigned. Debug builds are never affected.
+
+| Env var                     | Meaning                     |
+| --------------------------- | --------------------------- |
+| `ANDROID_KEYSTORE_PATH`     | Path to the `.jks` keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password           |
+| `ANDROID_KEY_ALIAS`         | Key alias inside the store  |
+| `ANDROID_KEY_PASSWORD`      | Key password                |
+
+Generate a release keystore once:
+
+```bash
+keytool -genkeypair -v \
+  -keystore dinner-planner-release.jks \
+  -alias dinner-planner \
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+**Back this file and its passwords up somewhere safe (password manager plus an offline copy) and never commit it. If the keystore is lost, installed apps can never be updated; users would have to uninstall and reinstall under a new key.**
+
+Base64-encode it for the `ANDROID_KEYSTORE_BASE64` GitHub Actions secret (the Android CI workflow will decode it back to a file at build time):
+
+```bash
+base64 -w0 dinner-planner-release.jks > keystore.b64                # Linux
+# base64 -i dinner-planner-release.jks | tr -d '\n' > keystore.b64  # macOS
+gh secret set ANDROID_KEYSTORE_BASE64 < keystore.b64
+rm keystore.b64
+```
+
+Also set `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as secrets.
+
+### Backup
+
+`allowBackup` is `false`, and `backup_rules.xml` (Android 11 and below) plus `data_extraction_rules.xml` (Android 12+) exclude all data, because the refresh token is stored on the device.
