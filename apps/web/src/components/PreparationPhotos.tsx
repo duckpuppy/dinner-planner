@@ -4,6 +4,7 @@ import { photos as photosApi, type Photo } from '@/lib/api';
 import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth';
+import { mediaUrl } from '@/lib/apiOrigin';
 
 interface PreparationPhotosProps {
   preparationId: string;
@@ -57,7 +58,7 @@ export function PreparationPhotos({ preparationId }: PreparationPhotosProps) {
           {photoList.map((photo) => (
             <div key={photo.id} className="relative group">
               <img
-                src={photo.url}
+                src={mediaUrl(photo.url)}
                 alt="Preparation photo"
                 className="h-20 w-20 object-cover rounded-md border"
               />

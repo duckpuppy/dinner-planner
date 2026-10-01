@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { AlertCircle, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { mediaUrl } from '@/lib/apiOrigin';
 
 interface VideoPlayerProps {
-  dishId: string;
+  /** Filename in the public /videos/ static directory (dish.localVideoFilename). */
+  videoFilename: string;
   thumbnailFilename?: string | null;
   className?: string;
 }
 
-export function VideoPlayer({ dishId, thumbnailFilename, className }: VideoPlayerProps) {
+export function VideoPlayer({ videoFilename, thumbnailFilename, className }: VideoPlayerProps) {
   const [error, setError] = useState(false);
 
   if (error) {
@@ -28,8 +30,8 @@ export function VideoPlayer({ dishId, thumbnailFilename, className }: VideoPlaye
   return (
     <div className={cn('relative overflow-hidden rounded-lg bg-black', className)}>
       <video
-        src={`/api/dishes/${dishId}/video`}
-        poster={thumbnailFilename ? `/videos/${thumbnailFilename}` : undefined}
+        src={mediaUrl(`/videos/${videoFilename}`)}
+        poster={thumbnailFilename ? mediaUrl(`/videos/${thumbnailFilename}`) : undefined}
         controls
         playsInline
         preload="metadata"

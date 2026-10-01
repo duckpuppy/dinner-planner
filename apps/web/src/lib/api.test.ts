@@ -111,7 +111,7 @@ describe('silent refresh session events', () => {
     const expired = vi.fn();
     cleanups.push(onSessionExpired(expired));
 
-    await expect(users.list()).rejects.toMatchObject({ status: 401 });
+    await expect(users.list()).rejects.toMatchObject({ name: 'NetworkError', kind: 'offline' });
 
     expect(expired).not.toHaveBeenCalled();
   });

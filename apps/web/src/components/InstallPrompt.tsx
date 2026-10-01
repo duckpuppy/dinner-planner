@@ -1,12 +1,13 @@
 import { Download, X } from 'lucide-react';
 import { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 
 export function InstallPrompt() {
   const { canInstall, install } = usePWAInstall();
   const [dismissed, setDismissed] = useState(false);
 
-  if (!canInstall || dismissed) return null;
+  if (Capacitor.isNativePlatform() || !canInstall || dismissed) return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-40 bg-card border rounded-xl shadow-lg p-4">
