@@ -1,7 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addCustomItem, updateCustomItem, deleteCustomItem } from '../services/customGroceries.js';
-import { toggleCheck, clearAllChecks, setCheck, clearChecks } from '../services/groceryChecks.js';
+import {
+  toggleCheck,
+  clearAllChecks,
+  setCheck,
+  clearChecks,
+  clampClientTime,
+  type CheckState,
+} from '../services/groceryChecks.js';
+import { publish } from '../services/eventBus.js';
 import { listStores } from '../services/stores.js';
 import {
   createCustomItemSchema,
@@ -34,6 +42,16 @@ const clearChecksBodySchema = z.object({
   weekDate: weekDateSchema,
   clientUpdatedAt: z.number().int().nonnegative(),
 });
+
+function publishCheck(familyId: string, weekDate: string, check: CheckState) {
+  publish(familyId, 'grocery.check', {
+    weekDate,
+    itemKey: check.itemKey,
+    checked: check.checked,
+    updatedAt: check.updatedAt,
+    checkedBy: check.checkedBy,
+  });
+}
 
 const clearChecksQuerySchema = z.object({
   weekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'weekDate must be YYYY-MM-DD'),
@@ -76,7 +94,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       );
       // null: client-supplied id belongs to another family -> 404, no disclosure.
       if (!result) return reply.status(404).send({ error: 'Custom grocery item not found' });
-      // Future: emit grocery.custom.add here when `result.created` is true.
+      if (result.created) publish(request.user.familyId, 'grocery.custom.add', result.item);
       return reply.status(result.created ? 201 : 200).send({ item: result.item });
     }
   );
@@ -99,6 +117,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
 
       const item = await updateCustomItem(id, parsed.data, request.user.familyId);
       if (!item) return reply.status(404).send({ error: 'Custom grocery item not found' });
+      publish(request.user.familyId, 'grocery.custom.update', item);
       return reply.send({ item });
     }
   );
@@ -114,7 +133,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       // Idempotent: 204 even if already gone or owned by another family.
       const { deleted } = await deleteCustomItem(id, request.user.familyId);
-      void deleted; // Future: emit grocery.custom.delete here when `deleted` is true.
+      if (deleted) publish(request.user.familyId, 'grocery.custom.delete', { id });
       return reply.status(204).send();
     }
   );
@@ -136,7 +155,14 @@ export async function groceryRoutes(fastify: FastifyInstance) {
 
       const { weekDate, itemKey, itemName } = parsed.data;
       const userId = request.user.userId;
-      const checked = await toggleCheck(weekDate, itemKey, itemName, userId, request.user.familyId);
+      const { checked, check } = await toggleCheck(
+        weekDate,
+        itemKey,
+        itemName,
+        userId,
+        request.user.familyId
+      );
+      publishCheck(request.user.familyId, weekDate, check);
       return reply.send({ itemKey, checked });
     }
   );
@@ -162,7 +188,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
         userId: request.user.userId,
         familyId: request.user.familyId,
       });
-      // Future: emit a live-sync event here when `changed` is true.
+      if (changed) publishCheck(request.user.familyId, parsed.data.weekDate, check);
       return reply.send({ ...check, changed });
     }
   );
@@ -187,6 +213,12 @@ export async function groceryRoutes(fastify: FastifyInstance) {
         parsed.data.clientUpdatedAt,
         request.user.familyId
       );
+      if (cleared > 0) {
+        publish(request.user.familyId, 'grocery.clear', {
+          weekDate: parsed.data.weekDate,
+          at: clampClientTime(parsed.data.clientUpdatedAt),
+        });
+      }
       return reply.send({ cleared });
     }
   );
@@ -207,7 +239,10 @@ export async function groceryRoutes(fastify: FastifyInstance) {
           .send({ error: 'Validation error', details: parsed.error.flatten().fieldErrors });
       }
 
-      await clearAllChecks(parsed.data.weekDate, request.user.familyId);
+      const { cleared, at } = await clearAllChecks(parsed.data.weekDate, request.user.familyId);
+      if (cleared > 0) {
+        publish(request.user.familyId, 'grocery.clear', { weekDate: parsed.data.weekDate, at });
+      }
       return reply.status(204).send();
     }
   );
@@ -253,7 +288,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
         id
       );
       if (!result) return reply.status(404).send({ error: 'Standing item not found' });
-      // Future: emit grocery.standing.add here when `result.created` is true.
+      if (result.created) publish(request.user.familyId, 'grocery.standing.add', result.item);
       return reply.status(result.created ? 201 : 200).send({ item: result.item });
     }
   );
@@ -269,7 +304,7 @@ export async function groceryRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       // Idempotent: 204 even if already gone or owned by another family.
       const { deleted } = await deleteStandingItem(id, request.user.familyId);
-      void deleted; // Future: emit grocery.standing.delete here when `deleted` is true.
+      if (deleted) publish(request.user.familyId, 'grocery.standing.delete', { id });
       return reply.status(204).send();
     }
   );
