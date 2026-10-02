@@ -119,11 +119,48 @@ describe('bindCacheOwner', () => {
     expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
   });
 
-  it('discards an expired cache', async () => {
-    mockGet.mockResolvedValue(persisted({ timestamp: Date.now() - 25 * 60 * 60 * 1000 }));
+  const DAY = 24 * 60 * 60 * 1000;
+  const snapshot = (lastServerContactAt: number, userId = 'u1') => ({
+    schema: 1,
+    user: { id: userId, familyId: 'f1' },
+    lastServerContactAt,
+  });
+  // The cache payload and the session snapshot live under different idb keys.
+  function stubIdb(cache: unknown, snap: unknown) {
+    mockGet.mockImplementation(async (key: string) => (key === CACHE_KEY ? cache : snap));
+  }
+
+  it('discards a cache older than 7 days (no snapshot: save timestamp)', async () => {
+    mockGet.mockResolvedValue(persisted({ timestamp: Date.now() - 8 * DAY }));
     await bindCacheOwner(OWNER_A);
     expect(queryClient.getQueryData(['family'])).toBeUndefined();
     expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
+  });
+
+  it('keeps a 3 day old cache', async () => {
+    mockGet.mockResolvedValue(persisted({ timestamp: Date.now() - 3 * DAY }));
+    await bindCacheOwner(OWNER_A);
+    expect(queryClient.getQueryData(['family'])).toEqual({ name: 'Old Family' });
+  });
+
+  it('ages the cache by last server contact, not by the payload save time', async () => {
+    // Payload re-saved a minute ago by offline writes, but the server was last seen 8 days ago.
+    stubIdb(persisted({ timestamp: Date.now() - 60_000 }), snapshot(Date.now() - 8 * DAY));
+    await bindCacheOwner(OWNER_A);
+    expect(queryClient.getQueryData(['family'])).toBeUndefined();
+    expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
+  });
+
+  it('uses the snapshot contact time when it is fresher than the save time', async () => {
+    stubIdb(persisted({ timestamp: Date.now() - 8 * DAY }), snapshot(Date.now() - 60_000));
+    await bindCacheOwner(OWNER_A);
+    expect(queryClient.getQueryData(['family'])).toEqual({ name: 'Old Family' });
+  });
+
+  it("ignores another user's snapshot", async () => {
+    stubIdb(persisted({ timestamp: Date.now() - 60_000 }), snapshot(Date.now() - 8 * DAY, 'u9'));
+    await bindCacheOwner(OWNER_A);
+    expect(queryClient.getQueryData(['family'])).toEqual({ name: 'Old Family' });
   });
 
   it('discards a legacy-format cache without owner metadata', async () => {

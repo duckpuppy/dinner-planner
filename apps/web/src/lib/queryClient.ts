@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 
-export const CACHE_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
+export const CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 7; // 7 days, matches the offline session window
 
 /**
  * Shared QueryClient. Lives in its own module (no imports from the auth store or

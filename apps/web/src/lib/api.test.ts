@@ -116,6 +116,28 @@ describe('silent refresh session events', () => {
     expect(expired).not.toHaveBeenCalled();
   });
 
+  it('offline session (no access token): requests never trigger session expiry', async () => {
+    setAccessToken(null);
+    const expired = vi.fn();
+    cleanups.push(onSessionExpired(expired));
+
+    // Data request reaches nothing at all.
+    mockFetch.mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(users.list()).rejects.toMatchObject({ name: 'NetworkError' });
+
+    // Server answers the unauthenticated call with 401, but the refresh cannot get through.
+    route(() => {
+      throw new TypeError('Failed to fetch');
+    });
+    await expect(users.list()).rejects.toMatchObject({ name: 'NetworkError', kind: 'offline' });
+
+    expect(expired).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBeNull();
+    // No Authorization header was ever sent.
+    const sent = mockFetch.mock.calls.map((c) => (c[1]?.headers ?? {}) as Record<string, string>);
+    expect(sent.every((h) => h.Authorization === undefined)).toBe(true);
+  });
+
   it('shares one /auth/refresh across concurrent 401s', async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
