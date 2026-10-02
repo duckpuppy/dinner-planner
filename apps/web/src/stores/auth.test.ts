@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from '@testing-library/react';
 
 const {
@@ -9,8 +9,24 @@ const {
   mockSetAccessToken,
   mockBindCacheOwner,
   mockClearCache,
+  mockReadSnapshot,
+  mockWriteSnapshot,
+  mockClearSnapshot,
+  mockDiscardQueue,
+  mockWarmPrefetch,
+  mockProbe,
+  mockResume,
+  mockInvalidate,
   sessionListeners,
 } = vi.hoisted(() => ({
+  mockReadSnapshot: vi.fn(),
+  mockWriteSnapshot: vi.fn(),
+  mockClearSnapshot: vi.fn(),
+  mockDiscardQueue: vi.fn(),
+  mockWarmPrefetch: vi.fn(),
+  mockProbe: vi.fn(),
+  mockResume: vi.fn(),
+  mockInvalidate: vi.fn(),
   mockGetHealth: vi.fn(),
   mockAuthRefresh: vi.fn(),
   mockAuthLogin: vi.fn(),
@@ -29,7 +45,24 @@ vi.mock('@/lib/queryPersistence', () => ({
   clearCache: mockClearCache,
 }));
 
+vi.mock('@/lib/sessionSnapshot', () => ({
+  readSnapshot: mockReadSnapshot,
+  writeSnapshot: mockWriteSnapshot,
+  clearSnapshot: mockClearSnapshot,
+  isSnapshotFresh: (s: { lastServerContactAt: number }) =>
+    Date.now() - s.lastServerContactAt <= 7 * 24 * 60 * 60 * 1000,
+}));
+vi.mock('@/lib/mutationQueueDiscard', () => ({ discardQueueAndNotify: mockDiscardQueue }));
+vi.mock('@/lib/warmPrefetch', () => ({ warmPrefetch: mockWarmPrefetch }));
+vi.mock('@/lib/connectivity', () => ({ probe: mockProbe }));
+vi.mock('@/lib/queryClient', () => ({
+  queryClient: { resumePausedMutations: mockResume, invalidateQueries: mockInvalidate },
+}));
+
 vi.mock('@/lib/api', () => ({
+  NetworkError: class NetworkError extends Error {
+    kind = 'offline';
+  },
   ApiError: class ApiError extends Error {
     status: number;
     constructor(status: number, message: string) {
@@ -55,8 +88,9 @@ vi.mock('@/lib/api', () => ({
 }));
 
 // Import AFTER mocking
-import { useAuthStore } from './auth';
-import { ApiError } from '@/lib/api';
+import { useAuthStore, RECONNECT_RETRY_MS } from './auth';
+import { ApiError, NetworkError } from '@/lib/api';
+import { onlineManager } from '@tanstack/react-query';
 
 function getState() {
   return useAuthStore.getState();
@@ -68,6 +102,7 @@ function resetStore() {
     isAuthenticated: false,
     isLoading: false,
     setupRequired: false,
+    sessionMode: 'online',
   });
 }
 
@@ -75,6 +110,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockBindCacheOwner.mockResolvedValue(undefined);
   mockClearCache.mockResolvedValue(undefined);
+  mockReadSnapshot.mockResolvedValue(null);
+  mockWriteSnapshot.mockResolvedValue(undefined);
+  mockClearSnapshot.mockResolvedValue(undefined);
+  mockDiscardQueue.mockResolvedValue(0);
+  mockProbe.mockResolvedValue(undefined);
   resetStore();
 });
 
@@ -369,5 +409,210 @@ describe('authStore', () => {
       await sessionListeners.expired!();
       expect(mockClearCache).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('offline session', () => {
+  const user = {
+    id: 'u1',
+    username: 'alice',
+    displayName: 'Alice',
+    role: 'member' as const,
+    theme: 'light' as const,
+    homeView: 'today' as const,
+    dietaryPreferences: [],
+    familyId: 'f1',
+  };
+  const DAY = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    mockGetHealth.mockResolvedValue({ status: 'ok', setupRequired: false });
+    mockAuthRefresh.mockRejectedValue(new NetworkError());
+  });
+
+  afterEach(() => {
+    // Leave offline mode so the module-level watcher is detached between tests.
+    useAuthStore.setState({ sessionMode: 'online', isAuthenticated: false, user: null });
+    onlineManager.setOnline(true);
+    vi.useRealTimers();
+  });
+
+  async function coldStartOffline() {
+    mockReadSnapshot.mockResolvedValue({ schema: 1, user, lastServerContactAt: Date.now() - DAY });
+    await act(async () => {
+      await getState().checkAuth();
+    });
+  }
+
+  it('cold-starts authenticated and offline from a fresh snapshot', async () => {
+    await coldStartOffline();
+    expect(getState()).toMatchObject({
+      user,
+      isAuthenticated: true,
+      sessionMode: 'offline',
+      isLoading: false,
+    });
+    expect(mockBindCacheOwner).toHaveBeenCalledWith({ userId: 'u1', familyId: 'f1' });
+    expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    expect(mockSetAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockClearCache).not.toHaveBeenCalled();
+  });
+
+  it('shows login when the snapshot is older than 7 days', async () => {
+    mockReadSnapshot.mockResolvedValue({
+      schema: 1,
+      user,
+      lastServerContactAt: Date.now() - 8 * DAY,
+    });
+    await act(async () => {
+      await getState().checkAuth();
+    });
+    expect(getState().isAuthenticated).toBe(false);
+    expect(getState().sessionMode).toBe('online');
+    expect(mockClearSnapshot).toHaveBeenCalled();
+    expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: true });
+  });
+
+  it('shows login and keeps the persisted cache with no snapshot', async () => {
+    await act(async () => {
+      await getState().checkAuth();
+    });
+    expect(getState().isAuthenticated).toBe(false);
+    expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: true });
+    expect(mockClearSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('logs out, clears the snapshot and discards the queue on a rejected session', async () => {
+    mockAuthRefresh.mockRejectedValue(new ApiError(401, 'nope'));
+    mockReadSnapshot.mockResolvedValue({ schema: 1, user, lastServerContactAt: Date.now() });
+    await act(async () => {
+      await getState().checkAuth();
+    });
+    expect(getState().isAuthenticated).toBe(false);
+    expect(mockClearSnapshot).toHaveBeenCalled();
+    expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: false });
+    expect(mockDiscardQueue).toHaveBeenCalled();
+  });
+
+  it('writes the snapshot and prefetches after an online checkAuth', async () => {
+    mockAuthRefresh.mockResolvedValue({ user, accessToken: 't' });
+    await act(async () => {
+      await getState().checkAuth();
+    });
+    expect(mockWriteSnapshot).toHaveBeenCalledWith(user);
+    expect(mockWarmPrefetch).toHaveBeenCalledTimes(1);
+    expect(getState().sessionMode).toBe('online');
+  });
+
+  it('writes the snapshot and prefetches after login', async () => {
+    mockAuthLogin.mockResolvedValue({ user, accessToken: 't' });
+    await act(async () => {
+      await getState().login('alice', 'pw');
+    });
+    expect(mockWriteSnapshot).toHaveBeenCalledWith(user);
+    expect(mockWarmPrefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the snapshot on logout', async () => {
+    mockAuthLogout.mockResolvedValue(undefined);
+    await act(async () => {
+      await getState().logout();
+    });
+    expect(mockClearSnapshot).toHaveBeenCalled();
+  });
+
+  it('reconnects when connectivity returns: new token, online, resumes mutations', async () => {
+    onlineManager.setOnline(false);
+    await coldStartOffline();
+    mockAuthRefresh.mockResolvedValue({ user, accessToken: 'fresh' });
+    await act(async () => {
+      onlineManager.setOnline(true);
+    });
+    await vi.waitFor(() => expect(getState().sessionMode).toBe('online'));
+    expect(mockSetAccessToken).toHaveBeenCalledWith('fresh');
+    expect(mockWriteSnapshot).toHaveBeenCalledWith(user);
+    expect(mockResume).toHaveBeenCalled();
+    expect(mockInvalidate).toHaveBeenCalled();
+    expect(mockWarmPrefetch).toHaveBeenCalled();
+    expect(mockDiscardQueue).not.toHaveBeenCalled();
+  });
+
+  it('single-flights concurrent reconnect triggers', async () => {
+    onlineManager.setOnline(false);
+    await coldStartOffline();
+    mockAuthRefresh.mockClear();
+    let resolve!: (v: unknown) => void;
+    mockAuthRefresh.mockReturnValue(new Promise((r) => (resolve = r)));
+    await act(async () => {
+      onlineManager.setOnline(true);
+      onlineManager.setOnline(false);
+      onlineManager.setOnline(true);
+    });
+    expect(mockAuthRefresh).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolve({ user, accessToken: 't' });
+    });
+    await vi.waitFor(() => expect(getState().sessionMode).toBe('online'));
+  });
+
+  it('logs out on reconnect when the server rejects the session', async () => {
+    onlineManager.setOnline(false);
+    await coldStartOffline();
+    mockAuthRefresh.mockRejectedValue(new ApiError(401, 'revoked'));
+    await act(async () => {
+      onlineManager.setOnline(true);
+    });
+    await vi.waitFor(() => expect(getState().isAuthenticated).toBe(false));
+    expect(mockClearSnapshot).toHaveBeenCalled();
+    expect(mockDiscardQueue).toHaveBeenCalled();
+    expect(mockClearCache).toHaveBeenCalledWith({ keepPersisted: false });
+  });
+
+  it('stays offline and retries after a network failure on reconnect', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    await coldStartOffline();
+    mockAuthRefresh.mockClear();
+    mockAuthRefresh.mockRejectedValueOnce(new NetworkError());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RECONNECT_RETRY_MS);
+    });
+    expect(mockAuthRefresh).toHaveBeenCalledTimes(1);
+    expect(getState().sessionMode).toBe('offline');
+    mockAuthRefresh.mockResolvedValue({ user, accessToken: 't' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RECONNECT_RETRY_MS);
+    });
+    expect(getState().sessionMode).toBe('online');
+  });
+
+  it('rebinds the cache and discards the queue if the reconnected owner differs', async () => {
+    onlineManager.setOnline(false);
+    await coldStartOffline();
+    const other = { ...user, id: 'u2' };
+    mockAuthRefresh.mockResolvedValue({ user: other, accessToken: 't' });
+    await act(async () => {
+      onlineManager.setOnline(true);
+    });
+    await vi.waitFor(() => expect(getState().sessionMode).toBe('online'));
+    expect(mockBindCacheOwner).toHaveBeenLastCalledWith({ userId: 'u2', familyId: 'f1' });
+    expect(mockDiscardQueue).toHaveBeenCalled();
+    expect(getState().user).toEqual(other);
+  });
+
+  it('goes online when a silent request refresh succeeds while offline', async () => {
+    onlineManager.setOnline(false);
+    await coldStartOffline();
+    await act(async () => {
+      await sessionListeners.refreshed!(user);
+    });
+    expect(getState().sessionMode).toBe('online');
+    expect(mockResume).toHaveBeenCalled();
+  });
+
+  it('discards the queue when the session expires', async () => {
+    useAuthStore.setState({ user, isAuthenticated: true });
+    await sessionListeners.expired!();
+    expect(mockDiscardQueue).toHaveBeenCalled();
+    expect(mockClearSnapshot).toHaveBeenCalled();
   });
 });

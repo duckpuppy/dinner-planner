@@ -2,6 +2,7 @@ import { onlineManager } from '@tanstack/react-query';
 import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
 import { fetchHealth, setConnectivityHooks } from './api';
+import { touchServerContact } from './sessionSnapshot';
 
 /**
  * Owns TanStack Query's online state. Browser/WebView signals (navigator.onLine, online/offline
@@ -87,6 +88,7 @@ export function probe(): Promise<void> {
     );
     if (gen !== generation) return; // stopped or restarted while in flight
     if (ok) {
+      touchServerContact();
       clearRetry();
       backoffIndex = 0;
       applyOnline(true);
@@ -174,7 +176,13 @@ function setup(setOnline: (online: boolean) => void): () => void {
 /** Install the connectivity listener on onlineManager and hook request() outcomes. Idempotent. */
 export function startConnectivity(): void {
   if (teardown) return;
-  setConnectivityHooks({ onSuccess: reportSuccess, onFailure: () => reportFailure() });
+  setConnectivityHooks({
+    onSuccess: () => {
+      touchServerContact();
+      reportSuccess();
+    },
+    onFailure: () => reportFailure(),
+  });
   let inner: (() => void) | null = null;
   onlineManager.setEventListener((setOnline) => {
     inner?.();

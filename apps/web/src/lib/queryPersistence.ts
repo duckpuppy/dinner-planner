@@ -1,5 +1,6 @@
 import { del, get, set } from 'idb-keyval';
 import { CACHE_MAX_AGE, queryClient } from './queryClient';
+import { readSnapshot } from './sessionSnapshot';
 
 export const CACHE_KEY = 'dinner-planner-query-cache';
 
@@ -126,11 +127,24 @@ export async function bindCacheOwner(owner: CacheOwner): Promise<void> {
       stored.userId === owner.userId &&
       stored.familyId === owner.familyId &&
       typeof stored.timestamp === 'number' &&
-      Date.now() - stored.timestamp <= CACHE_MAX_AGE &&
       typeof stored.entries === 'object' &&
       stored.entries !== null;
 
+    // Age is measured from the last time the server answered, not from the payload's save
+    // time: offline and optimistic writes re-save the payload and would keep it looking fresh.
+    // Without a snapshot for this owner, fall back to the save timestamp.
+    let fresh = false;
     if (valid) {
+      const snapshot = await readSnapshot();
+      if (gen !== generation) return;
+      const basis =
+        snapshot && snapshot.user.id === owner.userId && snapshot.user.familyId === owner.familyId
+          ? snapshot.lastServerContactAt
+          : stored.timestamp;
+      fresh = Date.now() - basis <= CACHE_MAX_AGE;
+    }
+
+    if (valid && fresh) {
       for (const [key, entry] of Object.entries(stored.entries)) {
         try {
           const queryKey = JSON.parse(key) as unknown[];

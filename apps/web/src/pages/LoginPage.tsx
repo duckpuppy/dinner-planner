@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { ApiError } from '@/lib/api';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const isOnline = useOnlineStatus();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +30,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold">Dinner Planner</h1>
@@ -36,6 +38,14 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-card p-6 rounded-lg border space-y-4">
+          {!isOnline && (
+            <div
+              role="status"
+              className="bg-yellow-500/15 text-yellow-900 dark:text-yellow-100 text-sm p-3 rounded-md"
+            >
+              You&apos;re offline. Connect to the internet to sign in.
+            </div>
+          )}
           {error && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{error}</div>
           )}
