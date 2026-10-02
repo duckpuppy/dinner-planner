@@ -1,0 +1,108 @@
+name: Android Release
+
+# Builds the signed prod APK for a v*.*.* tag and attaches it to the GitHub
+# Release. Deliberately separate from release.yml so an APK failure can never
+# block deploy.yml (which keys off the Release workflow's conclusion).
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build (e.g. v1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      name: ${{ steps.v.outputs.name }}
+      code: ${{ steps.v.outputs.code }}
+    steps:
+      - name: Compute versionName and versionCode
+        id: v
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Tag '$TAG' is not of the form vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          if [ "$MINOR" -ge 1000 ] || [ "$PATCH" -ge 1000 ]; then
+            echo "::error::MINOR and PATCH must be < 1000 for the versionCode scheme"
+            exit 1
+          fi
+          CODE=$(( 10#$MAJOR * 1000000 + 10#$MINOR * 1000 + 10#$PATCH ))
+          {
+            echo "tag=$TAG"
+            echo "name=${TAG#v}"
+            echo "code=$CODE"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $TAG as versionName ${TAG#v}, versionCode $CODE"
+
+  build:
+    name: Build signed APK
+    needs: version
+    uses: ./.github/workflows/android-apk.yml
+    with:
+      flavor: prod
+      build_type: release
+      api_origin: https://dinner.duckpuppy.net
+      version_name: ${{ needs.version.outputs.name }}
+      version_code: ${{ fromJSON(needs.version.outputs.code) }}
+      ref: refs/tags/${{ needs.version.outputs.tag }}
+      artifact_name: dinner-planner-${{ needs.version.outputs.tag }}.apk
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+  publish:
+    name: Attach APK to GitHub Release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.version.outputs.tag }}
+      APK_NAME: ${{ needs.build.outputs.apk_name }}
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.apk_name }}
+          path: apk
+
+      - name: Wait for the GitHub Release to exist
+        # release.yml creates the release after pushing the tag.
+        run: |
+          for i in $(seq 1 45); do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release $TAG exists"
+              exit 0
+            fi
+            echo "Release $TAG not found yet (attempt $i/45); sleeping 20s"
+            sleep 20
+          done
+          echo "::error::GitHub Release $TAG did not appear within 15 minutes"
+          exit 1
+
+      - name: Upload APK to release
+        run: gh release upload "$TAG" "apk/$APK_NAME" --clobber
