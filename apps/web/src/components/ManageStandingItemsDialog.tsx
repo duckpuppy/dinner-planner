@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Plus, Trash2, RefreshCw } from 'lucide-react';
-import { standing as standingApi, type StandingItem, type Store } from '@/lib/api';
+import { X, Plus, Trash2, RefreshCw, Clock } from 'lucide-react';
+import type { StandingItem, Store } from '@/lib/api';
+import type { Pending } from '@/lib/pendingOps';
+import { enqueue, newClientId } from '@/lib/offlineMutations';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 const CATEGORY_OPTIONS = [
   'Produce',
@@ -21,7 +20,7 @@ const CATEGORY_OPTIONS = [
 ] as const;
 
 interface ManageStandingItemsDialogProps {
-  standingItems: StandingItem[];
+  standingItems: Pending<StandingItem>[];
   stores: Store[];
   onClose: () => void;
 }
@@ -38,8 +37,6 @@ export function ManageStandingItemsDialog({
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  const queryClient = useQueryClient();
-
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && deleteTargetId === null) onClose();
@@ -48,44 +45,27 @@ export function ManageStandingItemsDialog({
     return () => document.removeEventListener('keydown', handle);
   }, [onClose, deleteTargetId]);
 
-  const addMutation = useMutation({
-    mutationFn: () =>
-      standingApi.add({
-        name: name.trim(),
-        ...(quantity !== '' ? { quantity: Number(quantity) } : { quantity: null }),
-        ...(unit.trim() !== '' ? { unit: unit.trim() } : { unit: null }),
-        category,
-        ...(selectedStoreId !== '' ? { storeId: selectedStoreId } : { storeId: null }),
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['groceries'] });
-      setName('');
-      setQuantity('');
-      setUnit('');
-      setCategory('Other');
-      setSelectedStoreId('');
-    },
-    onError: () => {
-      toast.error('Failed to add standing item');
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => standingApi.delete(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['groceries'] });
-      setDeleteTargetId(null);
-    },
-    onError: () => {
-      toast.error('Failed to delete standing item');
-      setDeleteTargetId(null);
-    },
-  });
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    addMutation.mutate();
+    void enqueue('standingAdd', {
+      id: newClientId(),
+      name: name.trim(),
+      ...(quantity !== '' ? { quantity: Number(quantity) } : {}),
+      ...(unit.trim() !== '' ? { unit: unit.trim() } : {}),
+      category,
+      ...(selectedStoreId !== ''
+        ? {
+            storeId: selectedStoreId,
+            storeName: stores.find((s) => s.id === selectedStoreId)?.name ?? null,
+          }
+        : {}),
+    });
+    setName('');
+    setQuantity('');
+    setUnit('');
+    setCategory('Other');
+    setSelectedStoreId('');
   }
 
   const deleteTarget = deleteTargetId ? standingItems.find((i) => i.id === deleteTargetId) : null;
@@ -124,12 +104,7 @@ export function ManageStandingItemsDialog({
                 {standingItems.map((item) => (
                   <li
                     key={item.id}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg',
-                      deleteMutation.isPending &&
-                        deleteMutation.variables === item.id &&
-                        'opacity-50'
-                    )}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
                     role="listitem"
                   >
                     <span className="flex-1 min-w-0">
@@ -154,10 +129,15 @@ export function ManageStandingItemsDialog({
                         </span>
                       )}
                     </span>
+                    {item.pending && (
+                      <span className="inline-flex items-center text-xs text-muted-foreground">
+                        <Clock className="size-3.5" aria-hidden="true" />
+                        <span className="sr-only">Waiting to sync</span>
+                      </span>
+                    )}
                     <button
                       onClick={() => setDeleteTargetId(item.id)}
-                      disabled={deleteMutation.isPending && deleteMutation.variables === item.id}
-                      className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                      className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors"
                       aria-label={`Delete ${item.name}`}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -281,11 +261,11 @@ export function ManageStandingItemsDialog({
                 </button>
                 <button
                   type="submit"
-                  disabled={!name.trim() || addMutation.isPending}
+                  disabled={!name.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {addMutation.isPending ? 'Adding...' : 'Add'}
+                  Add
                 </button>
               </div>
             </form>
@@ -303,9 +283,9 @@ export function ManageStandingItemsDialog({
         }
         confirmText="Delete"
         variant="destructive"
-        loading={deleteMutation.isPending}
         onConfirm={() => {
-          if (deleteTargetId) deleteMutation.mutate(deleteTargetId);
+          if (deleteTargetId) void enqueue('standingDelete', { id: deleteTargetId });
+          setDeleteTargetId(null);
         }}
         onCancel={() => setDeleteTargetId(null)}
       />

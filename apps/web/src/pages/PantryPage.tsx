@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, Trash2, AlertTriangle, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Package, Plus, Trash2, AlertTriangle, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { pantry as pantryApi, type PantryItem } from '@/lib/api';
+import { enqueue, newClientId } from '@/lib/offlineMutations';
+import { applyPendingPantry, type Pending } from '@/lib/pendingOps';
+import { usePendingOps } from '@/hooks/usePendingOps';
 import { cn, localDateStr } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SkeletonList } from '@/components/Skeleton';
@@ -52,27 +55,19 @@ function AddItemForm({ onClose, onAdded }: AddItemFormProps) {
   const [unit, setUnit] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
 
-  const mutation = useMutation({
-    mutationFn: () =>
-      pantryApi.create({
-        ingredientName: ingredientName.trim(),
-        quantity: quantity !== '' ? Number(quantity) : null,
-        unit: unit.trim() || null,
-        expiresAt: expiresAt || null,
-      }),
-    onSuccess: () => {
-      toast.success('Item added to pantry');
-      onAdded();
-    },
-    onError: () => {
-      toast.error('Failed to add item');
-    },
-  });
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!ingredientName.trim()) return;
-    mutation.mutate();
+    // Queued: shows in the list immediately and syncs when online.
+    void enqueue('pantryAdd', {
+      id: newClientId(),
+      ingredientName: ingredientName.trim(),
+      quantity: quantity !== '' ? Number(quantity) : null,
+      unit: unit.trim() || null,
+      expiresAt: expiresAt || null,
+    });
+    toast.success('Item added to pantry');
+    onAdded();
   }
 
   return (
@@ -155,17 +150,17 @@ function AddItemForm({ onClose, onAdded }: AddItemFormProps) {
 
       <button
         type="submit"
-        disabled={mutation.isPending || !ingredientName.trim()}
+        disabled={!ingredientName.trim()}
         className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {mutation.isPending ? 'Adding…' : 'Add to Pantry'}
+        Add to Pantry
       </button>
     </form>
   );
 }
 
 interface PantryRowProps {
-  item: PantryItem;
+  item: Pending<PantryItem>;
   onDelete: (item: PantryItem) => void;
   activeItemId: string | null;
   onSwipeStart: (itemId: string) => void;
@@ -202,6 +197,13 @@ function PantryRow({ item, onDelete, activeItemId, onSwipeStart, onSwipeEnd }: P
           )}
         </div>
 
+        {item.pending && (
+          <span className="inline-flex items-center text-xs text-muted-foreground flex-shrink-0">
+            <Clock className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">Waiting to sync</span>
+          </span>
+        )}
+
         {item.expiresAt && (
           <span
             className={cn(
@@ -232,7 +234,6 @@ function PantryRow({ item, onDelete, activeItemId, onSwipeStart, onSwipeEnd }: P
 }
 
 export function PantryPage() {
-  const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<PantryItem | null>(null);
   const { activeItemId, openSwipe, closeSwipe } = useSwipeActions();
@@ -242,25 +243,18 @@ export function PantryPage() {
     queryFn: () => pantryApi.list(),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => pantryApi.delete(id),
-    onSuccess: () => {
-      toast.success('Item removed from pantry');
-      queryClient.invalidateQueries({ queryKey: ['pantry'] });
-      queryClient.invalidateQueries({ queryKey: ['groceries'] });
-      setItemToDelete(null);
-    },
-    onError: () => {
-      toast.error('Failed to remove item');
-    },
-  });
+  // Server list with queued offline changes applied.
+  const pendingOps = usePendingOps();
+  const items = sortByExpiry(applyPendingPantry(data?.items ?? [], pendingOps));
 
-  const items = sortByExpiry(data?.items ?? []);
+  function handleDelete(item: PantryItem) {
+    void enqueue('pantryDelete', { id: item.id });
+    toast.success('Item removed from pantry');
+    setItemToDelete(null);
+  }
 
   function handleAdded() {
     setShowAddForm(false);
-    queryClient.invalidateQueries({ queryKey: ['pantry'] });
-    queryClient.invalidateQueries({ queryKey: ['groceries'] });
   }
 
   async function handleRefresh() {
@@ -348,8 +342,7 @@ export function PantryPage() {
           }
           confirmText="Remove"
           variant="destructive"
-          loading={deleteMutation.isPending}
-          onConfirm={() => itemToDelete && deleteMutation.mutate(itemToDelete.id)}
+          onConfirm={() => itemToDelete && handleDelete(itemToDelete)}
           onCancel={() => setItemToDelete(null)}
         />
       </div>

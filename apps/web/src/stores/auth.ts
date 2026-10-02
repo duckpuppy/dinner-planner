@@ -11,7 +11,7 @@ import {
   type User,
 } from '@/lib/api';
 import { probe } from '@/lib/connectivity';
-import { discardQueueAndNotify } from '@/lib/mutationQueueDiscard';
+import { discardQueueAndNotify } from '@/lib/mutationQueuePersistence';
 import { queryClient } from '@/lib/queryClient';
 import { bindCacheOwner, clearCache } from '@/lib/queryPersistence';
 import { clearSnapshot, isSnapshotFresh, readSnapshot, writeSnapshot } from '@/lib/sessionSnapshot';
