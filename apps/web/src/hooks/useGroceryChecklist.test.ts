@@ -1,38 +1,84 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { createElement } from 'react';
-import { useGroceryChecklist, groceryItemKey } from './useGroceryChecklist';
 
-vi.mock('@/lib/api', () => ({
-  menus: {
-    toggleGroceryCheck: vi.fn(),
-    clearGroceryChecks: vi.fn(),
+const { store, mockSetCheck, mockClearChecks } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  mockSetCheck: vi.fn(),
+  mockClearChecks: vi.fn(),
+}));
+
+vi.mock('idb-keyval', () => ({
+  get: (k: string) => Promise.resolve(store.get(k)),
+  set: (k: string, v: unknown) => {
+    store.set(k, structuredClone(v));
+    return Promise.resolve();
+  },
+  del: (k: string) => {
+    store.delete(k);
+    return Promise.resolve();
   },
 }));
 
-import { menus } from '@/lib/api';
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  menus: { setGroceryCheck: mockSetCheck, clearGroceryChecks: mockClearChecks },
+}));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const mockedMenus = vi.mocked(menus);
-
-function makeWrapper(queryClient: QueryClient) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return createElement(QueryClientProvider, { client: queryClient }, children);
-  };
-}
+import { useGroceryChecklist, groceryItemKey } from './useGroceryChecklist';
+import { queryClient } from '@/lib/queryClient';
+import {
+  restoreMutationQueue,
+  startQueuePersistence,
+  stopQueuePersistence,
+} from '@/lib/mutationQueuePersistence';
+import type { GroceriesData } from '@/lib/pendingOps';
 
 const WEEK_DATE = '2024-06-10';
-const REQUESTED_DATE = '2024-06-12';
-const QUERY_KEY = ['groceries', REQUESTED_DATE];
+const OWNER = { userId: 'u1', familyId: 'f1' };
 
-function makeQueryData(checkedKeys: string[] = []) {
+function wrapper({ children }: { children: React.ReactNode }) {
+  return createElement(QueryClientProvider, { client: queryClient }, children);
+}
+
+function makeData(over: Partial<GroceriesData> = {}): GroceriesData {
   return {
     groceries: [],
     customItems: [],
+    standingItems: [],
     weekStartDate: WEEK_DATE,
-    checkedKeys,
+    checkedKeys: [],
+    checks: [],
+    ...over,
   };
 }
+
+function ack(v: { itemKey: string; checked: boolean; clientUpdatedAt: number }) {
+  return Promise.resolve({
+    itemKey: v.itemKey,
+    checked: v.checked,
+    updatedAt: v.clientUpdatedAt,
+    checkedBy: null,
+    changed: true,
+  });
+}
+
+beforeEach(() => {
+  store.clear();
+  queryClient.clear();
+  vi.clearAllMocks();
+  onlineManager.setOnline(true);
+  mockSetCheck.mockImplementation(ack);
+  mockClearChecks.mockResolvedValue({ cleared: 0 });
+});
+
+afterEach(() => {
+  stopQueuePersistence();
+  vi.useRealTimers();
+  onlineManager.setOnline(true);
+});
 
 describe('groceryItemKey', () => {
   it('produces lowercase name::unit key', () => {
@@ -45,161 +91,147 @@ describe('groceryItemKey', () => {
 });
 
 describe('useGroceryChecklist', () => {
-  let queryClient: QueryClient;
-
-  beforeEach(() => {
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    vi.clearAllMocks();
-    mockedMenus.toggleGroceryCheck.mockResolvedValue({ itemKey: 'flour::g', checked: true });
-    mockedMenus.clearGroceryChecks.mockResolvedValue(undefined);
-  });
-
-  function renderChecklist(checkedKeys: string[] = []) {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData(checkedKeys));
-    return renderHook(
-      () =>
-        useGroceryChecklist({
-          checkedKeys,
-          weekStartDate: WEEK_DATE,
-          requestedDate: REQUESTED_DATE,
-        }),
-      { wrapper: makeWrapper(queryClient) }
+  it('exposes the checked set derived from server data', () => {
+    const { result } = renderHook(
+      () => useGroceryChecklist({ data: makeData({ checkedKeys: ['flour::g', 'salt::'] }) }),
+      { wrapper }
     );
-  }
-
-  it('exposes checked set derived from checkedKeys prop', () => {
-    const { result } = renderChecklist(['flour::g', 'salt::']);
     expect(result.current.checked.has('flour::g')).toBe(true);
     expect(result.current.checked.has('salt::')).toBe(true);
   });
 
-  it('starts with empty checked set when no checkedKeys', () => {
-    const { result } = renderChecklist([]);
+  it('is empty before the first load', () => {
+    const { result } = renderHook(() => useGroceryChecklist({ data: undefined }), { wrapper });
+    expect(result.current.view).toBeUndefined();
     expect(result.current.checked.size).toBe(0);
   });
 
-  it('toggle calls menus.toggleGroceryCheck with correct args', async () => {
-    const { result } = renderChecklist([]);
-    await act(async () => {
-      result.current.toggle('flour::g', 'Flour');
-    });
-    expect(mockedMenus.toggleGroceryCheck).toHaveBeenCalledWith(WEEK_DATE, 'flour::g', 'Flour');
-  });
-
-  it('toggle optimistically adds key to query cache', () => {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData([]));
-
-    mockedMenus.toggleGroceryCheck.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve({ itemKey: 'flour::g', checked: true }), 100)
-        )
-    );
-
-    const { result } = renderChecklist([]);
-
+  it('toggle and clearAll do nothing before the week is known', () => {
+    onlineManager.setOnline(false);
+    const { result } = renderHook(() => useGroceryChecklist({ data: undefined }), { wrapper });
     act(() => {
       result.current.toggle('flour::g', 'Flour');
+      result.current.clearAll();
     });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).toContain('flour::g');
+    expect(queryClient.isMutating({ mutationKey: ['offline'] })).toBe(0);
   });
 
-  it('toggle optimistically removes key when already checked', () => {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData(['flour::g']));
-    mockedMenus.toggleGroceryCheck.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve({ itemKey: 'flour::g', checked: false }), 100)
-        )
+  it('toggle sends a PUT with checked = !current and a client timestamp', async () => {
+    const before = Date.now();
+    const { result } = renderHook(() => useGroceryChecklist({ data: makeData() }), { wrapper });
+    act(() => result.current.toggle('flour::g', 'Flour'));
+    await vi.waitFor(() => expect(mockSetCheck).toHaveBeenCalledTimes(1));
+    const arg = mockSetCheck.mock.calls[0][0];
+    expect(arg).toMatchObject({
+      weekDate: WEEK_DATE,
+      itemKey: 'flour::g',
+      itemName: 'Flour',
+      checked: true,
+    });
+    expect(arg.clientUpdatedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('toggle on a checked item unchecks it', async () => {
+    const { result } = renderHook(
+      () => useGroceryChecklist({ data: makeData({ checkedKeys: ['flour::g'] }) }),
+      { wrapper }
     );
-
-    const { result } = renderChecklist(['flour::g']);
-
-    act(() => {
-      result.current.toggle('flour::g', 'Flour');
-    });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).not.toContain('flour::g');
+    act(() => result.current.toggle('flour::g', 'Flour'));
+    await vi.waitFor(() => expect(mockSetCheck).toHaveBeenCalled());
+    expect(mockSetCheck.mock.calls[0][0]).toMatchObject({ checked: false });
   });
 
-  it('toggle reverts optimistic update on server error', async () => {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData([]));
-    mockedMenus.toggleGroceryCheck.mockRejectedValue(new Error('Server error'));
-
-    const { result } = renderChecklist([]);
-
-    await act(async () => {
-      result.current.toggle('flour::g', 'Flour');
-    });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).not.toContain('flour::g');
-  });
-
-  it('toggle syncs server checked=true result into cache', async () => {
-    mockedMenus.toggleGroceryCheck.mockResolvedValue({ itemKey: 'flour::g', checked: true });
-    queryClient.setQueryData(QUERY_KEY, makeQueryData([]));
-    const { result } = renderChecklist([]);
-
-    await act(async () => {
-      result.current.toggle('flour::g', 'Flour');
-    });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).toContain('flour::g');
-  });
-
-  it('toggle syncs server checked=false result into cache', async () => {
-    mockedMenus.toggleGroceryCheck.mockResolvedValue({ itemKey: 'flour::g', checked: false });
-    queryClient.setQueryData(QUERY_KEY, makeQueryData(['flour::g']));
-    const { result } = renderChecklist(['flour::g']);
-
-    await act(async () => {
-      result.current.toggle('flour::g', 'Flour');
-    });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).not.toContain('flour::g');
-  });
-
-  it('clearAll calls menus.clearGroceryChecks', async () => {
-    const { result } = renderChecklist(['flour::g']);
-    await act(async () => {
-      result.current.clearAll();
-    });
-    expect(mockedMenus.clearGroceryChecks).toHaveBeenCalledWith(WEEK_DATE);
-  });
-
-  it('clearAll optimistically clears query cache', () => {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData(['flour::g', 'salt::']));
-    mockedMenus.clearGroceryChecks.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
+  it('clearAll sends a clear with a client timestamp', async () => {
+    const { result } = renderHook(
+      () => useGroceryChecklist({ data: makeData({ checkedKeys: ['a'] }) }),
+      { wrapper }
     );
-
-    const { result } = renderChecklist(['flour::g', 'salt::']);
-
-    act(() => {
-      result.current.clearAll();
-    });
-
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).toHaveLength(0);
+    act(() => result.current.clearAll());
+    await vi.waitFor(() =>
+      expect(mockClearChecks).toHaveBeenCalledWith({
+        weekDate: WEEK_DATE,
+        clientUpdatedAt: expect.any(Number),
+      })
+    );
   });
 
-  it('clearAll reverts optimistic update on server error', async () => {
-    queryClient.setQueryData(QUERY_KEY, makeQueryData(['flour::g']));
-    mockedMenus.clearGroceryChecks.mockRejectedValue(new Error('Server error'));
+  it('while offline the toggle shows immediately, marked pending, with no request sent', async () => {
+    onlineManager.setOnline(false);
+    const { result } = renderHook(() => useGroceryChecklist({ data: makeData() }), { wrapper });
 
-    const { result } = renderChecklist(['flour::g']);
+    act(() => result.current.toggle('flour::g', 'Flour'));
 
-    await act(async () => {
-      result.current.clearAll();
+    await vi.waitFor(() => expect(result.current.checked.has('flour::g')).toBe(true));
+    expect(result.current.pendingKeys.has('flour::g')).toBe(true);
+    expect(mockSetCheck).not.toHaveBeenCalled();
+
+    // Toggling again flips the effective state, queued behind the first.
+    act(() => result.current.toggle('flour::g', 'Flour'));
+    await vi.waitFor(() => expect(result.current.checked.has('flour::g')).toBe(false));
+    expect(queryClient.isMutating({ mutationKey: ['offline'] })).toBe(2);
+  });
+
+  it('keeps showing the pending change across a refetch of the server data', async () => {
+    onlineManager.setOnline(false);
+    let data = makeData();
+    const { result, rerender } = renderHook(() => useGroceryChecklist({ data }), { wrapper });
+    act(() => result.current.toggle('flour::g', 'Flour'));
+    await vi.waitFor(() => expect(result.current.checked.has('flour::g')).toBe(true));
+
+    data = makeData({ groceries: [] }); // a fresh server response that doesn't know the change
+    rerender();
+    expect(result.current.checked.has('flour::g')).toBe(true);
+  });
+
+  it('a newer change from another shopper wins over our older pending one', async () => {
+    onlineManager.setOnline(false);
+    let data = makeData();
+    const { result, rerender } = renderHook(() => useGroceryChecklist({ data }), { wrapper });
+    act(() => result.current.toggle('flour::g', 'Flour'));
+    await vi.waitFor(() => expect(result.current.checked.has('flour::g')).toBe(true));
+
+    data = makeData({
+      checkedKeys: [],
+      checks: [
+        { itemKey: 'flour::g', checked: false, updatedAt: Date.now() + 60_000, checkedBy: null },
+      ],
     });
+    rerender();
+    expect(result.current.checked.has('flour::g')).toBe(false);
+  });
 
-    const cached = queryClient.getQueryData<ReturnType<typeof makeQueryData>>(QUERY_KEY);
-    expect(cached?.checkedKeys).toContain('flour::g');
+  it('survives a simulated restart: persisted, restored, still shown, then synced', async () => {
+    vi.useFakeTimers();
+    onlineManager.setOnline(false);
+    startQueuePersistence(OWNER);
+    const first = renderHook(() => useGroceryChecklist({ data: makeData() }), { wrapper });
+    act(() => first.result.current.toggle('flour::g', 'Flour'));
+    await vi.advanceTimersByTimeAsync(200);
+    expect(store.has('dinner-planner-mutation-queue')).toBe(true);
+
+    // "Restart": drop everything in memory, keep what is on disk.
+    first.unmount();
+    stopQueuePersistence();
+    queryClient.clear();
+    expect(queryClient.isMutating({ mutationKey: ['offline'] })).toBe(0);
+    vi.useRealTimers();
+
+    await restoreMutationQueue(OWNER);
+    const second = renderHook(() => useGroceryChecklist({ data: makeData() }), { wrapper });
+    expect(second.result.current.checked.has('flour::g')).toBe(true);
+    expect(second.result.current.pendingKeys.has('flour::g')).toBe(true);
+    expect(mockSetCheck).not.toHaveBeenCalled();
+
+    // Back online: it replays and settles.
+    await act(async () => {
+      onlineManager.setOnline(true);
+      await queryClient.resumePausedMutations();
+    });
+    await vi.waitFor(() =>
+      expect(mockSetCheck).toHaveBeenCalledWith(
+        expect.objectContaining({ itemKey: 'flour::g', checked: true })
+      )
+    );
+    await vi.waitFor(() => expect(queryClient.isMutating({ mutationKey: ['offline'] })).toBe(0));
   });
 });

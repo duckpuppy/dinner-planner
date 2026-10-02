@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -14,11 +14,12 @@ import {
   ChevronRight,
   RefreshCw,
   Settings,
+  Clock,
 } from 'lucide-react';
 import {
   menus,
+  settings as settingsApi,
   stores as storesApi,
-  standing as standingApi,
   type GroceryItem,
   type CustomGroceryItem,
   type StandingItem,
@@ -26,6 +27,9 @@ import {
 } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
 import { cn, localDateStr } from '@/lib/utils';
+import { groceriesQueryKey, groceryRefetchInterval } from '@/lib/groceryQueryKey';
+import { enqueue } from '@/lib/offlineMutations';
+import type { Pending } from '@/lib/pendingOps';
 import { toast } from 'sonner';
 import { AddCustomItemDialog } from '@/components/AddCustomItemDialog';
 import { ManageStandingItemsDialog } from '@/components/ManageStandingItemsDialog';
@@ -71,27 +75,28 @@ function sortByCategory(a: string, b: string): number {
   return aIdx - bIdx;
 }
 
-interface CustomGroceryRowProps {
-  item: CustomGroceryItem;
-  checked: boolean;
-  onToggle: () => void;
-  onDelete: (id: string) => void;
-  isDeleting: boolean;
+/** Small clock shown on rows whose change hasn't synced yet. */
+function PendingBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <Clock className="size-3.5" aria-hidden="true" />
+      <span className="sr-only">Waiting to sync</span>
+    </span>
+  );
 }
 
-function CustomGroceryRow({
-  item,
-  checked,
-  onToggle,
-  onDelete,
-  isDeleting,
-}: CustomGroceryRowProps) {
+interface CustomGroceryRowProps {
+  item: Pending<CustomGroceryItem>;
+  checked: boolean;
+  pending: boolean;
+  onToggle: () => void;
+  onDelete: (id: string) => void;
+}
+
+function CustomGroceryRow({ item, checked, pending, onToggle, onDelete }: CustomGroceryRowProps) {
   const scaledQuantity = item.quantity;
   return (
-    <div
-      className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
-      role="listitem"
-    >
+    <div className="flex items-center gap-3 px-3 py-3 rounded-lg" role="listitem">
       {/* Checkbox toggle */}
       <button
         onClick={onToggle}
@@ -125,10 +130,11 @@ function CustomGroceryRow({
         )}
       </span>
 
+      {pending && <PendingBadge />}
+
       <button
         onClick={() => onDelete(item.id)}
-        disabled={isDeleting}
-        className="flex-shrink-0 p-2.5 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        className="flex-shrink-0 p-2.5 text-muted-foreground hover:text-destructive transition-colors"
         aria-label={`Delete ${item.name}`}
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -141,6 +147,7 @@ interface CategorySectionProps {
   category: string;
   items: GroceryItem[];
   checkedSet: Set<string>;
+  pendingKeys: Set<string>;
   onToggle: (key: string, name: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -151,6 +158,7 @@ function CategorySection({
   category,
   items,
   checkedSet,
+  pendingKeys,
   onToggle,
   collapsed,
   onToggleCollapse,
@@ -199,6 +207,7 @@ function CategorySection({
                     key={key}
                     item={item}
                     checked={checkedSet.has(key)}
+                    pending={pendingKeys.has(key)}
                     onToggle={() => onToggle(key, item.name)}
                   />
                 );
@@ -210,20 +219,17 @@ function CategorySection({
 }
 
 interface StandingRowProps {
-  item: StandingItem;
+  item: Pending<StandingItem>;
   checked: boolean;
+  pending: boolean;
   onToggle: () => void;
   onDelete: (id: string) => void;
-  isDeleting: boolean;
 }
 
-function StandingRow({ item, checked, onToggle, onDelete, isDeleting }: StandingRowProps) {
+function StandingRow({ item, checked, pending, onToggle, onDelete }: StandingRowProps) {
   const scaledQuantity = item.quantity;
   return (
-    <div
-      className={cn('flex items-center gap-3 px-3 py-3 rounded-lg', isDeleting && 'opacity-50')}
-      role="listitem"
-    >
+    <div className="flex items-center gap-3 px-3 py-3 rounded-lg" role="listitem">
       <button
         onClick={onToggle}
         className={cn(
@@ -255,10 +261,11 @@ function StandingRow({ item, checked, onToggle, onDelete, isDeleting }: Standing
         )}
       </span>
 
+      {pending && <PendingBadge />}
+
       <button
         onClick={() => onDelete(item.id)}
-        disabled={isDeleting}
-        className="flex-shrink-0 p-2.5 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+        className="flex-shrink-0 p-2.5 text-muted-foreground hover:text-destructive transition-colors"
         aria-label={`Delete ${item.name}`}
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -272,10 +279,22 @@ export function GroceryPage() {
   const requestedDate = searchParams.get('date') ?? getTodayDateStr();
   const queryClient = useQueryClient();
 
+  // Cached by the Week page too; gives the week start so the groceries key is stable across
+  // days (and across offline restarts). Falls back to the requested date until it is known.
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.get(),
+  });
+  const queryKey = groceriesQueryKey(requestedDate, settingsData?.settings.weekStartDay);
+
+  // Re-render when offline grocery writes start/finish so refetchInterval is re-evaluated.
+  useIsMutating({ mutationKey: ['offline', 'grocery'] });
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['groceries', requestedDate],
+    queryKey,
     queryFn: () => menus.getGroceries(requestedDate),
-    refetchInterval: 5000,
+    // liveConnected: dinner-4kj.10 (SSE) passes true here to drop polling to 60s.
+    refetchInterval: () => groceryRefetchInterval(queryClient, { liveConnected: false }),
   });
 
   const { data: storesList } = useQuery({
@@ -285,17 +304,13 @@ export function GroceryPage() {
   });
 
   const weekStartDate = data?.weekStartDate ?? '';
-  const checkedKeys = data?.checkedKeys ?? [];
 
-  const { checked, toggle, clearAll } = useGroceryChecklist({
-    checkedKeys,
-    weekStartDate,
-    requestedDate,
-  });
+  // `view` is the server data with queued offline changes applied.
+  const { view, checked, pendingKeys, toggle, clearAll } = useGroceryChecklist({ data });
 
-  const allItems = data?.groceries ?? [];
-  const customItems = data?.customItems ?? [];
-  const standingItems = data?.standingItems ?? [];
+  const allItems = view?.groceries ?? [];
+  const customItems = view?.customItems ?? [];
+  const standingItems = view?.standingItems ?? [];
   const stores: Store[] = storesList ?? [];
 
   const [selectedStore, setSelectedStore] = useState<string>('');
@@ -354,25 +369,13 @@ export function GroceryPage() {
   ).length;
   const checkedCustomCount = customItems.filter((i) => checked.has(`custom::${i.id}`)).length;
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => menus.deleteCustomItem(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['groceries', requestedDate] });
-    },
-    onError: () => {
-      toast.error('Failed to delete item');
-    },
-  });
+  function deleteCustom(id: string) {
+    void enqueue('customDelete', { id });
+  }
 
-  const deleteStandingMutation = useMutation({
-    mutationFn: (id: string) => standingApi.delete(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['groceries', requestedDate] });
-    },
-    onError: () => {
-      toast.error('Failed to delete standing item');
-    },
-  });
+  function deleteStanding(id: string) {
+    void enqueue('standingDelete', { id });
+  }
 
   async function handleCopy() {
     const text = buildPlainText(shoppingItems);
@@ -494,6 +497,7 @@ export function GroceryPage() {
                 category={category}
                 items={items}
                 checkedSet={checked}
+                pendingKeys={pendingKeys}
                 onToggle={toggle}
                 collapsed={collapsedCategories.has(category)}
                 onToggleCollapse={() => toggleCategory(category)}
@@ -514,6 +518,7 @@ export function GroceryPage() {
                     category={`${category} — In Pantry`}
                     items={items}
                     checkedSet={checked}
+                    pendingKeys={pendingKeys}
                     onToggle={toggle}
                     collapsed={collapsedCategories.has(key)}
                     onToggleCollapse={() => toggleCategory(key)}
@@ -549,9 +554,9 @@ export function GroceryPage() {
                   key={item.id}
                   item={item}
                   checked={checked.has(`custom::${item.id}`)}
+                  pending={!!item.pending || pendingKeys.has(`custom::${item.id}`)}
                   onToggle={() => toggle(`custom::${item.id}`, item.name)}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
+                  onDelete={deleteCustom}
                 />
               ))}
             </div>
@@ -585,11 +590,9 @@ export function GroceryPage() {
                   key={item.id}
                   item={item}
                   checked={checked.has(`standing::${item.id}`)}
+                  pending={!!item.pending || pendingKeys.has(`standing::${item.id}`)}
                   onToggle={() => toggle(`standing::${item.id}`, item.name)}
-                  onDelete={(id) => deleteStandingMutation.mutate(id)}
-                  isDeleting={
-                    deleteStandingMutation.isPending && deleteStandingMutation.variables === item.id
-                  }
+                  onDelete={deleteStanding}
                 />
               ))}
             </div>
@@ -626,6 +629,7 @@ export function GroceryPage() {
 interface GroceryRowProps {
   item: GroceryItem;
   checked: boolean;
+  pending: boolean;
   onToggle: () => void;
 }
 
@@ -678,7 +682,7 @@ function PantryGroceryRow({ item }: PantryGroceryRowProps) {
   );
 }
 
-function GroceryRow({ item, checked, onToggle }: GroceryRowProps) {
+function GroceryRow({ item, checked, pending, onToggle }: GroceryRowProps) {
   const scaledQuantity = item.quantity;
   return (
     <button
@@ -687,7 +691,7 @@ function GroceryRow({ item, checked, onToggle }: GroceryRowProps) {
         'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors hover:bg-muted/50',
         checked && 'opacity-50'
       )}
-      aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}`}
+      aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}${pending ? ' (waiting to sync)' : ''}`}
     >
       {/* Checkbox */}
       <span
@@ -720,6 +724,8 @@ function GroceryRow({ item, checked, onToggle }: GroceryRowProps) {
           </span>
         )}
       </span>
+
+      {pending && <PendingBadge />}
     </button>
   );
 }

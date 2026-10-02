@@ -1,15 +1,21 @@
-/**
- * Stub for the offline mutation queue's status (filled in by the queue bead, dinner-4kj.9).
- * Kept as a tiny module so the banner can already depend on its final shape.
- */
+import { useMutationState } from '@tanstack/react-query';
+import { takeFailed, useFailedEntries } from './failedSyncStore';
+import { enqueueByKey } from './offlineMutations';
+
+/** Number of offline changes queued and not yet synced (paused, in flight or retrying). */
 export function usePendingSyncCount(): number {
-  return 0;
+  return useMutationState({
+    filters: { mutationKey: ['offline'], status: 'pending' },
+    select: () => 1,
+  }).length;
 }
 
+/** Number of changes the server rejected for good. */
 export function useFailedSyncCount(): number {
-  return 0;
+  return useFailedEntries().length;
 }
 
+/** Put every failed change back on the queue. */
 export function retryFailed(): void {
-  // No-op until the offline mutation queue exists.
+  for (const entry of takeFailed()) void enqueueByKey(entry.key, entry.vars);
 }
