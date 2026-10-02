@@ -72,6 +72,17 @@ Since the app serves both the API (`/api/`) and the SPA from the same port, a si
 
 If using Nginx Proxy Manager, just point a new proxy host at the container's IP:port.
 
+### Live sync stream (`GET /api/events`)
+
+The API pushes grocery and pantry changes to other family members over a Server-Sent Events stream.
+
+- **Nginx Proxy Manager normally needs no change.** The stream sends `X-Accel-Buffering: no`, which nginx honours, so responses are not buffered. A heartbeat comment (`: ping`) is sent every 25 seconds.
+- If you have set a custom `proxy_read_timeout` below 30 seconds, raise it (60s or more); otherwise the proxy will drop idle streams between heartbeats. Clients reconnect automatically and resume from `Last-Event-ID`, so a drop is harmless but wasteful.
+- The stream also ends when the caller's access token expires (15 minutes); the client reconnects with a fresh token.
+- The event bus is **single-process and in-memory** (500-event ring buffer per family). Running more than one API instance would need an external broker (Redis pub/sub or similar); with multiple instances, a user would only see events from writes handled by the same instance.
+
+Event types: `grocery.check`, `grocery.clear`, `grocery.custom.add`, `grocery.custom.update`, `grocery.custom.delete`, `grocery.standing.add`, `grocery.standing.delete`, `pantry.add`, `pantry.update`, `pantry.delete`, plus a payload-less `reset` event telling the client to refetch everything.
+
 ## Backup & Restore
 
 The entire application state is a single SQLite file. The Docker volume `dinner-planner-data` contains `dinner.db`.

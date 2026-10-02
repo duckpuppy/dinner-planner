@@ -6,6 +6,7 @@ import {
   updatePantryItem,
   deletePantryItem,
 } from '../services/pantry.js';
+import { publish } from '../services/eventBus.js';
 
 export async function pantryRoutes(fastify: FastifyInstance) {
   // GET /api/pantry
@@ -26,7 +27,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
     // null: client-supplied id belongs to another family. 404 (not 403) so we
     // don't disclose that it exists.
     if (!result) return reply.status(404).send({ error: 'Pantry item not found' });
-    // Future: emit pantry.add here when `result.created` is true.
+    if (result.created) publish(request.user.familyId, 'pantry.add', result.item);
     return reply.status(result.created ? 201 : 200).send({ item: result.item });
   });
 
@@ -44,6 +45,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
       }
       const item = await updatePantryItem(id, parsed.data, request.user.familyId);
       if (!item) return reply.status(404).send({ error: 'Pantry item not found' });
+      publish(request.user.familyId, 'pantry.update', item);
       return reply.send({ item });
     }
   );
@@ -57,7 +59,7 @@ export async function pantryRoutes(fastify: FastifyInstance) {
       // Idempotent: 204 whether or not a row was removed (already gone, never
       // existed, or another family's row, which is left untouched).
       const { deleted } = await deletePantryItem(id, request.user.familyId);
-      void deleted; // Future: emit pantry.delete here when `deleted` is true.
+      if (deleted) publish(request.user.familyId, 'pantry.delete', { id });
       return reply.status(204).send();
     }
   );
