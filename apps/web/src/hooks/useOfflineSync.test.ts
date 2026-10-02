@@ -7,16 +7,6 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
-  return {
-    ...actual,
-    onlineManager: {
-      setOnline: vi.fn(),
-    },
-  };
-});
-
 const { mockUseOnlineStatus } = vi.hoisted(() => ({
   mockUseOnlineStatus: vi.fn(),
 }));
@@ -26,7 +16,6 @@ vi.mock('./useOnlineStatus', () => ({
 }));
 
 import { useOfflineSync } from './useOfflineSync';
-import { onlineManager } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 afterEach(() => {
@@ -51,18 +40,6 @@ describe('useOfflineSync', () => {
     mockUseOnlineStatus.mockReturnValue(false);
     const { result } = renderHook(() => useOfflineSync(), { wrapper: createWrapper() });
     expect(result.current.isOnline).toBe(false);
-  });
-
-  it('sets onlineManager online when isOnline is true', () => {
-    mockUseOnlineStatus.mockReturnValue(true);
-    renderHook(() => useOfflineSync(), { wrapper: createWrapper() });
-    expect(onlineManager.setOnline).toHaveBeenCalledWith(true);
-  });
-
-  it('sets onlineManager offline when isOnline is false', () => {
-    mockUseOnlineStatus.mockReturnValue(false);
-    renderHook(() => useOfflineSync(), { wrapper: createWrapper() });
-    expect(onlineManager.setOnline).toHaveBeenCalledWith(false);
   });
 
   it('shows toast when coming back online after being offline', () => {

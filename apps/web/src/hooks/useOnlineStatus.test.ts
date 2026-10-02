@@ -1,58 +1,26 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
+import { onlineManager } from '@tanstack/react-query';
 import { useOnlineStatus } from './useOnlineStatus';
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
+  onlineManager.setOnline(true);
 });
 
 describe('useOnlineStatus', () => {
-  it('returns true when navigator.onLine is true', () => {
-    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true);
-    const { result } = renderHook(() => useOnlineStatus());
-    expect(result.current).toBe(true);
-  });
-
-  it('returns false when navigator.onLine is false', () => {
-    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+  it('reflects the onlineManager state', () => {
+    onlineManager.setOnline(false);
     const { result } = renderHook(() => useOnlineStatus());
     expect(result.current).toBe(false);
   });
 
-  it('updates to true when online event fires', () => {
-    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
-    const { result } = renderHook(() => useOnlineStatus());
-    expect(result.current).toBe(false);
-
-    act(() => {
-      window.dispatchEvent(new Event('online'));
-    });
-
-    expect(result.current).toBe(true);
-  });
-
-  it('updates to false when offline event fires', () => {
-    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true);
+  it('re-renders when the online state changes', () => {
     const { result } = renderHook(() => useOnlineStatus());
     expect(result.current).toBe(true);
-
-    act(() => {
-      window.dispatchEvent(new Event('offline'));
-    });
-
+    act(() => onlineManager.setOnline(false));
     expect(result.current).toBe(false);
-  });
-
-  it('removes event listeners on unmount', () => {
-    vi.spyOn(window, 'addEventListener');
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
-
-    const { unmount } = renderHook(() => useOnlineStatus());
-    unmount();
-
-    // Should have removed the online/offline listeners
-    expect(removeSpy).toHaveBeenCalledWith('online', expect.any(Function));
-    expect(removeSpy).toHaveBeenCalledWith('offline', expect.any(Function));
+    act(() => onlineManager.setOnline(true));
+    expect(result.current).toBe(true);
   });
 });

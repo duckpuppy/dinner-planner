@@ -46,8 +46,25 @@ export class ApiError extends Error {
  * The request never produced an HTTP response. Distinct from ApiError so that network trouble
  * is never mistaken for a rejected session.
  */
+type NetworkErrorKind = 'offline' | 'timeout' | 'aborted';
+
+/**
+ * Hooks the connectivity module registers so request() can report outcomes without api.ts
+ * importing it (connectivity imports fetchHealth from here).
+ */
+export interface ConnectivityHooks {
+  onSuccess?: () => void;
+  onFailure?: (kind: 'offline' | 'timeout') => void;
+}
+
+let connectivityHooks: ConnectivityHooks = {};
+
+export function setConnectivityHooks(hooks: ConnectivityHooks): void {
+  connectivityHooks = hooks;
+}
+
 export class NetworkError extends Error {
-  constructor(public kind: 'offline' | 'timeout' | 'aborted') {
+  constructor(public kind: NetworkErrorKind) {
     super(
       kind === 'timeout'
         ? 'The request timed out'
@@ -158,6 +175,19 @@ function toApiError(res: ParsedResponse): ApiError {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  try {
+    const result = await requestInner<T>(path, options);
+    connectivityHooks.onSuccess?.();
+    return result;
+  } catch (err) {
+    if (err instanceof NetworkError && (err.kind === 'offline' || err.kind === 'timeout')) {
+      connectivityHooks.onFailure?.(err.kind);
+    }
+    throw err;
+  }
+}
+
+async function requestInner<T>(path: string, options: RequestInit = {}): Promise<T> {
   const timeoutMs = timeoutFor(path, options);
   let res = await execute(path, options, timeoutMs);
 
@@ -1179,9 +1209,10 @@ export async function getHealth(): Promise<{
 }
 
 /** GET /health with a 5s timeout. Throws NetworkError if no response arrives. */
-export function fetchHealth(): Promise<Response> {
+export function fetchHealth(init: Pick<RequestInit, 'cache'> = {}): Promise<Response> {
   return withTimeout(TIMEOUT_HEALTH_MS, null, (signal) =>
     fetch(apiUrl('/health'), {
+      ...init,
       headers: platformHeaders(),
       credentials: credentialsMode(),
       signal,
