@@ -19,6 +19,7 @@ vi.mock('../services/customGroceries.js', () => ({
 vi.mock('../services/groceryChecks.js', () => ({
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
+  clampClientTime: (t: number) => t,
   setCheck: vi.fn(),
   clearChecks: vi.fn(),
 }));
@@ -393,7 +394,10 @@ describe('POST /api/grocery/checks/toggle', () => {
   });
 
   it('returns 200 with checked:true when toggling on', async () => {
-    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce(true);
+    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce({
+      checked: true,
+      check: { itemKey: 'flour::cup', checked: true, updatedAt: 1, checkedBy: null },
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -413,7 +417,10 @@ describe('POST /api/grocery/checks/toggle', () => {
   });
 
   it('returns 200 with checked:false when toggling off', async () => {
-    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce(false);
+    vi.mocked(groceryChecksService.toggleCheck).mockResolvedValueOnce({
+      checked: false,
+      check: { itemKey: 'flour::cup', checked: false, updatedAt: 1, checkedBy: null },
+    });
 
     const res = await app.inject({
       method: 'POST',
@@ -505,7 +512,7 @@ describe('DELETE /api/grocery/checks', () => {
   });
 
   it('returns 204 when clearing checks for a week', async () => {
-    vi.mocked(groceryChecksService.clearAllChecks).mockResolvedValueOnce(undefined);
+    vi.mocked(groceryChecksService.clearAllChecks).mockResolvedValueOnce({ cleared: 0, at: 1 });
 
     const res = await app.inject({
       method: 'DELETE',

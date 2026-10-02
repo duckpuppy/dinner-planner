@@ -1,9 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { isSetupRequired } from '../services/setup.js';
 import { APP_VERSION } from '../version.js';
-
-// Generated once per process start; changes when the server restarts (e.g. after redeployment)
-const INSTANCE_ID = crypto.randomUUID();
+import { INSTANCE_ID } from '../instanceId.js';
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/health', async () => {

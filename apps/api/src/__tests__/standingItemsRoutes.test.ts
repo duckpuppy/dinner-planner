@@ -24,6 +24,7 @@ vi.mock('../services/customGroceries.js', () => ({
 vi.mock('../services/groceryChecks.js', () => ({
   toggleCheck: vi.fn(),
   clearAllChecks: vi.fn(),
+  clampClientTime: (t: number) => t,
 }));
 
 vi.mock('../services/stores.js', () => ({
