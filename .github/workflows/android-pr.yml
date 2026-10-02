@@ -1,0 +1,32 @@
+name: Android PR Check
+
+# Unsigned prod debug compile check. Replaces the old push-to-main APK build.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/android/**'
+      - 'apps/web/capacitor.config.ts'
+      - 'apps/web/package.json'
+      - '.github/workflows/android-*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile check
+    uses: ./.github/workflows/android-apk.yml
+    with:
+      flavor: prod
+      build_type: debug
+      # Placeholder; this APK is a compile check and is never distributed.
+      api_origin: https://dinner-test.duckpuppy.net
+      version_name: pr-check
+      version_code: 1
+      artifact_name: dinner-planner-pr-debug.apk
