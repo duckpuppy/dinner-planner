@@ -12,6 +12,8 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+vi.mock('@/hooks/useLiveEvents', () => ({ useLiveEvents: vi.fn(() => false) }));
+
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));

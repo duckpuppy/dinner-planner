@@ -292,6 +292,32 @@ function refreshToken(): Promise<RefreshOutcome> {
   return refreshInFlight;
 }
 
+/**
+ * Single-flight session refresh for callers outside request() (the live-events stream).
+ * Shares the same in-flight promise as 401 handling, so the server sees one refresh.
+ * Throws NetworkError when no response arrives; resolves 'rejected' when the session is dead.
+ */
+export function refreshSession(): Promise<RefreshOutcome> {
+  return refreshToken();
+}
+
+/**
+ * Fetch init for the long-lived event stream: auth + platform headers and the same credentials
+ * mode as request(), but deliberately no timeout (the caller owns the signal).
+ */
+export function streamRequestInit(
+  signal: AbortSignal,
+  extraHeaders: Record<string, string> = {}
+): RequestInit {
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+    ...platformHeaders(),
+    ...extraHeaders,
+  };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+  return { headers, credentials: credentialsMode(), signal, cache: 'no-store' };
+}
+
 async function doRefresh(): Promise<RefreshOutcome> {
   const res = await callRefresh(); // NetworkError propagates: network trouble is not a logout
   if (!res.ok) {
@@ -505,6 +531,10 @@ export const dishes = {
     }),
 
   getVideoJob: (jobId: string) => request<{ job: VideoJob }>(`/jobs/${jobId}`),
+
+  /** Re-run recipe extraction from stored metadata. Returns 202 immediately; poll getVideoJob. */
+  reextractVideoJob: (jobId: string) =>
+    request<{ job: VideoJob }>(`/jobs/${jobId}/extract`, { method: 'POST' }),
 
   deleteVideo: (id: string) =>
     request<{ success: boolean }>(`/dishes/${id}/video`, { method: 'DELETE' }),
@@ -1033,6 +1063,12 @@ export interface VideoJob {
   resultMetadata: Record<string, unknown> | null;
   extractedRecipe: CreateDishData | null;
   error: string | null;
+  rawTitle: string | null;
+  rawDescription: string | null;
+  extractionStatus: 'llm' | 'failed' | 'disabled' | 'no_description' | null;
+  extractionError: string | null;
+  /** Set on metadata-only imports (no downloaded video / thumbnail). */
+  warning: string | null;
   createdAt: string;
   updatedAt: string;
 }
