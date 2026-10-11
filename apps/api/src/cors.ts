@@ -9,6 +9,8 @@ export function buildCorsOptions(origins: string[]): FastifyCorsOptions {
   return {
     origin: origins,
     credentials: true,
+    // @fastify/cors defaults to GET,HEAD,POST; the native app also PUTs, PATCHes and DELETEs.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Authorization', 'Content-Type', 'X-Client-Platform'],
   };
 }
