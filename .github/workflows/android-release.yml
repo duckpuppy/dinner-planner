@@ -82,12 +82,14 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       TAG: ${{ needs.version.outputs.tag }}
-      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      # Not needs.build.outputs.apk_name: GitHub drops job outputs that contain a
+      # secret's value, and the name contains ANDROID_KEY_ALIAS ("dinner-planner").
+      APK_NAME: dinner-planner-${{ needs.version.outputs.tag }}.apk
     steps:
       - name: Download APK artifact
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.apk_name }}
+          name: ${{ env.APK_NAME }}
           path: apk
 
       - name: Wait for the GitHub Release to exist
