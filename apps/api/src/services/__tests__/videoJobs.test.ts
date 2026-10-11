@@ -16,6 +16,8 @@ const mockDb = vi.hoisted(() => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn().mockReturnValue(null),
   and: vi.fn().mockReturnValue(null),
+  or: vi.fn().mockReturnValue(null),
+  sql: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock('../../db/index.js', () => ({
@@ -56,7 +58,8 @@ import {
   getVideoJobForFamily,
   NO_VIDEO_WARNING,
   processVideoJob,
-  reextractVideoJob,
+  claimReextract,
+  processReextract,
 } from '../videoJobs.js';
 import { YtdlpError } from '../ytdlpErrors.js';
 
@@ -619,14 +622,52 @@ describe('family scoping and re-extraction', () => {
     mockDb.select.mockReturnValue(makeSelect([]));
     expect(await getVideoJobForFamily('j1', 'fam-2')).toBeNull();
   });
+});
 
-  it('reextractVideoJob re-runs extraction from stored infoJson + transcript and updates the row', async () => {
-    const stored = {
-      id: 'j1',
-      sourceUrl: 'https://www.tiktok.com/t/abc/',
-      transcript: 'tr',
-      resultMetadata: JSON.stringify({ infoJson: { title: 'T', description: 'D' } }),
-    };
+// ---------------------------------------------------------------------------
+// claimReextract / processReextract (async re-extraction)
+// ---------------------------------------------------------------------------
+
+describe('claimReextract', () => {
+  function claimChain(rows: unknown[]) {
+    const returning = vi.fn().mockResolvedValue(rows);
+    const where = vi.fn().mockReturnValue({ returning });
+    const set = vi.fn().mockReturnValue({ where });
+    mockDb.update.mockReturnValue({ set });
+    return { set };
+  }
+
+  it('moves the job to status=extracting and returns true when claimed', async () => {
+    const { set } = claimChain([{ id: 'j1' }]);
+    expect(await claimReextract('j1')).toBe(true);
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ status: 'extracting' }));
+  });
+
+  it('returns false when the job is not claimable (already extracting / not complete)', async () => {
+    claimChain([]);
+    expect(await claimReextract('j1')).toBe(false);
+  });
+});
+
+describe('processReextract', () => {
+  const stored = {
+    id: 'j1',
+    sourceUrl: 'https://www.tiktok.com/t/abc/',
+    transcript: 'tr',
+    resultMetadata: JSON.stringify({ infoJson: { title: 'T', description: 'D' } }),
+  };
+
+  function captureUpdates() {
+    const updates: ReturnType<typeof makeUpdate>[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = makeUpdate();
+      updates.push(u);
+      return u;
+    });
+    return updates;
+  }
+
+  it('re-runs extraction from stored infoJson + transcript and returns the job to complete', async () => {
     mockDb.select.mockReturnValue(makeSelect([stored]));
     mockExtractRecipeFromMetadata.mockResolvedValue({
       recipe: { name: 'R', ingredients: [], tags: [] } as never,
@@ -636,17 +677,19 @@ describe('family scoping and re-extraction', () => {
       status: 'llm',
       error: null,
     });
-    const update = makeUpdate();
-    mockDb.update.mockReturnValue(update);
+    const updates = captureUpdates();
 
-    await reextractVideoJob('j1');
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
 
+    expect(mockDownloadVideo).not.toHaveBeenCalled();
     expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(
       { title: 'T', description: 'D' },
       'tr'
     );
-    expect(update.set).toHaveBeenCalledWith(
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
       expect.objectContaining({
+        status: 'complete',
         extractionStatus: 'llm',
         extractionError: null,
         extractedRecipe: expect.stringContaining('"name":"R"'),
@@ -654,9 +697,54 @@ describe('family scoping and re-extraction', () => {
     );
   });
 
-  it('reextractVideoJob returns null when there is no stored metadata', async () => {
-    mockDb.select.mockReturnValue(makeSelect([{ id: 'j1', resultMetadata: null }]));
-    expect(await reextractVideoJob('j1')).toBeNull();
+  it('records extractionStatus=failed and still releases the extracting state when the LLM fails', async () => {
+    mockDb.select.mockReturnValue(makeSelect([stored]));
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'T',
+      rawDescription: 'D',
+      source: 'none',
+      status: 'failed',
+      error: 'The AI model returned an error (HTTP 500)',
+    });
+    const updates = captureUpdates();
+
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'complete',
+        extractionStatus: 'failed',
+        extractionError: 'The AI model returned an error (HTTP 500)',
+        extractedRecipe: null,
+      })
+    );
+  });
+
+  it('records failed when extraction throws unexpectedly', async () => {
+    mockDb.select.mockReturnValue(makeSelect([stored]));
+    mockExtractRecipeFromMetadata.mockRejectedValue(new Error('boom'));
+    const updates = captureUpdates();
+
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'complete', extractionStatus: 'failed' })
+    );
+  });
+
+  it('records failed when there is no stored metadata', async () => {
+    mockDb.select.mockReturnValue(makeSelect([{ ...stored, resultMetadata: null }]));
+    const updates = captureUpdates();
+
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+
     expect(mockExtractRecipeFromMetadata).not.toHaveBeenCalled();
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'complete', extractionStatus: 'failed' })
+    );
   });
 });

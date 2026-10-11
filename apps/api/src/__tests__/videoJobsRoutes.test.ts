@@ -14,7 +14,8 @@ vi.mock('../services/videoJobs.js', () => ({
   createVideoJob: vi.fn(),
   getVideoJobForFamily: vi.fn(),
   processVideoJob: vi.fn(),
-  reextractVideoJob: vi.fn(),
+  claimReextract: vi.fn(),
+  processReextract: vi.fn(),
 }));
 
 vi.mock('../services/settings.js', () => ({
@@ -813,9 +814,11 @@ describe('POST /api/dishes/import-video-url — normalisation', () => {
   });
 });
 
-describe('POST /api/jobs/:id/extract', () => {
+describe('POST /api/jobs/:id/extract (asynchronous)', () => {
   let app: TestApp;
-  const mockReextract = vi.mocked(videoJobsService.reextractVideoJob);
+  const mockClaim = vi.mocked(videoJobsService.claimReextract);
+  const mockProcess = vi.mocked(videoJobsService.processReextract);
+  const stored = JSON.stringify({ infoJson: { title: 'T', description: 'D' } });
   beforeAll(async () => {
     app = await buildApp();
   });
@@ -824,64 +827,125 @@ describe('POST /api/jobs/:id/extract', () => {
   });
   beforeEach(() => {
     mockGetVideoJob.mockReset();
-    mockReextract.mockReset();
+    mockClaim.mockReset();
+    mockProcess.mockReset();
   });
+
+  const post = () =>
+    app.inject({ method: 'POST', url: '/api/jobs/j1/extract', headers: bearerHeader(app) });
 
   it('401s without auth', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/jobs/j1/extract' });
     expect(res.statusCode).toBe(401);
   });
 
-  it('404s for another family (and does not run extraction)', async () => {
+  it('404s for another family (and starts nothing)', async () => {
     mockGetVideoJob.mockResolvedValue(null);
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/jobs/j1/extract',
-      headers: bearerHeader(app),
-    });
+    const res = await post();
     expect(res.statusCode).toBe(404);
     expect(mockGetVideoJob).toHaveBeenCalledWith('j1', 'fam-1');
-    expect(mockReextract).not.toHaveBeenCalled();
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockProcess).not.toHaveBeenCalled();
   });
 
   it('409s when the job is not complete / has no stored metadata', async () => {
     mockGetVideoJob.mockResolvedValue(
       asJob({ id: 'j1', status: 'downloading', resultMetadata: null })
     );
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/jobs/j1/extract',
-      headers: bearerHeader(app),
-    });
-    expect(res.statusCode).toBe(409);
-    expect(mockReextract).not.toHaveBeenCalled();
+    expect((await post()).statusCode).toBe(409);
+    mockGetVideoJob.mockResolvedValue(
+      asJob({ id: 'j1', status: 'complete', resultMetadata: null })
+    );
+    expect((await post()).statusCode).toBe(409);
+    expect(mockProcess).not.toHaveBeenCalled();
   });
 
-  it('re-runs extraction and returns the updated job', async () => {
-    const base = {
-      id: 'j1',
-      status: 'complete',
-      resultMetadata: JSON.stringify({ infoJson: { title: 'T', description: 'D' } }),
-    };
-    mockGetVideoJob.mockResolvedValue(asJob({ ...base, extractionStatus: 'failed' }));
-    mockReextract.mockResolvedValue(
+  it('409s when an extraction is already running (claim refused)', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({ id: 'j1', status: 'extracting', resultMetadata: stored })
+    );
+    mockClaim.mockResolvedValue(false);
+    const res = await post();
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(/already in progress/);
+    expect(mockProcess).not.toHaveBeenCalled();
+  });
+
+  it('a concurrent second request gets 409 after the first claims the job', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({ id: 'j1', status: 'complete', resultMetadata: stored })
+    );
+    mockClaim.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const [a, b] = await Promise.all([post(), post()]);
+    expect([a.statusCode, b.statusCode].sort()).toEqual([202, 409]);
+    expect(mockProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it('claims the job, starts background work, and returns 202 with the extracting job', async () => {
+    mockGetVideoJob
+      .mockResolvedValueOnce(asJob({ id: 'j1', status: 'complete', resultMetadata: stored }))
+      .mockResolvedValueOnce(
+        asJob({
+          id: 'j1',
+          status: 'extracting',
+          resultMetadata: stored,
+          extractionStatus: 'failed',
+        })
+      );
+    mockClaim.mockResolvedValue(true);
+
+    const res = await post();
+
+    expect(res.statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenCalledWith('j1');
+    expect(mockProcess).toHaveBeenCalledWith('j1');
+    const { job } = JSON.parse(res.body);
+    expect(job.status).toBe('extracting');
+    expect(job.rawTitle).toBe('T');
+  });
+
+  it('background completion is visible via GET (status back to complete, extractionStatus updated)', async () => {
+    mockGetVideoJob.mockResolvedValue(
       asJob({
-        ...base,
+        id: 'j1',
+        status: 'complete',
+        resultMetadata: stored,
         extractedRecipe: JSON.stringify({ name: 'R' }),
         extractionStatus: 'llm',
         extractionError: null,
       })
     );
     const res = await app.inject({
-      method: 'POST',
-      url: '/api/jobs/j1/extract',
+      method: 'GET',
+      url: '/api/jobs/j1',
       headers: bearerHeader(app),
     });
-    expect(res.statusCode).toBe(200);
     const { job } = JSON.parse(res.body);
-    expect(mockReextract).toHaveBeenCalledWith('j1');
+    expect(job.status).toBe('complete');
     expect(job.extractionStatus).toBe('llm');
     expect(job.extractedRecipe).toEqual({ name: 'R' });
+  });
+
+  it('a failed background extraction leaves extractionStatus=failed with the raw fields', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({
+        id: 'j1',
+        status: 'complete',
+        resultMetadata: stored,
+        extractedRecipe: null,
+        extractionStatus: 'failed',
+        extractionError: 'The AI model returned an error (HTTP 500)',
+      })
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/j1',
+      headers: bearerHeader(app),
+    });
+    const { job } = JSON.parse(res.body);
+    expect(job.status).toBe('complete');
+    expect(job.extractionStatus).toBe('failed');
     expect(job.rawTitle).toBe('T');
+    expect(job.rawDescription).toBe('D');
   });
 });

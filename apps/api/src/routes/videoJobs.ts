@@ -5,7 +5,8 @@ import {
   createVideoJob,
   getVideoJobForFamily,
   processVideoJob,
-  reextractVideoJob,
+  claimReextract,
+  processReextract,
 } from '../services/videoJobs.js';
 import { normalizeVideoUrl } from '../services/videoUrl.js';
 import { deleteVideo, VIDEOS_DIR } from '../services/videoDownload.js';
@@ -129,8 +130,12 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
   /**
    * POST /api/jobs/:id/extract
    * Re-run recipe extraction from the stored infoJson + transcript (no re-download).
-   * Family-scoped (404 cross-family). 409 if the job has no stored metadata yet.
-   * Runs synchronously (the LLM call can take up to ~1-3 minutes with retries).
+   * Asynchronous: sets the job to status='extracting', returns 202 { job } immediately and
+   * finishes in the background (status back to 'complete' with extractionStatus/
+   * extractionError updated). Clients poll GET /api/jobs/:id.
+   * Family-scoped (404 cross-family). 409 if the job isn't complete, has no stored
+   * metadata, or an extraction is already running (an orphaned one older than 10 minutes
+   * is reclaimed).
    */
   fastify.post(
     '/api/jobs/:id/extract',
@@ -144,15 +149,20 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
       if (!existing) {
         return reply.status(404).send({ error: 'Job not found' });
       }
-      if (existing.status !== 'complete' || !existing.resultMetadata) {
+      if (existing.status !== 'complete' && existing.status !== 'extracting') {
         return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
+      }
+      if (!existing.resultMetadata) {
+        return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
+      }
+      if (!(await claimReextract(id))) {
+        return reply.status(409).send({ error: 'Extraction already in progress' });
       }
 
-      const updated = await reextractVideoJob(id);
-      if (!updated) {
-        return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
-      }
-      return reply.send({ job: serializeJob(updated) });
+      processReextract(id);
+
+      const claimedJob = await getVideoJobForFamily(id, request.user.familyId);
+      return reply.status(202).send({ job: serializeJob(claimedJob ?? existing) });
     }
   );
 

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '../db/index.js';
 import {
@@ -78,26 +78,79 @@ async function runExtraction(
   }
 }
 
+/** An 'extracting' job not touched for this long is treated as orphaned (e.g. server restart). */
+const STALE_EXTRACTING_MINUTES = 10;
+
 /**
- * Re-run extraction for a completed job from its stored infoJson + transcript,
- * without re-downloading. Returns the updated job row, or null if the job has no
- * stored metadata to extract from.
+ * Atomically move a completed job to status='extracting' so only one re-extraction
+ * runs at a time. Returns false if the job is not claimable (not complete, or already
+ * extracting and not stale).
  */
-export async function reextractVideoJob(jobId: string) {
-  const job = await getVideoJob(jobId);
-  if (!job || !job.resultMetadata) return null;
+export async function claimReextract(jobId: string): Promise<boolean> {
+  const claimed = await db
+    .update(schema.videoJobs)
+    .set({ status: 'extracting', updatedAt: sql`datetime('now')` as unknown as string })
+    .where(
+      and(
+        eq(schema.videoJobs.id, jobId),
+        or(
+          eq(schema.videoJobs.status, 'complete'),
+          and(
+            eq(schema.videoJobs.status, 'extracting'),
+            sql`${schema.videoJobs.updatedAt} < datetime('now', ${`-${STALE_EXTRACTING_MINUTES} minutes`})`
+          )
+        )
+      )
+    )
+    .returning({ id: schema.videoJobs.id });
+  return claimed.length > 0;
+}
 
-  let infoJson: Record<string, unknown>;
+/**
+ * Fire-and-forget: re-run extraction from the stored infoJson + transcript (no
+ * re-download) for a job previously claimed with claimReextract. Always returns the
+ * job to status='complete', recording the outcome in extractionStatus/extractionError.
+ */
+export function processReextract(jobId: string): void {
+  _runReextract(jobId).catch((err: unknown) => {
+    console.error(`[videoJobs] Unhandled error re-extracting job ${jobId}:`, err);
+  });
+}
+
+async function _runReextract(jobId: string): Promise<void> {
+  let outcome: Awaited<ReturnType<typeof runExtraction>>;
   try {
-    const meta = JSON.parse(job.resultMetadata) as { infoJson?: Record<string, unknown> };
-    infoJson = meta.infoJson ?? {};
-  } catch {
-    return null;
+    const job = await getVideoJob(jobId);
+    let infoJson: Record<string, unknown> | null = null;
+    try {
+      const meta = JSON.parse(job?.resultMetadata ?? '') as {
+        infoJson?: Record<string, unknown>;
+      };
+      infoJson = meta.infoJson ?? {};
+    } catch {
+      infoJson = null;
+    }
+    outcome =
+      job && infoJson
+        ? await runExtraction(job.sourceUrl, infoJson, job.transcript ?? null)
+        : {
+            extractedRecipe: null,
+            extractionStatus: 'failed',
+            extractionError: 'No stored post metadata to extract from',
+          };
+  } catch (err) {
+    console.error(`[videoJobs] Re-extraction of job ${jobId} crashed:`, err);
+    outcome = {
+      extractedRecipe: null,
+      extractionStatus: 'failed',
+      extractionError: 'Recipe extraction failed unexpectedly',
+    };
   }
-
-  const outcome = await runExtraction(job.sourceUrl, infoJson, job.transcript ?? null);
-  await db.update(schema.videoJobs).set(outcome).where(eq(schema.videoJobs.id, jobId));
-  return getVideoJob(jobId);
+  // Whatever happened, release the 'extracting' state.
+  await db
+    .update(schema.videoJobs)
+    .set({ ...outcome, status: 'complete' })
+    .where(eq(schema.videoJobs.id, jobId));
 }
 
 export async function processVideoJob(jobId: string, storageLimit: number): Promise<void> {
