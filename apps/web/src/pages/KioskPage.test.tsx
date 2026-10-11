@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
+vi.mock('@/lib/api', () => ({
+  fetchHealth: vi.fn().mockResolvedValue({ ok: true, json: async () => ({ version: '1.0.0' }) }),
+}));
+
 import { KioskPage } from './KioskPage';
 import { KIOSK_KEY_STORAGE, type KioskEntry } from '@/lib/kiosk';
 

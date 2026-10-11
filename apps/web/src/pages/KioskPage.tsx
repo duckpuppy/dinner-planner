@@ -7,6 +7,7 @@ import {
   useIdleCursor,
   useIsLandscape,
   useKioskWeek,
+  useReloadOnDeploy,
   useLocalNow,
   useWakeLock,
 } from '@/hooks/useKioskDisplay';
@@ -193,6 +194,7 @@ export function KioskPage() {
   const landscape = useIsLandscape();
   const cursorHidden = useIdleCursor();
   useWakeLock();
+  useReloadOnDeploy();
 
   if (!key || status === 'unauthorized') {
     return (

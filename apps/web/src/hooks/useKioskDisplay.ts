@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fetchHealth } from '@/lib/api';
 import { msUntilNextMidnight, msUntilNextMinute } from '@/lib/kioskTime';
 import { KioskAuthError, clearStoredKioskKey, fetchKioskWeek, type KioskWeek } from '@/lib/kiosk';
 
@@ -183,4 +184,59 @@ export function useIsLandscape(): boolean {
   }, []);
 
   return landscape;
+}
+
+export const KIOSK_DEPLOY_CHECK_MS = 5 * 60_000;
+export const KIOSK_RELOAD_GUARD_MS = 10 * 60_000;
+export const KIOSK_RELOAD_STORAGE = 'dinner-planner-kiosk-reloaded-at';
+
+function reloadAllowed(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(KIOSK_RELOAD_STORAGE) ?? 0);
+    if (Date.now() - last < KIOSK_RELOAD_GUARD_MS) return false;
+    sessionStorage.setItem(KIOSK_RELOAD_STORAGE, String(Date.now()));
+  } catch {
+    // Storage unavailable: nothing to guard with, allow the reload.
+  }
+  return true;
+}
+
+/**
+ * An always-on kiosk never navigates, so it would run a stale bundle forever. Poll /health every
+ * 5 minutes and on visibilitychange; when the build `version` (or `instanceId` as a fallback)
+ * differs from the first successful check, reload (at most once per 10 minutes). Network errors
+ * are ignored so cached data keeps showing.
+ */
+export function useReloadOnDeploy(): void {
+  useEffect(() => {
+    let cancelled = false;
+    let baseline: string | null = null;
+    const check = async () => {
+      try {
+        const res = await fetchHealth({ cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { version?: string; instanceId?: string };
+        const id = body.version || body.instanceId;
+        if (cancelled || !id) return;
+        if (baseline === null) {
+          baseline = id;
+        } else if (id !== baseline && reloadAllowed()) {
+          window.location.reload();
+        }
+      } catch {
+        // offline / timeout: keep showing the current data
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    void check();
+    const interval = setInterval(() => void check(), KIOSK_DEPLOY_CHECK_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 }
