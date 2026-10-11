@@ -1,17 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { GroceryPage } from './GroceryPage';
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
   menus: {
     getGroceries: vi.fn(),
     addCustomItem: vi.fn(),
     deleteCustomItem: vi.fn(),
     updateCustomItem: vi.fn(),
-    toggleGroceryCheck: vi.fn(),
+    setGroceryCheck: vi.fn(),
     clearGroceryChecks: vi.fn(),
+  },
+  settings: {
+    get: vi.fn().mockResolvedValue({ settings: { weekStartDay: 1 } }),
   },
   stores: {
     list: vi.fn().mockResolvedValue([]),
@@ -28,6 +32,7 @@ vi.mock('sonner', () => ({
 }));
 
 import { menus, standing as standingApi } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 
 const baseGroceriesResponse = {
   groceries: [],
@@ -37,10 +42,13 @@ const baseGroceriesResponse = {
   checkedKeys: [],
 };
 
+// Offline writes run on the app-wide client (that is where their defaults are registered).
+queryClient.setDefaultOptions({
+  ...queryClient.getDefaultOptions(),
+  queries: { ...queryClient.getDefaultOptions().queries, retry: false, staleTime: 0 },
+});
+
 function wrapper({ children }: { children: React.ReactNode }) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
   return (
     <MemoryRouter initialEntries={['/grocery']}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -51,13 +59,19 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('GroceryPage', () => {
   beforeEach(() => {
     localStorage.clear();
+    queryClient.clear();
+    // Settings are normally cached already (persisted), so the groceries key is the week-start
+    // key from the first render and doesn't change when settings load.
+    queryClient.setQueryData(['settings'], { settings: { weekStartDay: 1 } });
     vi.clearAllMocks();
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({ itemKey: '', checked: true });
-    vi.mocked(menus.clearGroceryChecks).mockResolvedValue(undefined);
+    // Never settle: the write stays queued, so the UI shows the pending (overlay) state.
+    vi.mocked(menus.setGroceryCheck).mockReturnValue(new Promise(() => {}));
+    vi.mocked(menus.clearGroceryChecks).mockReturnValue(new Promise(() => {}));
   });
 
   afterEach(() => {
     cleanup();
+    queryClient.clear();
   });
 
   it('renders page heading', async () => {
@@ -189,10 +203,6 @@ describe('GroceryPage', () => {
       weekStartDate: '2024-06-10',
       checkedKeys: [],
     });
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-      itemKey: 'flour::g',
-      checked: true,
-    });
     render(<GroceryPage />, { wrapper });
     const flourBtn = await screen.findByRole('button', { name: /Check Flour/i });
     fireEvent.click(flourBtn);
@@ -201,7 +211,7 @@ describe('GroceryPage', () => {
     });
   });
 
-  it('toggle calls menus.toggleGroceryCheck', async () => {
+  it('toggle queues menus.setGroceryCheck with a client timestamp', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
         {
@@ -219,21 +229,19 @@ describe('GroceryPage', () => {
       weekStartDate: '2024-06-10',
       checkedKeys: [],
     });
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-      itemKey: 'flour::g',
-      checked: true,
-    });
 
     render(<GroceryPage />, { wrapper });
     const flourBtn = await screen.findByRole('button', { name: /Check Flour/i });
     fireEvent.click(flourBtn);
 
     await waitFor(() => {
-      expect(vi.mocked(menus.toggleGroceryCheck)).toHaveBeenCalledWith(
-        '2024-06-10',
-        'flour::g',
-        'Flour'
-      );
+      expect(vi.mocked(menus.setGroceryCheck)).toHaveBeenCalledWith({
+        weekDate: '2024-06-10',
+        itemKey: 'flour::g',
+        itemName: 'Flour',
+        checked: true,
+        clientUpdatedAt: expect.any(Number),
+      });
     });
   });
 
@@ -254,10 +262,6 @@ describe('GroceryPage', () => {
       customItems: [],
       weekStartDate: '2024-06-10',
       checkedKeys: [],
-    });
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-      itemKey: 'flour::g',
-      checked: true,
     });
     render(<GroceryPage />, { wrapper });
     const flourBtn = await screen.findByRole('button', { name: /Check Flour/i });
@@ -283,10 +287,6 @@ describe('GroceryPage', () => {
       weekStartDate: '2024-06-10',
       checkedKeys: [],
     });
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-      itemKey: 'flour::g',
-      checked: true,
-    });
     render(<GroceryPage />, { wrapper });
     const flourBtn = await screen.findByRole('button', { name: /Check Flour/i });
     fireEvent.click(flourBtn);
@@ -297,7 +297,7 @@ describe('GroceryPage', () => {
     });
   });
 
-  it('clearAll calls menus.clearGroceryChecks', async () => {
+  it('clearAll queues menus.clearGroceryChecks with a client timestamp', async () => {
     vi.mocked(menus.getGroceries).mockResolvedValue({
       groceries: [
         {
@@ -313,18 +313,17 @@ describe('GroceryPage', () => {
       ],
       customItems: [],
       weekStartDate: '2024-06-10',
-      checkedKeys: [],
+      checkedKeys: ['flour::g'],
     });
-    vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({ itemKey: 'flour::g', checked: true });
 
     render(<GroceryPage />, { wrapper });
-    const flourBtn = await screen.findByRole('button', { name: /Check Flour/i });
-    fireEvent.click(flourBtn);
-    await screen.findByText('Clear');
-    fireEvent.click(screen.getByText('Clear'));
+    fireEvent.click(await screen.findByText('Clear'));
 
     await waitFor(() => {
-      expect(vi.mocked(menus.clearGroceryChecks)).toHaveBeenCalled();
+      expect(vi.mocked(menus.clearGroceryChecks)).toHaveBeenCalledWith({
+        weekDate: '2024-06-10',
+        clientUpdatedAt: expect.any(Number),
+      });
     });
   });
 
@@ -541,20 +540,18 @@ describe('GroceryPage', () => {
         weekStartDate: '2024-06-10',
         checkedKeys: [],
       });
-      vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-        itemKey: 'custom::ci-1',
-        checked: true,
-      });
 
       render(<GroceryPage />, { wrapper });
       const checkBtn = await screen.findByRole('button', { name: /Check Paper towels/i });
       fireEvent.click(checkBtn);
 
       await waitFor(() => {
-        expect(vi.mocked(menus.toggleGroceryCheck)).toHaveBeenCalledWith(
-          '2024-06-10',
-          'custom::ci-1',
-          'Paper towels'
+        expect(vi.mocked(menus.setGroceryCheck)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            weekDate: '2024-06-10',
+            itemKey: 'custom::ci-1',
+            itemName: 'Paper towels',
+          })
         );
       });
     });
@@ -709,20 +706,18 @@ describe('GroceryPage', () => {
           },
         ],
       });
-      vi.mocked(menus.toggleGroceryCheck).mockResolvedValue({
-        itemKey: 'standing::si-1',
-        checked: true,
-      });
 
       render(<GroceryPage />, { wrapper });
       const checkBtn = await screen.findByRole('button', { name: /Check Eggs/i });
       fireEvent.click(checkBtn);
 
       await waitFor(() => {
-        expect(vi.mocked(menus.toggleGroceryCheck)).toHaveBeenCalledWith(
-          '2024-06-10',
-          'standing::si-1',
-          'Eggs'
+        expect(vi.mocked(menus.setGroceryCheck)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            weekDate: '2024-06-10',
+            itemKey: 'standing::si-1',
+            itemName: 'Eggs',
+          })
         );
       });
     });

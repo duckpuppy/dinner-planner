@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
+import { useLogoutGuard } from '@/hooks/useLogoutGuard';
 
 const navItems = [
   { to: '/today', icon: Home, label: 'Today' },
@@ -54,6 +55,7 @@ const RELEASE_VERSION_RE = /^\d+\.\d+\.\d+$/;
 export function Layout({ children }: LayoutProps) {
   const isReleaseVersion = RELEASE_VERSION_RE.test(__APP_VERSION__);
   const { user, logout } = useAuthStore();
+  const { requestLogout, dialog: logoutDialog } = useLogoutGuard(logout);
   const isAdmin = user?.role === 'admin';
   const isSuperAdmin = !!user?.isSuperAdmin;
 
@@ -227,7 +229,7 @@ export function Layout({ children }: LayoutProps) {
           </NavLink>
 
           <button
-            onClick={() => logout()}
+            onClick={requestLogout}
             title={collapsed ? 'Sign out' : undefined}
             className={cn(
               'flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors',
@@ -249,6 +251,7 @@ export function Layout({ children }: LayoutProps) {
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </aside>
+      {logoutDialog}
     </div>
   );
 }

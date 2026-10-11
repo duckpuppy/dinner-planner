@@ -52,7 +52,7 @@ vi.mock('@/lib/sessionSnapshot', () => ({
   isSnapshotFresh: (s: { lastServerContactAt: number }) =>
     Date.now() - s.lastServerContactAt <= 7 * 24 * 60 * 60 * 1000,
 }));
-vi.mock('@/lib/mutationQueueDiscard', () => ({ discardQueueAndNotify: mockDiscardQueue }));
+vi.mock('@/lib/mutationQueuePersistence', () => ({ discardQueueAndNotify: mockDiscardQueue }));
 vi.mock('@/lib/warmPrefetch', () => ({ warmPrefetch: mockWarmPrefetch }));
 vi.mock('@/lib/connectivity', () => ({ probe: mockProbe }));
 vi.mock('@/lib/queryClient', () => ({

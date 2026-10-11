@@ -1,6 +1,13 @@
 import { del, get, set } from 'idb-keyval';
 import { CACHE_MAX_AGE, queryClient } from './queryClient';
 import { readSnapshot } from './sessionSnapshot';
+import {
+  discardQueueAndNotify,
+  resetMutationQueue,
+  restoreMutationQueue,
+  startQueuePersistence,
+  stopQueuePersistence,
+} from './mutationQueuePersistence';
 
 export const CACHE_KEY = 'dinner-planner-query-cache';
 
@@ -53,6 +60,7 @@ function stopPersisting() {
   saveTimer = undefined;
   unsubscribe?.();
   unsubscribe = undefined;
+  stopQueuePersistence();
 }
 
 async function save(owner: CacheOwner, gen: number) {
@@ -88,6 +96,7 @@ function startPersisting(owner: CacheOwner, gen: number) {
       if (gen === generation) void save(owner, gen);
     }, SAVE_DEBOUNCE_MS);
   });
+  startQueuePersistence(owner);
 }
 
 /**
@@ -108,6 +117,7 @@ export async function bindCacheOwner(owner: CacheOwner): Promise<void> {
     // In-session owner change (e.g. moved to a new family): drop everything and
     // refetch whatever is mounted.
     void queryClient.resetQueries();
+    await resetMutationQueue();
     await deletePersisted();
     if (gen === generation) startPersisting(owner, gen);
     return;
@@ -164,6 +174,10 @@ export async function bindCacheOwner(owner: CacheOwner): Promise<void> {
     }
   }
 
+  // The offline mutation queue has its own lifecycle (not tied to CACHE_VERSION).
+  await restoreMutationQueue(owner, () => gen === generation);
+  if (gen !== generation) return;
+
   startPersisting(owner, gen);
 }
 
@@ -180,7 +194,11 @@ export async function clearCache({ keepPersisted = false } = {}): Promise<void> 
   currentOwner = null;
   stopPersisting();
   queryClient.clear();
-  if (!keepPersisted) await deletePersisted();
+  if (!keepPersisted) {
+    await deletePersisted();
+    // Counts first, so a logout with unsynced changes says what was lost.
+    await discardQueueAndNotify();
+  }
 }
 
 /** Test helper: reset module state. */

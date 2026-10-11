@@ -1,92 +1,53 @@
-import { useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { menus } from '@/lib/api';
+import { useCallback, useMemo } from 'react';
+import { enqueue, nextClientTimestamp } from '@/lib/offlineMutations';
+import { applyPendingOps, type GroceriesData, type OverlaidGroceries } from '@/lib/pendingOps';
+import { usePendingOps } from '@/hooks/usePendingOps';
 
 export function groceryItemKey(name: string, unit: string | null): string {
   return `${name.toLowerCase()}::${unit?.toLowerCase() ?? ''}`;
 }
 
 export interface GroceryChecklist {
+  /** Server data with queued offline changes applied (undefined until the first load). */
+  view: OverlaidGroceries | undefined;
   checked: Set<string>;
+  /** Item keys whose checked state hasn't synced yet. */
+  pendingKeys: Set<string>;
   toggle: (key: string, itemName: string) => void;
   clearAll: () => void;
 }
 
-interface UseGroceryChecklistOptions {
-  checkedKeys: string[];
-  weekStartDate: string;
-  requestedDate: string;
-}
-
-type GroceriesQueryData = {
-  groceries: unknown[];
-  customItems: unknown[];
-  weekStartDate: string;
-  checkedKeys: string[];
-};
+const EMPTY_SET: Set<string> = new Set();
 
 export function useGroceryChecklist({
-  checkedKeys,
-  weekStartDate,
-  requestedDate,
-}: UseGroceryChecklistOptions): GroceryChecklist {
-  const queryClient = useQueryClient();
-  const queryKey = ['groceries', requestedDate];
-
-  const checked = new Set(checkedKeys);
+  data,
+}: {
+  data: GroceriesData | undefined;
+}): GroceryChecklist {
+  const ops = usePendingOps();
+  const view = useMemo(() => (data ? applyPendingOps(data, ops) : undefined), [data, ops]);
+  const checked = useMemo(() => (view ? new Set(view.checkedKeys) : EMPTY_SET), [view]);
+  const pendingKeys = view?.pendingKeys ?? EMPTY_SET;
+  const weekDate = data?.weekStartDate;
 
   const toggle = useCallback(
     (key: string, itemName: string) => {
-      const isChecked = checked.has(key);
-      const nextChecked = isChecked ? checkedKeys.filter((k) => k !== key) : [...checkedKeys, key];
-
-      // Optimistic update
-      queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
-        if (!prev) return prev;
-        return { ...prev, checkedKeys: nextChecked };
+      if (!weekDate) return;
+      void enqueue('checkSet', {
+        weekDate,
+        itemKey: key,
+        itemName,
+        checked: !checked.has(key),
+        clientUpdatedAt: nextClientTimestamp(),
       });
-
-      // Server sync — revert on error
-      menus
-        .toggleGroceryCheck(weekStartDate, key, itemName)
-        .then(({ checked: serverChecked }) => {
-          queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
-            if (!prev) return prev;
-            const keys = prev.checkedKeys.filter((k) => k !== key);
-            return {
-              ...prev,
-              checkedKeys: serverChecked ? [...keys, key] : keys,
-            };
-          });
-        })
-        .catch(() => {
-          // Revert optimistic update
-          queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
-            if (!prev) return prev;
-            return { ...prev, checkedKeys };
-          });
-        });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [checkedKeys, weekStartDate, requestedDate, queryClient]
+    [weekDate, checked]
   );
 
   const clearAll = useCallback(() => {
-    // Optimistic update
-    queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
-      if (!prev) return prev;
-      return { ...prev, checkedKeys: [] };
-    });
+    if (!weekDate) return;
+    void enqueue('checkClear', { weekDate, clientUpdatedAt: nextClientTimestamp() });
+  }, [weekDate]);
 
-    // Server sync — revert on error
-    menus.clearGroceryChecks(weekStartDate).catch(() => {
-      queryClient.setQueryData<GroceriesQueryData>(queryKey, (prev) => {
-        if (!prev) return prev;
-        return { ...prev, checkedKeys };
-      });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkedKeys, weekStartDate, requestedDate, queryClient]);
-
-  return { checked, toggle, clearAll };
+  return { view, checked, pendingKeys, toggle, clearAll };
 }
