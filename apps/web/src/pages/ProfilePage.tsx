@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth';
+import { useLogoutGuard } from '@/hooks/useLogoutGuard';
 import { useThemeStore } from '@/stores/theme';
 import { users, ApiError, DIETARY_TAGS } from '@/lib/api';
 import { LogOut, Key, User, Sun, Moon, Calendar, CalendarDays } from 'lucide-react';
@@ -18,6 +19,7 @@ const DIETARY_TAG_LABELS: Record<string, string> = {
 
 export function ProfilePage() {
   const { user, logout, updateUser } = useAuthStore();
+  const { requestLogout, dialog: logoutDialog } = useLogoutGuard(logout);
   const { theme, setTheme } = useThemeStore();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
 
@@ -175,13 +177,14 @@ export function ProfilePage() {
 
       {/* Logout */}
       <button
-        onClick={logout}
+        onClick={requestLogout}
         className="w-full flex items-center gap-3 p-4 border rounded-lg hover:bg-muted
                    text-destructive hover:text-destructive"
       >
         <LogOut className="h-5 w-5" />
         <span>Sign Out</span>
       </button>
+      {logoutDialog}
     </div>
   );
 }

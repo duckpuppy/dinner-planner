@@ -501,22 +501,38 @@ export const menus = {
       standingItems: StandingItem[];
       weekStartDate: string;
       checkedKeys: string[];
+      checks?: GroceryCheck[];
     }>(`/menus/week/${date}/groceries`),
 
-  toggleGroceryCheck: (weekDate: string, itemKey: string, itemName: string) =>
-    request<{ itemKey: string; checked: boolean }>('/grocery/checks/toggle', {
-      method: 'POST',
-      body: JSON.stringify({ weekDate, itemKey, itemName }),
+  /** Idempotent last-write-wins set of one item's checked state (offline-queue safe). */
+  setGroceryCheck: (data: {
+    weekDate: string;
+    itemKey: string;
+    itemName: string;
+    checked: boolean;
+    clientUpdatedAt: number;
+  }) =>
+    request<GroceryCheck & { changed: boolean }>('/grocery/checks', {
+      method: 'PUT',
+      body: JSON.stringify(data),
     }),
 
-  clearGroceryChecks: (weekDate: string) =>
-    request<void>(`/grocery/checks?weekDate=${encodeURIComponent(weekDate)}`, {
-      method: 'DELETE',
+  /** Uncheck everything last changed before `clientUpdatedAt`; newer checks survive. */
+  clearGroceryChecks: (data: { weekDate: string; clientUpdatedAt: number }) =>
+    request<{ cleared: number }>('/grocery/checks/clear', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   addCustomItem: (
     weekDate: string,
-    data: { name: string; quantity?: number; unit?: string; storeId?: string | null }
+    data: {
+      id?: string;
+      name: string;
+      quantity?: number;
+      unit?: string;
+      storeId?: string | null;
+    }
   ) =>
     request<{ item: CustomGroceryItem }>('/grocery/custom', {
       method: 'POST',
@@ -682,16 +698,17 @@ export const stores = {
 export const standing = {
   list: () => request<StandingItem[]>('/grocery/standing'),
   add: (data: {
+    id?: string;
     name: string;
-    quantity?: number | null;
-    unit?: string | null;
+    quantity?: number;
+    unit?: string;
     category?: string;
-    storeId?: string | null;
+    storeId?: string;
   }) =>
-    request<StandingItem>('/grocery/standing', {
+    request<{ item: StandingItem }>('/grocery/standing', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    }).then((res) => res.item),
   delete: (id: string) => request<void>(`/grocery/standing/${id}`, { method: 'DELETE' }),
 };
 
@@ -1000,6 +1017,14 @@ export interface VideoJob {
   updatedAt: string;
 }
 
+export interface GroceryCheck {
+  itemKey: string;
+  checked: boolean;
+  /** Epoch ms of the write that produced this state (server clock, clamped). */
+  updatedAt: number;
+  checkedBy: { id: string; displayName: string } | null;
+}
+
 export interface GroceryItem {
   name: string;
   quantity: number | null;
@@ -1170,6 +1195,7 @@ export const pantry = {
   list: () => request<{ items: PantryItem[] }>('/pantry'),
 
   create: (data: {
+    id?: string;
     ingredientName: string;
     quantity?: number | null;
     unit?: string | null;

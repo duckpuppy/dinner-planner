@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './Layout';
 
 const { mockLogout } = vi.hoisted(() => ({
@@ -39,9 +40,11 @@ afterEach(() => {
 
 function renderLayout(content?: React.ReactNode) {
   return render(
-    <MemoryRouter initialEntries={['/today']}>
-      <Layout>{content ?? <div>Page content</div>}</Layout>
-    </MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/today']}>
+        <Layout>{content ?? <div>Page content</div>}</Layout>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
