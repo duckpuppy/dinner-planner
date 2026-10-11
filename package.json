@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "turbo test",
+    "test:e2e": "pnpm --filter @dinner-planner/e2e test:e2e",
     "type-check": "turbo type-check",
     "clean": "turbo clean && rm -rf node_modules",
     "db:generate": "pnpm --filter @dinner-planner/api db:generate",

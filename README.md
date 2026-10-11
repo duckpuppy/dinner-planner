@@ -195,6 +195,19 @@ pnpm --filter @dinner-planner/web test
 pnpm test -- --watch
 ```
 
+#### End-to-end tests (Playwright)
+
+Browser tests cover the offline-first, multi-shopper grocery flow against the real API (live sync,
+offline queue across a reload, last-write-wins conflicts). See [docs/e2e.md](docs/e2e.md).
+
+```bash
+# One-time: download Chromium
+pnpm --filter @dinner-planner/e2e exec playwright install chromium
+
+# Builds the app, starts a throwaway API + SQLite DB, runs the suite
+pnpm test:e2e
+```
+
 ### Environment Variables
 
 | Variable                    | Description                                                                               | Default                     |

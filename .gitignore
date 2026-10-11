@@ -69,3 +69,8 @@ apps/web/android/app/release/
 
 # Beads / Dolt files (added by bd init)
 .beads-credential-key
+
+# Playwright e2e output
+e2e/.tmp/
+e2e/test-results/
+e2e/playwright-report/
