@@ -4,6 +4,7 @@ import { settings } from '@/lib/api';
 import { Settings, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiTokensSection } from '@/components/ApiTokensSection';
+import { DisplayLinksSection } from '@/components/DisplayLinksSection';
 import { cn } from '@/lib/utils';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -344,6 +345,10 @@ export function AdminSettingsPage() {
 
       <div>
         <ApiTokensSection />
+      </div>
+
+      <div>
+        <DisplayLinksSection />
       </div>
     </div>
   );

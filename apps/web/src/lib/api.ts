@@ -365,6 +365,26 @@ export const apiTokens = {
   revoke: (id: string) => request<{ success: boolean }>(`/auth/tokens/${id}`, { method: 'DELETE' }),
 };
 
+// Display links (kiosk) API
+export interface DisplayLinkRow {
+  id: string;
+  name: string;
+  createdByUserId: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export const displayLinks = {
+  list: () => request<{ displayLinks: DisplayLinkRow[] }>('/display-links'),
+  create: (body: { name: string }) =>
+    request<{ id: string; name: string; token: string; url: string; createdAt: string }>(
+      '/display-links',
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+  revoke: (id: string) =>
+    request<{ success: boolean }>(`/display-links/${id}`, { method: 'DELETE' }),
+};
+
 // Users API
 export const users = {
   list: () => request<{ users: User[] }>('/users'),
