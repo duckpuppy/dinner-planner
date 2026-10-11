@@ -4,7 +4,7 @@ import { db, schema } from '../db/index.js';
 import type { UpdateDinnerEntryInput, CreatePreparationInput } from '@dinner-planner/shared';
 
 // Helper to get the week start date (based on app settings)
-async function getWeekStartDay(): Promise<number> {
+export async function getWeekStartDay(): Promise<number> {
   const settings = await db.query.appSettings.findFirst({
     where: eq(schema.appSettings.id, 'default'),
   });
@@ -12,7 +12,7 @@ async function getWeekStartDay(): Promise<number> {
 }
 
 // Calculate the start date of the week containing a given date
-function getWeekStartDate(date: Date, weekStartDay: number): Date {
+export function getWeekStartDate(date: Date, weekStartDay: number): Date {
   const d = new Date(date);
   const day = d.getDay();
   const diff = (day - weekStartDay + 7) % 7;
@@ -22,7 +22,7 @@ function getWeekStartDate(date: Date, weekStartDay: number): Date {
 }
 
 // Format date as YYYY-MM-DD using local date methods (respects TZ env var)
-function formatDate(date: Date): string {
+export function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -30,7 +30,7 @@ function formatDate(date: Date): string {
 }
 
 // Parse YYYY-MM-DD string to Date
-function parseDate(dateStr: string): Date {
+export function parseDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }

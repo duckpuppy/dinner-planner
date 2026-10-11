@@ -16,6 +16,9 @@ import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
 import { familiesRoutes } from './routes/families.js';
+import { displayLinksRoutes } from './routes/displayLinks.js';
+import { kioskRoutes } from './routes/kiosk.js';
+import { loggerSerializers } from './logSerializers.js';
 import { adminRoutes } from './routes/admin.js';
 import { dishesRoutes } from './routes/dishes.js';
 import { menusRoutes } from './routes/menus.js';
@@ -50,6 +53,7 @@ const fastify = Fastify({
   trustProxy: true, // Required for correct client IP detection behind Nginx/reverse proxies
   logger: {
     level: config.NODE_ENV === 'development' ? 'debug' : 'info',
+    serializers: loggerSerializers,
     transport:
       config.NODE_ENV === 'development'
         ? { target: 'pino-pretty', options: { colorize: true } }
@@ -122,6 +126,8 @@ await fastify.register(healthRoutes);
 await fastify.register(authRoutes);
 await fastify.register(usersRoutes);
 await fastify.register(familiesRoutes);
+await fastify.register(displayLinksRoutes);
+await fastify.register(kioskRoutes);
 await fastify.register(adminRoutes);
 await fastify.register(dishesRoutes);
 await fastify.register(menusRoutes);
