@@ -71,9 +71,6 @@ vi.mock('./components/Layout', () => ({
 vi.mock('./components/ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('./components/OfflineBanner', () => ({
-  OfflineBanner: () => null,
-}));
 vi.mock('./components/InstallPrompt', () => ({
   InstallPrompt: () => <div data-testid="install-prompt" />,
 }));

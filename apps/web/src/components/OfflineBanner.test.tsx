@@ -64,4 +64,29 @@ describe('OfflineBanner', () => {
     setup(true, 4, 1);
     expect(screen.getByRole('status').textContent).toContain('1 change failed');
   });
+
+  describe('layout', () => {
+    it('renders the offline banner in normal flow, never fixed', () => {
+      setup(false);
+      const region = screen.getByRole('status');
+      const banner = region.firstElementChild as HTMLElement;
+      expect(banner.className).not.toMatch(/\bfixed\b/);
+      expect(region.className).toMatch(/\bsticky\b/);
+      expect(region.className).not.toMatch(/\bfixed\b/);
+    });
+
+    it('publishes and clears the --banner-h offset variable', () => {
+      const { unmount } = setup(false);
+      expect(document.documentElement.style.getPropertyValue('--banner-h')).toMatch(/^\d+px$/);
+      unmount();
+      expect(document.documentElement.style.getPropertyValue('--banner-h')).toBe('');
+    });
+
+    it('gives the Retry button separate hover and focus-visible classes', () => {
+      setup(true, 0, 1);
+      const classes = screen.getByRole('button', { name: 'Retry' }).className.split(/\s+/);
+      expect(classes).toContain('hover:bg-white/20');
+      expect(classes).toContain('focus-visible:outline-2');
+    });
+  });
 });

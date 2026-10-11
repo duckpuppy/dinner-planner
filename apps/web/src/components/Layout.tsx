@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useAuthStore } from '@/stores/auth';
 import { useLogoutGuard } from '@/hooks/useLogoutGuard';
 
@@ -81,6 +82,8 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ paddingTop: 'var(--sat)' }}>
+      <OfflineBanner />
+
       {/* Main content */}
       <main className={cn('flex-1 pb-16 md:pb-0', collapsed ? 'md:pl-16' : 'md:pl-64')}>
         {children}
@@ -113,7 +116,7 @@ export function Layout({ children }: LayoutProps) {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 bottom-0 flex-col bg-background border-r transition-all duration-200',
+          'hidden md:flex fixed left-0 top-[var(--banner-h,0px)] bottom-0 flex-col bg-background border-r transition-[width] duration-200',
           collapsed ? 'w-16' : 'w-64'
         )}
       >

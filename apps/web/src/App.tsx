@@ -28,7 +28,6 @@ import { RestaurantsPage, RestaurantDetailRoute } from './pages/RestaurantsPage'
 import { AdminLogsPage } from './pages/AdminLogsPage';
 import { AdminHealthPage } from './pages/AdminHealthPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { OfflineBanner } from './components/OfflineBanner';
 import { InstallPrompt } from './components/InstallPrompt';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { KioskPage } from './pages/KioskPage';
@@ -121,7 +120,6 @@ function AppContent() {
 
   return (
     <>
-      <OfflineBanner />
       <Toaster richColors position="top-right" />
       <ErrorBoundary>
         <Layout>
