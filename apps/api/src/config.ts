@@ -28,6 +28,10 @@ const envSchema = z.object({
   LLM_MODE: z.enum(['disabled', 'direct', 'n8n']).default('disabled'),
   N8N_WEBHOOK_URL: z.string().url().optional(),
   VIDEO_STORAGE_LIMIT_MB: z.coerce.number().int().min(100).default(10240),
+  // Fetch a few comments during video import and feed them to recipe extraction
+  VIDEO_IMPORT_COMMENTS: z
+    .preprocess((v) => (typeof v === 'string' ? v === 'true' || v === '1' : v), z.boolean())
+    .default(false),
   YTDLP_PATH: z.string().default('yt-dlp'),
   VIDEOS_DIR: z.string().optional(),
   UPLOADS_DIR: z.string().optional(),

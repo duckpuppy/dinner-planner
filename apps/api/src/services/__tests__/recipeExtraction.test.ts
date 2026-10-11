@@ -5,15 +5,15 @@ vi.mock('../settings.js', () => ({
 }));
 
 vi.mock('../ollama.js', () => ({
-  extractRecipeFromText: vi.fn(),
+  extractRecipeFromTextDetailed: vi.fn(),
 }));
 
 import { getSettings } from '../settings.js';
 import * as ollamaModule from '../ollama.js';
-import { extractRecipeFromMetadata } from '../recipeExtraction.js';
+import { extractRecipeFromMetadata, selectComments } from '../recipeExtraction.js';
 
 const mockGetSettings = vi.mocked(getSettings);
-const mockExtractRecipeFromText = vi.mocked(ollamaModule.extractRecipeFromText);
+const mockExtractRecipeFromText = vi.mocked(ollamaModule.extractRecipeFromTextDetailed);
 
 const VALID_RECIPE = {
   name: 'Pasta Carbonara',
@@ -101,7 +101,7 @@ describe('extractRecipeFromMetadata', () => {
         ollamaModel: 'llama3',
       })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     const result = await extractRecipeFromMetadata({
       title: 'Pasta',
@@ -123,7 +123,7 @@ describe('extractRecipeFromMetadata', () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(null);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: null, error: 'boom' });
 
     const result = await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' });
     expect(result.source).toBe('none');
@@ -157,7 +157,7 @@ describe('extractRecipeFromMetadata', () => {
         ollamaModel: null,
       })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     await extractRecipeFromMetadata({ title: 'T', description: 'D' });
 
@@ -172,7 +172,7 @@ describe('extractRecipeFromMetadata', () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     await extractRecipeFromMetadata(
       { title: 'Pasta', description: 'A delicious recipe' },
@@ -190,7 +190,7 @@ describe('extractRecipeFromMetadata', () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, null);
 
@@ -205,7 +205,7 @@ describe('extractRecipeFromMetadata', () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, '');
 
@@ -220,7 +220,7 @@ describe('extractRecipeFromMetadata', () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
     );
-    mockExtractRecipeFromText.mockResolvedValueOnce(VALID_RECIPE);
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
 
     const longTranscript = 'x'.repeat(9000);
     await extractRecipeFromMetadata({ title: 'Pasta', description: 'A recipe' }, longTranscript);
@@ -230,5 +230,129 @@ describe('extractRecipeFromMetadata', () => {
     // Truncated portion: 8000 chars + '...' suffix
     const transcriptSection = callArg.split('Video transcript:\n')[1];
     expect(transcriptSection).toBe('x'.repeat(8000) + '...');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extraction status / error (dinner-5vx.3)
+// ---------------------------------------------------------------------------
+describe('extractRecipeFromMetadata — status', () => {
+  it('reports disabled when llmMode is disabled', async () => {
+    mockGetSettings.mockResolvedValueOnce(makeSettings({ llmMode: 'disabled' }));
+    const r = await extractRecipeFromMetadata({ title: 'T', description: 'D' });
+    expect(r.status).toBe('disabled');
+    expect(r.error).toBeNull();
+  });
+
+  it('reports no_description when the post has no description', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    const r = await extractRecipeFromMetadata({ title: 'T' });
+    expect(r.status).toBe('no_description');
+  });
+
+  it('reports failed with the friendly error and keeps the raw title/description', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({
+      recipe: null,
+      error: 'The AI model returned an error (HTTP 500)',
+    });
+    const r = await extractRecipeFromMetadata({ title: 'Pizza Tacos', description: 'ingredients' });
+    expect(r.status).toBe('failed');
+    expect(r.error).toBe('The AI model returned an error (HTTP 500)');
+    expect(r.rawTitle).toBe('Pizza Tacos');
+    expect(r.rawDescription).toBe('ingredients');
+    expect(r.recipe).toBeNull();
+  });
+
+  it('reports llm on success', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    const r = await extractRecipeFromMetadata({ title: 'T', description: 'D' });
+    expect(r.status).toBe('llm');
+    expect(r.error).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// comments (VIDEO_IMPORT_COMMENTS)
+// ---------------------------------------------------------------------------
+describe('selectComments', () => {
+  it('prefers the uploader comments, then the most-liked others', () => {
+    const text = selectComments({
+      uploader: 'chef',
+      comments: [
+        { author: 'a', text: 'low', like_count: 1 },
+        { author: 'b', text: 'high', like_count: 50 },
+        { author: 'chef', text: 'RECIPE: 2 cups flour', like_count: 0, author_is_uploader: true },
+      ],
+    });
+    expect(text).toBe('RECIPE: 2 cups flour\n---\nhigh\n---\nlow');
+  });
+
+  it('matches the uploader by name when author_is_uploader is absent', () => {
+    const text = selectComments({
+      uploader: 'chef',
+      comments: [
+        { author: 'a', text: 'popular', like_count: 99 },
+        { author: 'chef', text: 'mine' },
+      ],
+    });
+    expect(text?.startsWith('mine')).toBe(true);
+  });
+
+  it('keeps at most 10 non-uploader comments and caps length', () => {
+    const comments = Array.from({ length: 20 }, (_, i) => ({
+      author: `u${i}`,
+      text: `c${i}`,
+      like_count: i,
+    }));
+    const text = selectComments({ comments }) as string;
+    expect(text.split('\n---\n')).toHaveLength(10);
+    const capped = selectComments({ comments: [{ author: 'x', text: 'y'.repeat(9000) }] });
+    expect(capped).toBe('y'.repeat(8000) + '...');
+  });
+
+  it('returns null when there are no usable comments', () => {
+    expect(selectComments({})).toBeNull();
+    expect(selectComments({ comments: [{ text: '  ' }, {}] })).toBeNull();
+  });
+});
+
+describe('extractRecipeFromMetadata — comments flag', () => {
+  const metadata = {
+    title: 'T',
+    description: 'D',
+    comments: [{ author: 'chef', text: 'full recipe here', author_is_uploader: true }],
+  };
+
+  async function run() {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    await extractRecipeFromMetadata(metadata);
+    return mockExtractRecipeFromText.mock.calls[0][0];
+  }
+
+  it('does not append comments when VIDEO_IMPORT_COMMENTS is off', async () => {
+    delete process.env.VIDEO_IMPORT_COMMENTS;
+    expect(await run()).not.toContain('full recipe here');
+  });
+
+  it('appends comments when VIDEO_IMPORT_COMMENTS=true', async () => {
+    process.env.VIDEO_IMPORT_COMMENTS = 'true';
+    try {
+      const text = await run();
+      expect(text).toContain('Video comments');
+      expect(text).toContain('full recipe here');
+    } finally {
+      delete process.env.VIDEO_IMPORT_COMMENTS;
+    }
   });
 });
