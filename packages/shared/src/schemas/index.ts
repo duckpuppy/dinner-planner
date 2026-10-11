@@ -40,6 +40,11 @@ export const updateFamilySchema = z.object({
   name: z.string().min(1, 'Family name is required').max(100),
 });
 
+// Display link (kiosk) schemas
+export const createDisplayLinkSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100),
+});
+
 // Super-admin schemas (instance-wide, cross-family)
 export const adminReassignUserSchema = z
   .object({
@@ -478,6 +483,7 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type SetupInput = z.infer<typeof setupSchema>;
 export type CreateFamilyInput = z.infer<typeof createFamilySchema>;
 export type UpdateFamilyInput = z.infer<typeof updateFamilySchema>;
+export type CreateDisplayLinkInput = z.infer<typeof createDisplayLinkSchema>;
 export type AdminReassignUserInput = z.infer<typeof adminReassignUserSchema>;
 export type UserPreferencesInput = z.infer<typeof userPreferencesSchema>;
 export type IngredientInput = z.infer<typeof ingredientSchema>;

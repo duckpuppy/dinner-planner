@@ -239,6 +239,13 @@
       "when": 1791686315635,
       "tag": "0033_lame_payback",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791687846720,
+      "tag": "0034_classy_green_goblin",
+      "breakpoints": true
     }
   ]
 }

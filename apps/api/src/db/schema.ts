@@ -531,6 +531,27 @@ export const apiTokens = sqliteTable('api_tokens', {
     .default(sql`(datetime('now'))`),
 });
 
+// Display links: read-only, revocable, family-scoped keys (prefix `dpk_`) for
+// the always-on kiosk dashboard. Deliberately separate from `api_tokens`
+// (dp_), which act as the full user. A display key has no user context and
+// can only read GET /api/kiosk/week. Only the sha256 hash is stored.
+export const displayLinks = sqliteTable('display_links', {
+  id: text('id').primaryKey(),
+  familyId: text('family_id')
+    .notNull()
+    .references(() => families.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdByUserId: text('created_by_user_id').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  lastUsedAt: text('last_used_at'),
+  revokedAt: text('revoked_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // App events table (admin audit log)
 export const appEvents = sqliteTable('app_events', {
   id: text('id').primaryKey(),
