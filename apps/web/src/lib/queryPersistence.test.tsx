@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query';
 
 const mockGet = vi.fn();
 const mockSet = vi.fn();
@@ -13,6 +13,7 @@ vi.mock('idb-keyval', () => ({
 }));
 
 import { queryClient } from './queryClient';
+import { enqueue } from './offlineMutations';
 import {
   CACHE_KEY,
   CACHE_VERSION,
@@ -33,6 +34,13 @@ function persisted(overrides: Record<string, unknown> = {}) {
     entries: { '["family"]': { data: { name: 'Old Family' }, updatedAt: OLD } },
     ...overrides,
   };
+}
+
+// The mutation queue lives under its own key; only answer the cache key here.
+function givenCache(payload: unknown) {
+  mockGet.mockImplementation((key: string) =>
+    Promise.resolve(key === CACHE_KEY ? payload : undefined)
+  );
 }
 
 const fetcher = vi.fn();
@@ -70,7 +78,7 @@ afterEach(() => {
 
 describe('bindCacheOwner', () => {
   it('hydrates when owner and version match, showing data immediately then refetching', async () => {
-    mockGet.mockResolvedValue(persisted());
+    givenCache(persisted());
     await bindCacheOwner(OWNER_A);
 
     expect(queryClient.getQueryData(['family'])).toEqual({ name: 'Old Family' });
@@ -83,14 +91,14 @@ describe('bindCacheOwner', () => {
   });
 
   it('marks hydrated queries stale using the persisted updatedAt', async () => {
-    mockGet.mockResolvedValue(persisted());
+    givenCache(persisted());
     await bindCacheOwner(OWNER_A);
     const state = queryClient.getQueryState(['family']);
     expect(state?.dataUpdatedAt).toBe(OLD);
   });
 
   it('discards the cache when userId differs and never renders the other owner data', async () => {
-    mockGet.mockResolvedValue(persisted({ userId: 'someone-else' }));
+    givenCache(persisted({ userId: 'someone-else' }));
     await bindCacheOwner(OWNER_A);
 
     expect(queryClient.getQueryData(['family'])).toBeUndefined();
@@ -106,14 +114,14 @@ describe('bindCacheOwner', () => {
   });
 
   it('discards the cache when familyId differs', async () => {
-    mockGet.mockResolvedValue(persisted({ familyId: 'other-family' }));
+    givenCache(persisted({ familyId: 'other-family' }));
     await bindCacheOwner(OWNER_A);
     expect(queryClient.getQueryData(['family'])).toBeUndefined();
     expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
   });
 
   it('discards the cache on CACHE_VERSION mismatch', async () => {
-    mockGet.mockResolvedValue(persisted({ cacheVersion: 'old-version' }));
+    givenCache(persisted({ cacheVersion: 'old-version' }));
     await bindCacheOwner(OWNER_A);
     expect(queryClient.getQueryData(['family'])).toBeUndefined();
     expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
@@ -127,18 +135,20 @@ describe('bindCacheOwner', () => {
   });
   // The cache payload and the session snapshot live under different idb keys.
   function stubIdb(cache: unknown, snap: unknown) {
-    mockGet.mockImplementation(async (key: string) => (key === CACHE_KEY ? cache : snap));
+    mockGet.mockImplementation(async (key: string) =>
+      key === CACHE_KEY ? cache : key === 'dinner-planner-mutation-queue' ? undefined : snap
+    );
   }
 
   it('discards a cache older than 7 days (no snapshot: save timestamp)', async () => {
-    mockGet.mockResolvedValue(persisted({ timestamp: Date.now() - 8 * DAY }));
+    givenCache(persisted({ timestamp: Date.now() - 8 * DAY }));
     await bindCacheOwner(OWNER_A);
     expect(queryClient.getQueryData(['family'])).toBeUndefined();
     expect(mockDel).toHaveBeenCalledWith(CACHE_KEY);
   });
 
   it('keeps a 3 day old cache', async () => {
-    mockGet.mockResolvedValue(persisted({ timestamp: Date.now() - 3 * DAY }));
+    givenCache(persisted({ timestamp: Date.now() - 3 * DAY }));
     await bindCacheOwner(OWNER_A);
     expect(queryClient.getQueryData(['family'])).toEqual({ name: 'Old Family' });
   });
@@ -259,5 +269,111 @@ describe('clearCache (logout)', () => {
   it('ignores delete errors', async () => {
     mockDel.mockRejectedValue(new Error('nope'));
     await expect(clearCache()).resolves.toBeUndefined();
+  });
+});
+
+describe('offline mutation queue lifecycle', () => {
+  const QUEUE_KEY = 'dinner-planner-mutation-queue';
+  const queued = (over: Record<string, unknown> = {}) => ({
+    queueSchema: 1,
+    userId: 'u1',
+    familyId: 'f1',
+    mutations: [
+      {
+        mutationKey: ['offline', 'pantry', 'delete'],
+        scope: { id: 'offline-sync' },
+        state: {
+          context: undefined,
+          data: undefined,
+          error: null,
+          failureCount: 0,
+          failureReason: null,
+          isPaused: false,
+          status: 'pending',
+          variables: { id: 'p1' },
+          submittedAt: 1,
+        },
+      },
+    ],
+    ...over,
+  });
+  const pendingCount = () => queryClient.isMutating({ mutationKey: ['offline'] });
+  const givenQueue = (payload: unknown) =>
+    mockGet.mockImplementation((key: string) =>
+      Promise.resolve(key === QUEUE_KEY ? payload : undefined)
+    );
+
+  beforeEach(() => onlineManager.setOnline(false));
+  afterEach(() => onlineManager.setOnline(true));
+
+  it('restores the queue (paused) when the owner matches, even with no query cache', async () => {
+    givenQueue(queued());
+    await bindCacheOwner(OWNER_A);
+    expect(pendingCount()).toBe(1);
+    expect(queryClient.getMutationCache().getAll()[0].state.isPaused).toBe(true);
+    expect(mockDel).not.toHaveBeenCalledWith(QUEUE_KEY);
+  });
+
+  it('drops the queue when the owner differs', async () => {
+    givenQueue(queued({ userId: 'someone-else' }));
+    await bindCacheOwner(OWNER_A);
+    expect(pendingCount()).toBe(0);
+    expect(mockDel).toHaveBeenCalledWith(QUEUE_KEY);
+  });
+
+  it('keeps the queue across a CACHE_VERSION change (a new build must not lose changes)', async () => {
+    mockGet.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === CACHE_KEY
+          ? persisted({ cacheVersion: 'old-version' })
+          : key === QUEUE_KEY
+            ? queued()
+            : undefined
+      )
+    );
+    await bindCacheOwner(OWNER_A);
+    expect(queryClient.getQueryData(['family'])).toBeUndefined();
+    expect(pendingCount()).toBe(1);
+    expect(mockDel).not.toHaveBeenCalledWith(QUEUE_KEY);
+  });
+
+  it('persists new offline changes after binding', async () => {
+    vi.useFakeTimers();
+    await bindCacheOwner(OWNER_A);
+    void enqueue('pantryDelete', { id: 'p9' });
+    await vi.advanceTimersByTimeAsync(200);
+    const call = mockSet.mock.calls.find((c) => c[0] === QUEUE_KEY);
+    expect(call?.[1]).toMatchObject({ queueSchema: 1, userId: 'u1', familyId: 'f1' });
+    expect(call?.[1].mutations).toHaveLength(1);
+  });
+
+  it('logout deletes the queue; a network-failure logout (keepPersisted) keeps it', async () => {
+    await bindCacheOwner(OWNER_A);
+    await clearCache({ keepPersisted: true });
+    expect(mockDel).not.toHaveBeenCalledWith(QUEUE_KEY);
+
+    __resetQueryPersistenceForTests();
+    await bindCacheOwner(OWNER_A);
+    givenQueue(queued());
+    await clearCache();
+    expect(mockDel).toHaveBeenCalledWith(QUEUE_KEY);
+  });
+
+  it('does not write the queue after logout (stopped before the cache is cleared)', async () => {
+    vi.useFakeTimers();
+    await bindCacheOwner(OWNER_A);
+    void enqueue('pantryDelete', { id: 'p9' });
+    await clearCache();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockSet.mock.calls.find((c) => c[0] === QUEUE_KEY)).toBeUndefined();
+  });
+
+  it('drops in-memory and persisted queue when the owner changes in-session', async () => {
+    await bindCacheOwner(OWNER_A);
+    void enqueue('pantryDelete', { id: 'p9' });
+    expect(pendingCount()).toBe(1);
+    await bindCacheOwner({ userId: 'u1', familyId: 'f2' });
+    expect(pendingCount()).toBe(0);
+    expect(mockDel).toHaveBeenCalledWith(QUEUE_KEY);
   });
 });
