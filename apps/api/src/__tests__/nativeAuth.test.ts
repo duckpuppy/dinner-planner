@@ -417,6 +417,16 @@ describe('CORS preflight', () => {
     await app.close();
   });
 
+  it('allows the write methods the native app uses', async () => {
+    const app = await preflightApp(['https://localhost']);
+    const res = await preflight(app, 'https://localhost');
+    const methods = String(res.headers['access-control-allow-methods'])
+      .split(',')
+      .map((m) => m.trim());
+    expect(methods).toEqual(expect.arrayContaining(['PUT', 'PATCH', 'DELETE']));
+    await app.close();
+  });
+
   it('still allows the web origin from the list', async () => {
     const app = await preflightApp(['http://localhost:5173', 'https://localhost']);
     const res = await preflight(app, 'http://localhost:5173');
