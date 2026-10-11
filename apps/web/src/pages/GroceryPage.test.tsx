@@ -33,6 +33,8 @@ vi.mock('sonner', () => ({
 
 import { menus, standing as standingApi } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { useLiveStore } from '@/lib/liveEvents';
+import { useAuthStore } from '@/stores/auth';
 
 const baseGroceriesResponse = {
   groceries: [],
@@ -332,6 +334,89 @@ describe('GroceryPage', () => {
     render(<GroceryPage />, { wrapper });
     await screen.findByText('No ingredients this week');
     expect(vi.mocked(menus.getGroceries)).toHaveBeenCalledTimes(1);
+  });
+
+  describe('live events and who checked', () => {
+    const flour = {
+      name: 'Flour',
+      quantity: 500,
+      unit: 'g',
+      dishes: ['Pasta'],
+      notes: [],
+      inPantry: false,
+      category: 'Other',
+      stores: [],
+    };
+
+    afterEach(() => {
+      useLiveStore.setState({ connected: false });
+      useAuthStore.setState({ user: null });
+    });
+
+    it('shows an initials chip and names who checked an item', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        groceries: [flour],
+        checkedKeys: ['flour::g'],
+        checks: [
+          {
+            itemKey: 'flour::g',
+            checked: true,
+            updatedAt: 10,
+            checkedBy: { id: 'u2', displayName: 'Sam Rivera' },
+          },
+        ],
+      });
+      render(<GroceryPage />, { wrapper });
+      expect(
+        await screen.findByRole('button', { name: 'Uncheck Flour, checked by Sam Rivera' })
+      ).toBeTruthy();
+      const chip = screen.getByRole('img', { name: 'Checked by Sam Rivera' });
+      expect(chip.textContent).toBe('SR');
+      expect(chip.getAttribute('title')).toBe('Sam Rivera');
+    });
+
+    it('shows the current user on a pending check', async () => {
+      useAuthStore.setState({ user: { id: 'u1', displayName: 'Ann Lee' } as never });
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        groceries: [flour],
+      });
+      render(<GroceryPage />, { wrapper });
+      fireEvent.click(await screen.findByRole('button', { name: /Check Flour/i }));
+      expect(
+        await screen.findByRole('button', {
+          name: 'Uncheck Flour, checked by Ann Lee (waiting to sync)',
+        })
+      ).toBeTruthy();
+      expect(screen.getByRole('img', { name: 'Checked by Ann Lee' }).textContent).toBe('AL');
+    });
+
+    it('shows no chip when a checked row has no attribution', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue({
+        ...baseGroceriesResponse,
+        groceries: [flour],
+        checkedKeys: ['flour::g'],
+      });
+      render(<GroceryPage />, { wrapper });
+      expect(await screen.findByRole('button', { name: 'Uncheck Flour' })).toBeTruthy();
+      expect(screen.queryByRole('img')).toBeNull();
+    });
+
+    it('polls every 5s normally and every 60s once the live stream is connected', async () => {
+      vi.mocked(menus.getGroceries).mockResolvedValue(baseGroceriesResponse);
+      render(<GroceryPage />, { wrapper });
+      await screen.findByText('No ingredients this week');
+      const interval = () => {
+        const q = queryClient.getQueryCache().findAll({ queryKey: ['groceries'] })[0];
+        const fn = q!.observers[0].options.refetchInterval as () => number | false;
+        return fn();
+      };
+      expect(interval()).toBe(5000);
+      // Simulate an open stream; the page's live hook reports connected for a visible page.
+      useLiveStore.setState({ connected: true });
+      await waitFor(() => expect(interval()).toBe(60_000));
+    });
   });
 
   it('renders pantry items in In Pantry section', async () => {

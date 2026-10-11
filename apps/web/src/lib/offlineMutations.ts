@@ -142,7 +142,7 @@ export function offlineRetryDelay(failureCount: number): number {
 // cache merge helpers
 // ---------------------------------------------------------------------------
 
-function groceryFilters(week: string | null) {
+export function groceryFilters(week: string | null) {
   return week === null
     ? { queryKey: ['groceries'] as const }
     : {
@@ -189,7 +189,7 @@ export function mergeClear(d: GroceriesData, clientUpdatedAt: number): Groceries
   return withChecks(d, m);
 }
 
-function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
+export function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
   return list.some((i) => i.id === item.id)
     ? list.map((i) => (i.id === item.id ? item : i))
     : [...list, item];
