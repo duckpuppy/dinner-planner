@@ -75,7 +75,13 @@ vi.mock('./components/OfflineBanner', () => ({
   OfflineBanner: () => null,
 }));
 vi.mock('./components/InstallPrompt', () => ({
-  InstallPrompt: () => null,
+  InstallPrompt: () => <div data-testid="install-prompt" />,
+}));
+vi.mock('./components/UpdatePrompt', () => ({
+  UpdatePrompt: () => <div data-testid="update-prompt" />,
+}));
+vi.mock('./pages/KioskPage', () => ({
+  KioskPage: () => <div data-testid="kiosk-page">Kiosk Page</div>,
 }));
 
 import { useAuthStore } from './stores/auth';
@@ -262,5 +268,35 @@ describe('App', () => {
     );
     renderApp('/admin/settings');
     expect(screen.getByTestId('admin-settings-page')).toBeTruthy();
+  });
+
+  it('renders /kiosk without auth, setup redirect, session check or PWA prompts', () => {
+    vi.mocked(useAuthStore).mockImplementation(
+      makeAuthStore({
+        isAuthenticated: false,
+        isLoading: true,
+        setupRequired: true,
+        user: null,
+      }) as never
+    );
+    renderApp('/kiosk');
+    expect(screen.getByTestId('kiosk-page')).toBeTruthy();
+    expect(mockCheckAuth).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('update-prompt')).toBeNull();
+    expect(screen.queryByTestId('install-prompt')).toBeNull();
+    expect(screen.queryByText('Loading...')).toBeNull();
+  });
+
+  it('still mounts the update prompt on regular routes', () => {
+    vi.mocked(useAuthStore).mockImplementation(
+      makeAuthStore({
+        isAuthenticated: true,
+        isLoading: false,
+        setupRequired: false,
+        user: { id: 'u1', role: 'member', homeView: 'today' },
+      }) as never
+    );
+    renderApp('/today');
+    expect(screen.getByTestId('update-prompt')).toBeTruthy();
   });
 });
