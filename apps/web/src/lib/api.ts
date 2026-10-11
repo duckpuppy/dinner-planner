@@ -512,6 +512,10 @@ export const dishes = {
 
   getVideoJob: (jobId: string) => request<{ job: VideoJob }>(`/jobs/${jobId}`),
 
+  /** Re-run recipe extraction from stored metadata. Returns 202 immediately; poll getVideoJob. */
+  reextractVideoJob: (jobId: string) =>
+    request<{ job: VideoJob }>(`/jobs/${jobId}/extract`, { method: 'POST' }),
+
   deleteVideo: (id: string) =>
     request<{ success: boolean }>(`/dishes/${id}/video`, { method: 'DELETE' }),
 };
@@ -1039,6 +1043,12 @@ export interface VideoJob {
   resultMetadata: Record<string, unknown> | null;
   extractedRecipe: CreateDishData | null;
   error: string | null;
+  rawTitle: string | null;
+  rawDescription: string | null;
+  extractionStatus: 'llm' | 'failed' | 'disabled' | 'no_description' | null;
+  extractionError: string | null;
+  /** Set on metadata-only imports (no downloaded video / thumbnail). */
+  warning: string | null;
   createdAt: string;
   updatedAt: string;
 }

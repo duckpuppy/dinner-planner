@@ -5,10 +5,19 @@ import { RecipeImportModal } from './RecipeImportModal';
 
 // Mock API module
 vi.mock('@/lib/api', () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      public status: number,
+      message: string
+    ) {
+      super(message);
+    }
+  },
   dishes: {
     importFromUrl: vi.fn(),
     importVideoUrl: vi.fn(),
     getVideoJob: vi.fn(),
+    reextractVideoJob: vi.fn(),
   },
 }));
 
@@ -233,6 +242,11 @@ describe('RecipeImportModal', () => {
           error: null,
           createdAt: '',
           updatedAt: '',
+          rawTitle: null,
+          rawDescription: null,
+          extractionStatus: null,
+          extractionError: null,
+          warning: null,
         } satisfies VideoJob,
       });
 
@@ -326,43 +340,16 @@ describe('RecipeImportModal', () => {
           error: null,
           createdAt: '',
           updatedAt: '',
+          rawTitle: null,
+          rawDescription: null,
+          extractionStatus: null,
+          extractionError: null,
+          warning: null,
         },
       });
 
       await waitFor(() => {
         expect(onImported).toHaveBeenCalledWith(mockRecipe);
-      });
-    });
-
-    it('calls onImported with shell recipe when job completes without extractedRecipe', async () => {
-      vi.mocked(dishesApi.importVideoUrl).mockResolvedValueOnce({ jobId: 'job-3' });
-
-      await submitVideoAndPoll({
-        job: {
-          id: 'job-3',
-          dishId: null,
-          sourceUrl: 'https://youtube.com/watch?v=abc',
-          status: 'complete',
-          progress: 100,
-          resultVideoFilename: null,
-          resultMetadata: { title: 'My Video Recipe', description: 'A great dish' },
-          extractedRecipe: null,
-          error: null,
-          createdAt: '',
-          updatedAt: '',
-        },
-      });
-
-      await waitFor(() => {
-        expect(onImported).toHaveBeenCalledWith(
-          expect.objectContaining({
-            name: 'My Video Recipe',
-            description: 'A great dish',
-            type: 'main',
-            sourceUrl: 'https://youtube.com/watch?v=abc',
-            ingredients: [],
-          })
-        );
       });
     });
 
@@ -382,6 +369,11 @@ describe('RecipeImportModal', () => {
           error: 'Download timed out',
           createdAt: '',
           updatedAt: '',
+          rawTitle: null,
+          rawDescription: null,
+          extractionStatus: null,
+          extractionError: null,
+          warning: null,
         },
       });
 
@@ -424,6 +416,11 @@ describe('RecipeImportModal', () => {
           error: null,
           createdAt: '',
           updatedAt: '',
+          rawTitle: null,
+          rawDescription: null,
+          extractionStatus: null,
+          extractionError: null,
+          warning: null,
         },
       });
 
@@ -448,6 +445,11 @@ describe('RecipeImportModal', () => {
           error: null,
           createdAt: '',
           updatedAt: '',
+          rawTitle: null,
+          rawDescription: null,
+          extractionStatus: null,
+          extractionError: null,
+          warning: null,
         },
       });
 
