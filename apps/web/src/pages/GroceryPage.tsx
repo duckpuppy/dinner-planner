@@ -26,6 +26,8 @@ import {
   type Store,
 } from '@/lib/api';
 import { useGroceryChecklist, groceryItemKey } from '@/hooks/useGroceryChecklist';
+import { useLiveEvents } from '@/hooks/useLiveEvents';
+import { CheckedByChip, checkedByLabel, type CheckedByUser } from '@/components/CheckedByChip';
 import { cn, localDateStr } from '@/lib/utils';
 import { groceriesQueryKey, groceryRefetchInterval } from '@/lib/groceryQueryKey';
 import { enqueue } from '@/lib/offlineMutations';
@@ -89,11 +91,19 @@ interface CustomGroceryRowProps {
   item: Pending<CustomGroceryItem>;
   checked: boolean;
   pending: boolean;
+  checkedBy?: CheckedByUser;
   onToggle: () => void;
   onDelete: (id: string) => void;
 }
 
-function CustomGroceryRow({ item, checked, pending, onToggle, onDelete }: CustomGroceryRowProps) {
+function CustomGroceryRow({
+  item,
+  checked,
+  pending,
+  checkedBy,
+  onToggle,
+  onDelete,
+}: CustomGroceryRowProps) {
   const scaledQuantity = item.quantity;
   return (
     <div className="flex items-center gap-3 px-3 py-3 rounded-lg" role="listitem">
@@ -104,7 +114,7 @@ function CustomGroceryRow({ item, checked, pending, onToggle, onDelete }: Custom
           'flex-shrink-0 size-5 rounded border-2 flex items-center justify-center transition-colors',
           checked ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
         )}
-        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}`}
+        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}${checked ? checkedByLabel(checkedBy) : ''}`}
       >
         {checked && <Check className="h-3 w-3 text-primary-foreground" />}
       </button>
@@ -130,6 +140,7 @@ function CustomGroceryRow({ item, checked, pending, onToggle, onDelete }: Custom
         )}
       </span>
 
+      {checked && checkedBy && <CheckedByChip user={checkedBy} />}
       {pending && <PendingBadge />}
 
       <button
@@ -148,6 +159,7 @@ interface CategorySectionProps {
   items: GroceryItem[];
   checkedSet: Set<string>;
   pendingKeys: Set<string>;
+  checkedBy: Map<string, CheckedByUser>;
   onToggle: (key: string, name: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -159,6 +171,7 @@ function CategorySection({
   items,
   checkedSet,
   pendingKeys,
+  checkedBy,
   onToggle,
   collapsed,
   onToggleCollapse,
@@ -208,6 +221,7 @@ function CategorySection({
                     item={item}
                     checked={checkedSet.has(key)}
                     pending={pendingKeys.has(key)}
+                    checkedBy={checkedBy.get(key)}
                     onToggle={() => onToggle(key, item.name)}
                   />
                 );
@@ -222,11 +236,12 @@ interface StandingRowProps {
   item: Pending<StandingItem>;
   checked: boolean;
   pending: boolean;
+  checkedBy?: CheckedByUser;
   onToggle: () => void;
   onDelete: (id: string) => void;
 }
 
-function StandingRow({ item, checked, pending, onToggle, onDelete }: StandingRowProps) {
+function StandingRow({ item, checked, pending, checkedBy, onToggle, onDelete }: StandingRowProps) {
   const scaledQuantity = item.quantity;
   return (
     <div className="flex items-center gap-3 px-3 py-3 rounded-lg" role="listitem">
@@ -236,7 +251,7 @@ function StandingRow({ item, checked, pending, onToggle, onDelete }: StandingRow
           'flex-shrink-0 size-5 rounded border-2 flex items-center justify-center transition-colors',
           checked ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
         )}
-        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}`}
+        aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}${checked ? checkedByLabel(checkedBy) : ''}`}
       >
         {checked && <Check className="h-3 w-3 text-primary-foreground" />}
       </button>
@@ -261,6 +276,7 @@ function StandingRow({ item, checked, pending, onToggle, onDelete }: StandingRow
         )}
       </span>
 
+      {checked && checkedBy && <CheckedByChip user={checkedBy} />}
       {pending && <PendingBadge />}
 
       <button
@@ -290,11 +306,13 @@ export function GroceryPage() {
   // Re-render when offline grocery writes start/finish so refetchInterval is re-evaluated.
   useIsMutating({ mutationKey: ['offline', 'grocery'] });
 
+  const liveConnected = useLiveEvents('grocery');
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey,
     queryFn: () => menus.getGroceries(requestedDate),
-    // liveConnected: dinner-4kj.10 (SSE) passes true here to drop polling to 60s.
-    refetchInterval: () => groceryRefetchInterval(queryClient, { liveConnected: false }),
+    // While the live stream is up, polling drops to a slow safety net.
+    refetchInterval: () => groceryRefetchInterval(queryClient, { liveConnected }),
   });
 
   const { data: storesList } = useQuery({
@@ -306,7 +324,7 @@ export function GroceryPage() {
   const weekStartDate = data?.weekStartDate ?? '';
 
   // `view` is the server data with queued offline changes applied.
-  const { view, checked, pendingKeys, toggle, clearAll } = useGroceryChecklist({ data });
+  const { view, checked, pendingKeys, checkedBy, toggle, clearAll } = useGroceryChecklist({ data });
 
   const allItems = view?.groceries ?? [];
   const customItems = view?.customItems ?? [];
@@ -498,6 +516,7 @@ export function GroceryPage() {
                 items={items}
                 checkedSet={checked}
                 pendingKeys={pendingKeys}
+                checkedBy={checkedBy}
                 onToggle={toggle}
                 collapsed={collapsedCategories.has(category)}
                 onToggleCollapse={() => toggleCategory(category)}
@@ -519,6 +538,7 @@ export function GroceryPage() {
                     items={items}
                     checkedSet={checked}
                     pendingKeys={pendingKeys}
+                    checkedBy={checkedBy}
                     onToggle={toggle}
                     collapsed={collapsedCategories.has(key)}
                     onToggleCollapse={() => toggleCategory(key)}
@@ -555,6 +575,7 @@ export function GroceryPage() {
                   item={item}
                   checked={checked.has(`custom::${item.id}`)}
                   pending={!!item.pending || pendingKeys.has(`custom::${item.id}`)}
+                  checkedBy={checkedBy.get(`custom::${item.id}`)}
                   onToggle={() => toggle(`custom::${item.id}`, item.name)}
                   onDelete={deleteCustom}
                 />
@@ -591,6 +612,7 @@ export function GroceryPage() {
                   item={item}
                   checked={checked.has(`standing::${item.id}`)}
                   pending={!!item.pending || pendingKeys.has(`standing::${item.id}`)}
+                  checkedBy={checkedBy.get(`standing::${item.id}`)}
                   onToggle={() => toggle(`standing::${item.id}`, item.name)}
                   onDelete={deleteStanding}
                 />
@@ -630,6 +652,7 @@ interface GroceryRowProps {
   item: GroceryItem;
   checked: boolean;
   pending: boolean;
+  checkedBy?: CheckedByUser;
   onToggle: () => void;
 }
 
@@ -682,16 +705,15 @@ function PantryGroceryRow({ item }: PantryGroceryRowProps) {
   );
 }
 
-function GroceryRow({ item, checked, pending, onToggle }: GroceryRowProps) {
+function GroceryRow({ item, checked, pending, checkedBy, onToggle }: GroceryRowProps) {
   const scaledQuantity = item.quantity;
   return (
     <button
       onClick={onToggle}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors hover:bg-muted/50',
-        checked && 'opacity-50'
+        'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors hover:bg-muted/50'
       )}
-      aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}${pending ? ' (waiting to sync)' : ''}`}
+      aria-label={`${checked ? 'Uncheck' : 'Check'} ${item.name}${checked ? checkedByLabel(checkedBy) : ''}${pending ? ' (waiting to sync)' : ''}`}
     >
       {/* Checkbox */}
       <span
@@ -704,7 +726,7 @@ function GroceryRow({ item, checked, pending, onToggle }: GroceryRowProps) {
       </span>
 
       {/* Item details */}
-      <span className="flex-1 min-w-0">
+      <span className={cn('flex-1 min-w-0', checked && 'opacity-50')}>
         <span className={cn('text-sm font-medium', checked && 'line-through')}>
           {scaledQuantity !== null && (
             <span className="text-muted-foreground mr-1 tabular-nums">
@@ -725,6 +747,7 @@ function GroceryRow({ item, checked, pending, onToggle }: GroceryRowProps) {
         )}
       </span>
 
+      {checked && checkedBy && <CheckedByChip user={checkedBy} />}
       {pending && <PendingBadge />}
     </button>
   );

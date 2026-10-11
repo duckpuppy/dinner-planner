@@ -6,6 +6,7 @@ import { pantry as pantryApi, type PantryItem } from '@/lib/api';
 import { enqueue, newClientId } from '@/lib/offlineMutations';
 import { applyPendingPantry, type Pending } from '@/lib/pendingOps';
 import { usePendingOps } from '@/hooks/usePendingOps';
+import { useLiveEvents } from '@/hooks/useLiveEvents';
 import { cn, localDateStr } from '@/lib/utils';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { SkeletonList } from '@/components/Skeleton';
@@ -237,6 +238,8 @@ export function PantryPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<PantryItem | null>(null);
   const { activeItemId, openSwipe, closeSwipe } = useSwipeActions();
+  // Pantry does not poll; the stream keeps it current while this page is visible.
+  useLiveEvents('pantry');
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pantry'],
