@@ -391,6 +391,26 @@ export const apiTokens = {
   revoke: (id: string) => request<{ success: boolean }>(`/auth/tokens/${id}`, { method: 'DELETE' }),
 };
 
+// Display links (kiosk) API
+export interface DisplayLinkRow {
+  id: string;
+  name: string;
+  createdByUserId: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export const displayLinks = {
+  list: () => request<{ displayLinks: DisplayLinkRow[] }>('/display-links'),
+  create: (body: { name: string }) =>
+    request<{ id: string; name: string; token: string; url: string; createdAt: string }>(
+      '/display-links',
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+  revoke: (id: string) =>
+    request<{ success: boolean }>(`/display-links/${id}`, { method: 'DELETE' }),
+};
+
 // Users API
 export const users = {
   list: () => request<{ users: User[] }>('/users'),
@@ -511,6 +531,10 @@ export const dishes = {
     }),
 
   getVideoJob: (jobId: string) => request<{ job: VideoJob }>(`/jobs/${jobId}`),
+
+  /** Re-run recipe extraction from stored metadata. Returns 202 immediately; poll getVideoJob. */
+  reextractVideoJob: (jobId: string) =>
+    request<{ job: VideoJob }>(`/jobs/${jobId}/extract`, { method: 'POST' }),
 
   deleteVideo: (id: string) =>
     request<{ success: boolean }>(`/dishes/${id}/video`, { method: 'DELETE' }),
@@ -1039,6 +1063,12 @@ export interface VideoJob {
   resultMetadata: Record<string, unknown> | null;
   extractedRecipe: CreateDishData | null;
   error: string | null;
+  rawTitle: string | null;
+  rawDescription: string | null;
+  extractionStatus: 'llm' | 'failed' | 'disabled' | 'no_description' | null;
+  extractionError: string | null;
+  /** Set on metadata-only imports (no downloaded video / thumbnail). */
+  warning: string | null;
   createdAt: string;
   updatedAt: string;
 }

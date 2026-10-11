@@ -60,13 +60,15 @@ jobs:
       GH_REPO: ${{ github.repository }}
       TAG: testing-apk
       SHA: ${{ github.sha }}
-      APK_NAME: ${{ needs.build.outputs.apk_name }}
+      # Not needs.build.outputs.apk_name: GitHub drops job outputs that contain a
+      # secret's value, and the name contains ANDROID_KEY_ALIAS ("dinner-planner").
+      APK_NAME: dinner-planner-testing.apk
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Download APK artifact
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.apk_name }}
+          name: ${{ env.APK_NAME }}
           path: apk
 
       - name: Create or move the rolling release
