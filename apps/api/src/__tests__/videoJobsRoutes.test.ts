@@ -12,8 +12,9 @@ import { videoJobsRoutes } from '../routes/videoJobs.js';
 // Mock all service/db dependencies
 vi.mock('../services/videoJobs.js', () => ({
   createVideoJob: vi.fn(),
-  getVideoJob: vi.fn(),
+  getVideoJobForFamily: vi.fn(),
   processVideoJob: vi.fn(),
+  reextractVideoJob: vi.fn(),
 }));
 
 vi.mock('../services/settings.js', () => ({
@@ -62,7 +63,7 @@ import * as dbModule from '../db/index.js';
 
 const mockDb = vi.mocked(dbModule.db);
 const mockCreateVideoJob = vi.mocked(videoJobsService.createVideoJob);
-const mockGetVideoJob = vi.mocked(videoJobsService.getVideoJob);
+const mockGetVideoJob = vi.mocked(videoJobsService.getVideoJobForFamily);
 const mockGetSettings = vi.mocked(settingsService.getSettings);
 const mockCheckOllamaHealth = vi.mocked(ollamaService.checkOllamaHealth);
 const mockDeleteVideo = vi.mocked(videoDownloadService.deleteVideo);
@@ -82,7 +83,7 @@ async function buildApp() {
 type TestApp = Awaited<ReturnType<typeof buildApp>>;
 
 function bearerHeader(app: TestApp, role: 'member' | 'admin' = 'member') {
-  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role });
+  const token = app.jwt.sign({ userId: 'user-1', username: 'alice', role, familyId: 'fam-1' });
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -711,5 +712,176 @@ describe('POST /api/admin/cleanup-videos', () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toEqual(fakeResult);
     expect(mockCleanupOrphanedVideos).toHaveBeenCalledOnce();
+  });
+});
+
+// ===========================================================================
+// dinner-5vx: family scoping, raw fields, URL normalisation, re-extract
+// ===========================================================================
+
+type JobRow = Awaited<ReturnType<typeof videoJobsService.getVideoJobForFamily>>;
+const asJob = (j: Record<string, unknown>) => j as unknown as JobRow;
+
+describe('GET /api/jobs/:id — scoping and new fields', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it("looks the job up by the caller's family and 404s when it belongs to another family", async () => {
+    mockGetVideoJob.mockResolvedValue(null);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/other-fam-job',
+      headers: bearerHeader(app),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(mockGetVideoJob).toHaveBeenCalledWith('other-fam-job', 'fam-1');
+  });
+
+  it('exposes rawTitle, rawDescription, extraction fields and warning', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({
+        id: 'j1',
+        status: 'complete',
+        resultMetadata: JSON.stringify({
+          infoJson: { title: 'Pizza Tacos', description: 'Pepperoni and tortillas' },
+        }),
+        extractedRecipe: null,
+        extractionStatus: 'failed',
+        extractionError: 'The AI model returned an error (HTTP 500)',
+        warning: 'Video could not be downloaded; recipe extracted from the post description',
+      })
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/j1',
+      headers: bearerHeader(app),
+    });
+    const { job } = JSON.parse(res.body);
+    expect(job.rawTitle).toBe('Pizza Tacos');
+    expect(job.rawDescription).toBe('Pepperoni and tortillas');
+    expect(job.extractionStatus).toBe('failed');
+    expect(job.extractionError).toBe('The AI model returned an error (HTTP 500)');
+    expect(job.warning).toContain('Video could not be downloaded');
+    expect(job.extractedRecipe).toBeNull();
+  });
+
+  it('returns null raw fields when there is no stored metadata', async () => {
+    mockGetVideoJob.mockResolvedValue(asJob({ id: 'j2', status: 'pending', resultMetadata: null }));
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/j2',
+      headers: bearerHeader(app),
+    });
+    const { job } = JSON.parse(res.body);
+    expect(job.rawTitle).toBeNull();
+    expect(job.rawDescription).toBeNull();
+  });
+});
+
+describe('POST /api/dishes/import-video-url — normalisation', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('records the normalised TikTok URL and the caller family on the job', async () => {
+    mockGetSettings.mockResolvedValue({ videoStorageLimitMb: 1024 } as never);
+    mockCreateVideoJob.mockResolvedValue('job-n');
+    vi.mocked(videoJobsService.processVideoJob).mockResolvedValue(undefined);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/dishes/import-video-url',
+      headers: jsonHeaders(app),
+      payload: { url: 'https://www.tiktok.com/ZPLhqTVQL' },
+    });
+
+    expect(res.statusCode).toBe(202);
+    expect(mockCreateVideoJob).toHaveBeenCalledWith(
+      'https://www.tiktok.com/t/ZPLhqTVQL/',
+      undefined,
+      'fam-1'
+    );
+  });
+});
+
+describe('POST /api/jobs/:id/extract', () => {
+  let app: TestApp;
+  const mockReextract = vi.mocked(videoJobsService.reextractVideoJob);
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    mockGetVideoJob.mockReset();
+    mockReextract.mockReset();
+  });
+
+  it('401s without auth', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/jobs/j1/extract' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('404s for another family (and does not run extraction)', async () => {
+    mockGetVideoJob.mockResolvedValue(null);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/jobs/j1/extract',
+      headers: bearerHeader(app),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(mockGetVideoJob).toHaveBeenCalledWith('j1', 'fam-1');
+    expect(mockReextract).not.toHaveBeenCalled();
+  });
+
+  it('409s when the job is not complete / has no stored metadata', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({ id: 'j1', status: 'downloading', resultMetadata: null })
+    );
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/jobs/j1/extract',
+      headers: bearerHeader(app),
+    });
+    expect(res.statusCode).toBe(409);
+    expect(mockReextract).not.toHaveBeenCalled();
+  });
+
+  it('re-runs extraction and returns the updated job', async () => {
+    const base = {
+      id: 'j1',
+      status: 'complete',
+      resultMetadata: JSON.stringify({ infoJson: { title: 'T', description: 'D' } }),
+    };
+    mockGetVideoJob.mockResolvedValue(asJob({ ...base, extractionStatus: 'failed' }));
+    mockReextract.mockResolvedValue(
+      asJob({
+        ...base,
+        extractedRecipe: JSON.stringify({ name: 'R' }),
+        extractionStatus: 'llm',
+        extractionError: null,
+      })
+    );
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/jobs/j1/extract',
+      headers: bearerHeader(app),
+    });
+    expect(res.statusCode).toBe(200);
+    const { job } = JSON.parse(res.body);
+    expect(mockReextract).toHaveBeenCalledWith('j1');
+    expect(job.extractionStatus).toBe('llm');
+    expect(job.extractedRecipe).toEqual({ name: 'R' });
+    expect(job.rawTitle).toBe('T');
   });
 });

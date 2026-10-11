@@ -1,7 +1,13 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { importVideoUrlSchema } from '@dinner-planner/shared';
-import { createVideoJob, getVideoJob, processVideoJob } from '../services/videoJobs.js';
+import {
+  createVideoJob,
+  getVideoJobForFamily,
+  processVideoJob,
+  reextractVideoJob,
+} from '../services/videoJobs.js';
+import { normalizeVideoUrl } from '../services/videoUrl.js';
 import { deleteVideo, VIDEOS_DIR } from '../services/videoDownload.js';
 import { cleanupOrphanedVideos } from '../services/videoCleanup.js';
 import { getSettings } from '../services/settings.js';
@@ -55,7 +61,9 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
       const settings = await getSettings();
       const storageLimit = (settings.videoStorageLimitMb ?? 10240) * 1024 * 1024;
 
-      const jobId = await createVideoJob(parsed.data.url);
+      // Rewrite bare TikTok short codes to a resolvable form; recorded as the job's source
+      const sourceUrl = normalizeVideoUrl(parsed.data.url);
+      const jobId = await createVideoJob(sourceUrl, undefined, request.user.familyId);
       // Fire-and-forget
       void processVideoJob(jobId, storageLimit);
 
@@ -64,46 +72,87 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * Shape a job row for API responses: parse JSON columns and expose the raw
+   * post title/description so clients can prefill when extraction failed.
+   */
+  function serializeJob(job: NonNullable<Awaited<ReturnType<typeof getVideoJobForFamily>>>) {
+    let resultMetadata: Record<string, unknown> | null = null;
+    if (job.resultMetadata) {
+      try {
+        resultMetadata = JSON.parse(job.resultMetadata) as Record<string, unknown>;
+      } catch {
+        resultMetadata = null;
+      }
+    }
+
+    let extractedRecipe: unknown = null;
+    if (job.extractedRecipe) {
+      try {
+        extractedRecipe = JSON.parse(job.extractedRecipe);
+      } catch {
+        extractedRecipe = null;
+      }
+    }
+
+    const infoJson = (resultMetadata?.infoJson ?? null) as Record<string, unknown> | null;
+    const rawTitle = typeof infoJson?.title === 'string' ? infoJson.title : null;
+    const rawDescription = typeof infoJson?.description === 'string' ? infoJson.description : null;
+
+    return {
+      ...job,
+      resultMetadata,
+      extractedRecipe,
+      rawTitle,
+      rawDescription,
+    };
+  }
+
+  /**
    * GET /api/jobs/:id
    * Returns the current job status, progress, and results.
+   * Family-scoped: another family's job is a 404.
    */
   fastify.get(
     '/api/jobs/:id',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const job = await getVideoJob(id);
+      const job = await getVideoJobForFamily(id, request.user.familyId);
       if (!job) {
         return reply.status(404).send({ error: 'Job not found' });
       }
 
-      // Parse resultMetadata if stored as JSON string
-      let resultMetadata: Record<string, unknown> | null = null;
-      if (job.resultMetadata) {
-        try {
-          resultMetadata = JSON.parse(job.resultMetadata) as Record<string, unknown>;
-        } catch {
-          resultMetadata = null;
-        }
+      return reply.send({ job: serializeJob(job) });
+    }
+  );
+
+  /**
+   * POST /api/jobs/:id/extract
+   * Re-run recipe extraction from the stored infoJson + transcript (no re-download).
+   * Family-scoped (404 cross-family). 409 if the job has no stored metadata yet.
+   * Runs synchronously (the LLM call can take up to ~1-3 minutes with retries).
+   */
+  fastify.post(
+    '/api/jobs/:id/extract',
+    {
+      preHandler: [fastify.authenticate],
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const existing = await getVideoJobForFamily(id, request.user.familyId);
+      if (!existing) {
+        return reply.status(404).send({ error: 'Job not found' });
+      }
+      if (existing.status !== 'complete' || !existing.resultMetadata) {
+        return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
       }
 
-      // Parse extractedRecipe if stored as JSON string
-      let extractedRecipe: unknown = null;
-      if (job.extractedRecipe) {
-        try {
-          extractedRecipe = JSON.parse(job.extractedRecipe);
-        } catch {
-          extractedRecipe = null;
-        }
+      const updated = await reextractVideoJob(id);
+      if (!updated) {
+        return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
       }
-
-      return reply.send({
-        job: {
-          ...job,
-          resultMetadata,
-          extractedRecipe,
-        },
-      });
+      return reply.send({ job: serializeJob(updated) });
     }
   );
 
