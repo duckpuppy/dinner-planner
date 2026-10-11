@@ -558,5 +558,16 @@ export const videoJobs = sqliteTable('video_jobs', {
   transcript: text('transcript'),
   extractedRecipe: text('extracted_recipe'),
   error: text('error'),
+  // Owning family; nullable because jobs created before dinner-5vx have none
+  // (those are unreachable via the family-scoped job endpoints).
+  familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+  // Outcome of recipe extraction: llm (recipe produced), failed (LLM error),
+  // disabled (no LLM configured), no_description (post had no text to extract from).
+  extractionStatus: text('extraction_status', {
+    enum: ['llm', 'failed', 'disabled', 'no_description'],
+  }),
+  extractionError: text('extraction_error'),
+  // Non-fatal notice, e.g. the video itself could not be downloaded.
+  warning: text('warning'),
   ...timestamps,
 });

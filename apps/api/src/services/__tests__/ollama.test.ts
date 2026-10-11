@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { checkOllamaHealth, extractRecipeFromText } from '../ollama.js';
+import {
+  checkOllamaHealth,
+  extractRecipeFromText,
+  extractRecipeFromTextDetailed,
+} from '../ollama.js';
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -139,21 +143,28 @@ describe('extractRecipeFromText', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null on HTTP error from Ollama', async () => {
-    mockFetch.mockResolvedValueOnce({
+  it('returns null on HTTP 4xx from Ollama without retrying', async () => {
+    mockFetch.mockResolvedValue({
       ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
+      status: 404,
+      statusText: 'Not Found',
+      text: () => Promise.resolve('model not found'),
     });
     const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
     expect(result).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('returns null on network timeout (AbortError)', async () => {
     const abortErr = new DOMException('The operation was aborted', 'AbortError');
-    mockFetch.mockRejectedValueOnce(abortErr);
-    const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
-    expect(result).toBeNull();
+    mockFetch.mockRejectedValue(abortErr);
+    const result = await extractRecipeFromTextDetailed(
+      'text',
+      'http://localhost:11434',
+      'gemma4-e4b',
+      { retryDelaysMs: [0, 0] }
+    );
+    expect(result.recipe).toBeNull();
   });
 
   it('returns null when recipe fails schema validation', async () => {
@@ -168,5 +179,81 @@ describe('extractRecipeFromText', () => {
     mockFetch.mockResolvedValueOnce(makeGenerateResponse(badIngredients));
     const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractRecipeFromTextDetailed — retry/backoff and error body logging
+// ---------------------------------------------------------------------------
+describe('extractRecipeFromTextDetailed retries', () => {
+  const URL_ = 'http://localhost:11434';
+  const noDelay = { retryDelaysMs: [0, 0] };
+  const serverError = (body = 'model runner crashed') => ({
+    ok: false,
+    status: 500,
+    statusText: 'Internal Server Error',
+    text: () => Promise.resolve(body),
+  });
+
+  it('retries a 500 and succeeds on the next attempt', async () => {
+    mockFetch
+      .mockResolvedValueOnce(serverError())
+      .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe?.name).toBe('Pasta Carbonara');
+    expect(result.error).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a network error and succeeds', async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).not.toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after three 500s, returns null with a friendly error, and logs the body', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetch.mockResolvedValue(serverError('x'.repeat(900)));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).toBeNull();
+    expect(result.error).toBe('The AI model returned an error (HTTP 500)');
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    const logged = warn.mock.calls.map((c) => String(c[0])).find((m) => m.includes('body='));
+    expect(logged).toContain('500');
+    // body truncated to ~500 chars
+    expect(logged).toContain('x'.repeat(500));
+    expect(logged).not.toContain('x'.repeat(501));
+    warn.mockRestore();
+  });
+
+  it('bounds attempts on repeated network-level failures', async () => {
+    mockFetch.mockRejectedValue(new DOMException('aborted', 'AbortError'));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('waits the default backoff (3s then 10s) between attempts', async () => {
+    vi.useFakeTimers();
+    try {
+      mockFetch.mockResolvedValue(serverError());
+      const p = extractRecipeFromTextDetailed('text', URL_, 'm');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(9999);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect((await p).recipe).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

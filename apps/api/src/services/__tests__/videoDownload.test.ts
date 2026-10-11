@@ -19,6 +19,7 @@ import { spawn } from 'node:child_process';
 import * as fsPromises from 'node:fs/promises';
 import {
   downloadVideo,
+  fetchMetadataOnly,
   getVideoStorageUsage,
   ensureVideosDir,
   parseVtt,
@@ -416,5 +417,138 @@ describe('downloadVideo subtitle selection', () => {
 
     const result = await downloadVideo('https://www.youtube.com/watch?v=subtest');
     expect(result.transcript).toBe('manual transcript');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stderr capture + friendly errors
+// ---------------------------------------------------------------------------
+describe('downloadVideo — stderr capture', () => {
+  it('puts the yt-dlp ERROR line into a friendly thrown error', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => {
+      child.stderr.emit(
+        'data',
+        Buffer.from('[generic] Extracting URL\nERROR: [generic] Unsupported URL: https://x/404\n')
+      );
+      child.emit('close', 1);
+    });
+
+    const err = await downloadVideo('https://www.tiktok.com/ZPLhqTVQL').catch((e) => e);
+    expect(err.message).toContain("This link doesn't point to a video");
+    expect(err.detail).toBe('[generic] Unsupported URL: https://x/404');
+    expect(err.code).toBe('YTDLP_FAILED');
+  });
+
+  it('maps a private video error', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => {
+      child.stderr.emit('data', Buffer.from('ERROR: [youtube] abc: Private video\n'));
+      child.emit('close', 1);
+    });
+    await expect(downloadVideo('https://www.youtube.com/watch?v=abc')).rejects.toThrow(/private/i);
+  });
+
+  it('flags timeouts with code TIMEOUT', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = makeChildProcess();
+      child.kill.mockImplementation(() => {
+        setImmediate(() => child.emit('close', null));
+      });
+      mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+      const p = downloadVideo('https://www.youtube.com/watch?v=slow').catch((e) => e);
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 1);
+      await vi.advanceTimersByTimeAsync(10);
+      const err = await p;
+      expect(err.code).toBe('TIMEOUT');
+      expect(err.message).toBe('Download timed out after 10 minutes');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// comments flag
+// ---------------------------------------------------------------------------
+describe('yt-dlp args — comments flag', () => {
+  async function runWithEnv(value: string | undefined) {
+    if (value === undefined) delete process.env.VIDEO_IMPORT_COMMENTS;
+    else process.env.VIDEO_IMPORT_COMMENTS = value;
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => child.emit('close', 0));
+    mockStat.mockResolvedValue({ size: 1, isFile: () => true } as fsPromises.Stats);
+    mockReadFile.mockResolvedValue(JSON.stringify({ title: 't' }) as unknown as Buffer);
+    await downloadVideo('https://www.youtube.com/watch?v=c');
+    return mockSpawn.mock.calls[0][1] as string[];
+  }
+
+  it('omits comment flags by default', async () => {
+    const args = await runWithEnv(undefined);
+    expect(args).not.toContain('--write-comments');
+    expect(args.some((a) => a.includes('max_comments'))).toBe(false);
+  });
+
+  it('adds --write-comments with a max_comments cap when enabled', async () => {
+    try {
+      const args = await runWithEnv('true');
+      expect(args).toContain('--write-comments');
+      const i = args.indexOf('--extractor-args');
+      expect(args[i + 1]).toBe('youtube:max_comments=30,30,0,0,1');
+    } finally {
+      delete process.env.VIDEO_IMPORT_COMMENTS;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchMetadataOnly
+// ---------------------------------------------------------------------------
+describe('fetchMetadataOnly', () => {
+  it('runs yt-dlp with --skip-download and the subtitle flags and returns no video', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => child.emit('close', 0));
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ title: 'T', description: 'D', duration: 12 }) as unknown as Buffer
+    );
+    mockReaddir.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof fsPromises.readdir>>);
+
+    const result = await fetchMetadataOnly('https://www.tiktok.com/t/ZPLhqTVQL/');
+
+    const args = mockSpawn.mock.calls[0][1] as string[];
+    expect(args).toContain('--skip-download');
+    expect(args).toContain('--write-info-json');
+    expect(args).toContain('--write-subs');
+    expect(args).toContain('--write-auto-subs');
+    expect(args).not.toContain('--write-thumbnail');
+    expect(result.videoFilename).toBeNull();
+    expect(result.videoSize).toBe(0);
+    expect(result.videoDuration).toBe(12);
+    expect(result.infoJson).toEqual({ title: 'T', description: 'D', duration: 12 });
+  });
+
+  it('throws when yt-dlp fails', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => {
+      child.stderr.emit('data', Buffer.from('ERROR: [generic] Unsupported URL: x\n'));
+      child.emit('close', 1);
+    });
+    await expect(fetchMetadataOnly('https://example.com/x')).rejects.toThrow(
+      /doesn't point to a video/
+    );
+  });
+
+  it('throws when no info.json is produced', async () => {
+    const child = makeChildProcess();
+    mockSpawn.mockReturnValue(child as ReturnType<typeof spawn>);
+    setImmediate(() => child.emit('close', 0));
+    mockReadFile.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    await expect(fetchMetadataOnly('https://example.com/x')).rejects.toThrow(/no metadata/);
   });
 });

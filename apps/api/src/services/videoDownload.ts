@@ -1,17 +1,21 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { VIDEOS_DIR } from '../dataPaths.js';
+import { isVideoCommentsEnabled, VIDEO_IMPORT_MAX_COMMENTS } from './videoImportConfig.js';
+import { appendTail, buildExitError, YtdlpError } from './ytdlpErrors.js';
 
 export { VIDEOS_DIR };
 
 const YTDLP_PATH = process.env.YTDLP_PATH || 'yt-dlp';
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const METADATA_TIMEOUT_MS = 60 * 1000; // 60 seconds
 
 export interface DownloadResult {
-  videoFilename: string;
+  /** null when only metadata could be fetched (metadata-only fallback) */
+  videoFilename: string | null;
   thumbnailFilename: string | null;
   infoJson: Record<string, unknown>;
   videoSize: number;
@@ -24,6 +28,120 @@ export async function ensureVideosDir(): Promise<void> {
 }
 
 const PROGRESS_RE = /\[download\]\s+([\d.]+)%/;
+
+const SUBTITLE_ARGS = [
+  '--write-subs',
+  '--write-auto-subs',
+  '--sub-langs',
+  'en.*,en',
+  '--sub-format',
+  'vtt',
+];
+
+/**
+ * Optional comment-fetching flags (VIDEO_IMPORT_COMMENTS=true).
+ * `youtube:max_comments` is `max-comments,max-parents,max-replies,max-replies-per-thread,max-depth`
+ * (yt-dlp README, "EXTRACTOR ARGUMENTS > youtube"). yt-dlp's TikTok extractor does not
+ * support comments, so this is effectively YouTube-only.
+ */
+function commentArgs(): string[] {
+  if (!isVideoCommentsEnabled()) return [];
+  const n = VIDEO_IMPORT_MAX_COMMENTS;
+  return ['--write-comments', '--extractor-args', `youtube:max_comments=${n},${n},0,0,1`];
+}
+
+/** Spawn yt-dlp, capturing a bounded stderr tail. Rejects with YtdlpError on failure/timeout. */
+async function runYtdlp(
+  args: string[],
+  timeoutMs: number,
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(YTDLP_PATH, args);
+
+      let lastPct = -1;
+      const parseLine = (line: string) => {
+        if (!onProgress) return;
+        const match = PROGRESS_RE.exec(line);
+        if (match) {
+          const pct = Math.min(99, Math.floor(parseFloat(match[1])));
+          if (pct > lastPct) {
+            lastPct = pct;
+            onProgress(pct);
+          }
+        }
+      };
+
+      let stderrBuf = '';
+      let stderrTail = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        const text = chunk.toString();
+        stderrTail = appendTail(stderrTail, text);
+        stderrBuf += text;
+        const lines = stderrBuf.split('\n');
+        stderrBuf = lines.pop() ?? '';
+        lines.forEach(parseLine);
+      });
+
+      // Some yt-dlp versions write progress to stdout
+      child.stdout.on('data', (chunk: Buffer) => {
+        chunk.toString().split('\n').forEach(parseLine);
+      });
+
+      controller.signal.addEventListener('abort', () => child.kill('SIGTERM'));
+
+      child.on('error', reject);
+      child.on('close', (code) => {
+        if (controller.signal.aborted) {
+          const secs = Math.round(timeoutMs / 1000);
+          const label = secs >= 120 ? `${Math.round(secs / 60)} minutes` : `${secs} seconds`;
+          const msg = `Download timed out after ${label}`;
+          reject(new YtdlpError(msg, 'TIMEOUT', msg));
+        } else if (code !== 0) {
+          reject(buildExitError(code, stderrTail));
+        } else {
+          resolve();
+        }
+      });
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readInfoJson(uuid: string): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readFile(join(VIDEOS_DIR, `${uuid}.info.json`), 'utf-8');
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // info.json may not always be present
+    return {};
+  }
+}
+
+async function readTranscript(uuid: string): Promise<string | null> {
+  // Locate subtitle file — yt-dlp names them as {uuid}.{lang}.vtt
+  // When both --write-subs and --write-auto-subs match, prefer the manual
+  // (non-auto-generated) subtitle file. yt-dlp marks auto-captions with an
+  // "-orig" (or similar) suffix in the language code, e.g. {uuid}.en-orig.vtt
+  // vs the manual {uuid}.en.vtt.
+  try {
+    const dirFiles = await readdir(VIDEOS_DIR);
+    const vttCandidates = dirFiles.filter((f) => f.startsWith(uuid) && f.endsWith('.vtt'));
+    const vttFile = vttCandidates.find((f) => !/-orig/.test(f)) ?? vttCandidates[0];
+    if (vttFile) {
+      const vttContent = await readFile(join(VIDEOS_DIR, vttFile), 'utf-8');
+      return parseVtt(vttContent);
+    }
+  } catch {
+    // Subtitle file may not exist
+  }
+  return null;
+}
 
 export async function downloadVideo(
   url: string,
@@ -48,79 +166,16 @@ export async function downloadVideo(
     '--no-playlist',
     '--socket-timeout',
     '30',
-    '--write-subs',
-    '--write-auto-subs',
-    '--sub-langs',
-    'en.*,en',
-    '--sub-format',
-    'vtt',
+    ...SUBTITLE_ARGS,
+    ...commentArgs(),
     '-o',
     outputTemplate,
     url,
   ];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  await runYtdlp(args, DOWNLOAD_TIMEOUT_MS, onProgress);
 
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(YTDLP_PATH, args);
-
-      let lastPct = -1;
-      const parseLine = (line: string) => {
-        if (!onProgress) return;
-        const match = PROGRESS_RE.exec(line);
-        if (match) {
-          const pct = Math.min(99, Math.floor(parseFloat(match[1])));
-          if (pct > lastPct) {
-            lastPct = pct;
-            onProgress(pct);
-          }
-        }
-      };
-
-      let stderrBuf = '';
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderrBuf += chunk.toString();
-        const lines = stderrBuf.split('\n');
-        stderrBuf = lines.pop() ?? '';
-        lines.forEach(parseLine);
-      });
-
-      // Some yt-dlp versions write progress to stdout
-      child.stdout.on('data', (chunk: Buffer) => {
-        chunk.toString().split('\n').forEach(parseLine);
-      });
-
-      controller.signal.addEventListener('abort', () => child.kill('SIGTERM'));
-
-      child.on('error', reject);
-      child.on('close', (code) => {
-        if (controller.signal.aborted) {
-          reject(
-            Object.assign(new Error('Download timed out after 10 minutes'), { code: 'TIMEOUT' })
-          );
-        } else if (code !== 0) {
-          reject(new Error(`yt-dlp exited with code ${code}`));
-        } else {
-          resolve();
-        }
-      });
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-
-  // Read the .info.json file
-  const infoJsonPath = join(VIDEOS_DIR, `${uuid}.info.json`);
-  let infoJson: Record<string, unknown> = {};
-  try {
-    const { readFile } = await import('node:fs/promises');
-    const raw = await readFile(infoJsonPath, 'utf-8');
-    infoJson = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    // info.json may not always be present
-  }
+  const infoJson = await readInfoJson(uuid);
 
   // Locate the output video file
   const videoFilename = `${uuid}.mp4`;
@@ -147,24 +202,7 @@ export async function downloadVideo(
     hasThumbnail = false;
   }
 
-  // Locate subtitle file — yt-dlp names them as {uuid}.{lang}.vtt
-  // When both --write-subs and --write-auto-subs match, prefer the manual
-  // (non-auto-generated) subtitle file. yt-dlp marks auto-captions with an
-  // "-orig" (or similar) suffix in the language code, e.g. {uuid}.en-orig.vtt
-  // vs the manual {uuid}.en.vtt.
-  let transcript: string | null = null;
-  try {
-    const dirFiles = await readdir(VIDEOS_DIR);
-    const vttCandidates = dirFiles.filter((f) => f.startsWith(uuid) && f.endsWith('.vtt'));
-    const vttFile = vttCandidates.find((f) => !/-orig/.test(f)) ?? vttCandidates[0];
-    if (vttFile) {
-      const { readFile } = await import('node:fs/promises');
-      const vttContent = await readFile(join(VIDEOS_DIR, vttFile), 'utf-8');
-      transcript = parseVtt(vttContent);
-    }
-  } catch {
-    // Subtitle file may not exist
-  }
+  const transcript = await readTranscript(uuid);
 
   return {
     videoFilename,
@@ -173,6 +211,47 @@ export async function downloadVideo(
     videoSize,
     videoDuration,
     transcript,
+  };
+}
+
+/**
+ * Metadata-only pass (no video file): used as a fallback when the full download fails.
+ * Throws if yt-dlp fails or produces no info.json.
+ */
+export async function fetchMetadataOnly(url: string): Promise<DownloadResult> {
+  await ensureVideosDir();
+
+  const uuid = randomUUID();
+  const outputTemplate = join(VIDEOS_DIR, `${uuid}.%(ext)s`);
+
+  const args = [
+    '--skip-download',
+    '--write-info-json',
+    '--no-playlist',
+    '--socket-timeout',
+    '30',
+    ...SUBTITLE_ARGS,
+    ...commentArgs(),
+    '-o',
+    outputTemplate,
+    url,
+  ];
+
+  await runYtdlp(args, METADATA_TIMEOUT_MS);
+
+  const infoJson = await readInfoJson(uuid);
+  if (Object.keys(infoJson).length === 0) {
+    const msg = 'yt-dlp produced no metadata';
+    throw new YtdlpError(msg, 'YTDLP_FAILED', msg);
+  }
+
+  return {
+    videoFilename: null,
+    thumbnailFilename: null,
+    infoJson,
+    videoSize: 0,
+    videoDuration: typeof infoJson.duration === 'number' ? infoJson.duration : null,
+    transcript: await readTranscript(uuid),
   };
 }
 

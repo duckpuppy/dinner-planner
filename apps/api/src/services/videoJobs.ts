@@ -1,16 +1,30 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '../db/index.js';
-import { downloadVideo, getVideoStorageUsage } from './videoDownload.js';
+import {
+  downloadVideo,
+  fetchMetadataOnly,
+  getVideoStorageUsage,
+  type DownloadResult,
+} from './videoDownload.js';
 import { extractRecipeFromMetadata } from './recipeExtraction.js';
+import { YtdlpError } from './ytdlpErrors.js';
 import { logEvent } from './appEvents.js';
 
-export async function createVideoJob(sourceUrl: string, dishId?: string): Promise<string> {
+export const NO_VIDEO_WARNING =
+  'Video could not be downloaded; recipe extracted from the post description';
+
+export async function createVideoJob(
+  sourceUrl: string,
+  dishId?: string,
+  familyId?: string
+): Promise<string> {
   const id = randomUUID();
   await db.insert(schema.videoJobs).values({
     id,
     sourceUrl,
     dishId: dishId ?? null,
+    familyId: familyId ?? null,
     status: 'pending',
     progress: 0,
   });
@@ -20,6 +34,123 @@ export async function createVideoJob(sourceUrl: string, dishId?: string): Promis
 export async function getVideoJob(jobId: string) {
   const [job] = await db.select().from(schema.videoJobs).where(eq(schema.videoJobs.id, jobId));
   return job ?? null;
+}
+
+/** Family-scoped lookup. Returns null for unknown jobs AND jobs owned by another family. */
+export async function getVideoJobForFamily(jobId: string, familyId: string) {
+  const [job] = await db
+    .select()
+    .from(schema.videoJobs)
+    .where(and(eq(schema.videoJobs.id, jobId), eq(schema.videoJobs.familyId, familyId)));
+  return job ?? null;
+}
+
+/**
+ * Run recipe extraction and return the columns to persist. Never throws: an
+ * unexpected extraction crash is recorded as extractionStatus='failed'.
+ */
+async function runExtraction(
+  sourceUrl: string,
+  infoJson: Record<string, unknown>,
+  transcript: string | null
+) {
+  try {
+    const extraction = await extractRecipeFromMetadata(infoJson, transcript);
+    let extractedRecipe: string | null = null;
+    if (extraction.recipe) {
+      // Patch sourceUrl and videoUrl from job data — LLM always outputs these as null
+      extraction.recipe.sourceUrl = sourceUrl;
+      extraction.recipe.videoUrl = sourceUrl;
+      extractedRecipe = JSON.stringify(extraction.recipe);
+    }
+    return {
+      extractedRecipe,
+      extractionStatus: extraction.status ?? (extraction.recipe ? 'llm' : 'failed'),
+      extractionError: extraction.error ?? null,
+    } as const;
+  } catch (err) {
+    console.error('[videoJobs] extraction crashed:', err);
+    return {
+      extractedRecipe: null,
+      extractionStatus: 'failed',
+      extractionError: 'Recipe extraction failed unexpectedly',
+    } as const;
+  }
+}
+
+/** An 'extracting' job not touched for this long is treated as orphaned (e.g. server restart). */
+const STALE_EXTRACTING_MINUTES = 10;
+
+/**
+ * Atomically move a completed job to status='extracting' so only one re-extraction
+ * runs at a time. Returns false if the job is not claimable (not complete, or already
+ * extracting and not stale).
+ */
+export async function claimReextract(jobId: string): Promise<boolean> {
+  const claimed = await db
+    .update(schema.videoJobs)
+    .set({ status: 'extracting', updatedAt: sql`datetime('now')` as unknown as string })
+    .where(
+      and(
+        eq(schema.videoJobs.id, jobId),
+        or(
+          eq(schema.videoJobs.status, 'complete'),
+          and(
+            eq(schema.videoJobs.status, 'extracting'),
+            sql`${schema.videoJobs.updatedAt} < datetime('now', ${`-${STALE_EXTRACTING_MINUTES} minutes`})`
+          )
+        )
+      )
+    )
+    .returning({ id: schema.videoJobs.id });
+  return claimed.length > 0;
+}
+
+/**
+ * Fire-and-forget: re-run extraction from the stored infoJson + transcript (no
+ * re-download) for a job previously claimed with claimReextract. Always returns the
+ * job to status='complete', recording the outcome in extractionStatus/extractionError.
+ */
+export function processReextract(jobId: string): void {
+  _runReextract(jobId).catch((err: unknown) => {
+    console.error(`[videoJobs] Unhandled error re-extracting job ${jobId}:`, err);
+  });
+}
+
+async function _runReextract(jobId: string): Promise<void> {
+  let outcome: Awaited<ReturnType<typeof runExtraction>>;
+  try {
+    const job = await getVideoJob(jobId);
+    let infoJson: Record<string, unknown> | null = null;
+    try {
+      const meta = JSON.parse(job?.resultMetadata ?? '') as {
+        infoJson?: Record<string, unknown>;
+      };
+      infoJson = meta.infoJson ?? {};
+    } catch {
+      infoJson = null;
+    }
+    outcome =
+      job && infoJson
+        ? await runExtraction(job.sourceUrl, infoJson, job.transcript ?? null)
+        : {
+            extractedRecipe: null,
+            extractionStatus: 'failed',
+            extractionError: 'No stored post metadata to extract from',
+          };
+  } catch (err) {
+    console.error(`[videoJobs] Re-extraction of job ${jobId} crashed:`, err);
+    outcome = {
+      extractedRecipe: null,
+      extractionStatus: 'failed',
+      extractionError: 'Recipe extraction failed unexpectedly',
+    };
+  }
+  // Whatever happened, release the 'extracting' state.
+  await db
+    .update(schema.videoJobs)
+    .set({ ...outcome, status: 'complete' })
+    .where(eq(schema.videoJobs.id, jobId));
 }
 
 export async function processVideoJob(jobId: string, storageLimit: number): Promise<void> {
@@ -64,27 +195,50 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       details: { jobId: job.id, sourceUrl: job.sourceUrl },
     });
 
-    // 4. Download the video, writing progress to DB every ≥5% increase
+    // 4. Download the video, writing progress to DB every ≥5% increase.
+    //    If the full download fails (other than a timeout), fall back to a
+    //    metadata-only pass so the recipe can still be extracted from the post text.
     let lastDbPct = 0;
-    const result = await downloadVideo(job.sourceUrl, (pct) => {
-      if (pct - lastDbPct >= 5) {
-        lastDbPct = pct;
-        void db
-          .update(schema.videoJobs)
-          .set({ progress: pct })
-          .where(eq(schema.videoJobs.id, jobId));
+    let result: DownloadResult;
+    let warning: string | null = null;
+    try {
+      result = await downloadVideo(job.sourceUrl, (pct) => {
+        if (pct - lastDbPct >= 5) {
+          lastDbPct = pct;
+          void db
+            .update(schema.videoJobs)
+            .set({ progress: pct })
+            .where(eq(schema.videoJobs.id, jobId));
+        }
+      });
+    } catch (downloadErr: unknown) {
+      if (downloadErr instanceof YtdlpError && downloadErr.code === 'TIMEOUT') throw downloadErr;
+      if (downloadErr instanceof YtdlpError) {
+        console.warn(`[videoJobs] Job ${jobId} download failed: ${downloadErr.detail}`);
       }
-    });
+      try {
+        result = await fetchMetadataOnly(job.sourceUrl);
+      } catch (metaErr: unknown) {
+        console.warn(
+          `[videoJobs] Job ${jobId} metadata-only fallback failed:`,
+          metaErr instanceof YtdlpError ? metaErr.detail : metaErr
+        );
+        throw downloadErr;
+      }
+      warning = NO_VIDEO_WARNING;
+      void logEvent({
+        level: 'warn',
+        category: 'video',
+        message: `Video download failed; used metadata-only fallback: ${job.sourceUrl}`,
+        details: {
+          jobId,
+          error: downloadErr instanceof YtdlpError ? downloadErr.detail : String(downloadErr),
+        },
+      });
+    }
 
     // 5. Extract recipe from video metadata (title + description + transcript) via LLM if configured
-    const extraction = await extractRecipeFromMetadata(result.infoJson, result.transcript);
-    let extractedRecipe: string | null = null;
-    if (extraction.recipe) {
-      // Patch sourceUrl and videoUrl from job data — LLM always outputs these as null
-      extraction.recipe.sourceUrl = job.sourceUrl;
-      extraction.recipe.videoUrl = job.sourceUrl;
-      extractedRecipe = JSON.stringify(extraction.recipe);
-    }
+    const outcome = await runExtraction(job.sourceUrl, result.infoJson, result.transcript);
 
     // 6. Update job with results → complete
     await db
@@ -100,7 +254,8 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
           videoDuration: result.videoDuration,
         }),
         transcript: result.transcript ?? null,
-        extractedRecipe,
+        warning,
+        ...outcome,
       })
       .where(eq(schema.videoJobs.id, jobId));
 
@@ -108,7 +263,13 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       level: 'info',
       category: 'video',
       message: `Video download completed: ${job.sourceUrl}`,
-      details: { jobId: job.id, filename: result.videoFilename, videoSize: result.videoSize },
+      details: {
+        jobId: job.id,
+        filename: result.videoFilename,
+        videoSize: result.videoSize,
+        extractionStatus: outcome.extractionStatus,
+        extractionError: outcome.extractionError,
+      },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -117,7 +278,11 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
       level: 'error',
       category: 'video',
       message: `Video download failed: job ${jobId}`,
-      details: { jobId, error: String(err) },
+      details: {
+        jobId,
+        error: String(err),
+        detail: err instanceof YtdlpError ? err.detail : undefined,
+      },
     });
     try {
       await db
