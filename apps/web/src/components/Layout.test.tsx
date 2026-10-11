@@ -155,3 +155,14 @@ describe('Layout', () => {
     });
   });
 });
+
+describe('Layout offline banner offset', () => {
+  it('mounts the banner live region before main content and offsets the sidebar by --banner-h', () => {
+    renderLayout();
+    const status = screen.getByRole('status');
+    const main = screen.getByRole('main');
+    expect(status.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const sidebar = document.querySelector('aside') as HTMLElement;
+    expect(sidebar.className).toContain('top-[var(--banner-h,0px)]');
+  });
+});

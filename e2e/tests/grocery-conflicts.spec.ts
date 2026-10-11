@@ -98,10 +98,9 @@ test.describe('last write wins across offline shoppers', () => {
     // Alice clears the list while offline, so the clear is stamped before what Bob does next.
     await a.context.setOffline(true);
     await expect(banner(a.page)).toContainText(/offline/i);
-    // KNOWN APP ISSUE (reported on the bead): while offline, the fixed OfflineBanner overlays the
-    // page header and intercepts pointer events on "Clear", so a real click cannot land. Dispatch
-    // the click event directly instead; the handler under test is unchanged.
-    await a.page.getByRole('button', { name: 'Clear' }).dispatchEvent('click');
+    // The offline banner is in flow, so neither list action is covered by it.
+    await a.page.getByRole('button', { name: 'Copy' }).click({ trial: true });
+    await a.page.getByRole('button', { name: 'Clear' }).click();
     await expect(uncheckedRow(a.page, 'Zucchini')).toBeVisible();
 
     await uncheckedRow(b.page, 'Yams').click();
