@@ -200,12 +200,20 @@ done
 echo "  compared ${#PRE[@]} pre-existing tables"
 
 echo " -- family_id columns"
+# video_jobs.family_id is nullable by design: jobs created before dinner-5vx have none.
+NULLABLE_FAMILY_TABLES="video_jobs"
 while IFS= read -r t; do
   [[ -n "$t" ]] || continue
   nulls="$(sq "$COPY" "SELECT count(*) FROM \"$t\" WHERE family_id IS NULL;")"
   dangling="$(sq "$COPY" "SELECT count(*) FROM \"$t\" WHERE family_id IS NOT NULL AND family_id NOT IN (SELECT id FROM families);")"
   notnull="$(sq "$COPY" "SELECT \"notnull\" FROM pragma_table_info('$t') WHERE name='family_id';")"
   msg=""
+  if [[ " $NULLABLE_FAMILY_TABLES " == *" $t "* ]]; then
+    # Nullable by design (see schema.ts): only dangling references are an error.
+    [[ "$dangling" -ne 0 ]] && msg+=" dangling=$dangling"
+    if [[ -n "$msg" ]]; then fail "$t.family_id:$msg"; else ok "$t.family_id (nullable by design: $nulls NULL, 0 dangling)"; fi
+    continue
+  fi
   [[ "$nulls" -ne 0 ]] && msg+=" nulls=$nulls"
   [[ "$dangling" -ne 0 ]] && msg+=" dangling=$dangling"
   [[ "$notnull" -ne 1 ]] && msg+=" column-not-NOT-NULL"
