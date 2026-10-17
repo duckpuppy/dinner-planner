@@ -68,21 +68,15 @@ export async function getKioskWeek(familyId: string, dateStr?: string): Promise<
     dates.push(formatDate(d));
   }
 
-  const menu = await db.query.weeklyMenus.findFirst({
-    where: and(
-      eq(schema.weeklyMenus.weekStartDate, weekStartDate),
-      eq(schema.weeklyMenus.familyId, familyId)
-    ),
-  });
-
-  if (!menu) {
-    return { weekStartDate, today, entries: dates.map(emptyDay) };
-  }
-
+  // Look entries up by (family, date) rather than by menu: that pair is unique,
+  // and it stays correct even if a week's entries are spread across menus with
+  // an older week-start alignment. Days with no entry render as empty.
   const entryRows = await db
     .select()
     .from(schema.dinnerEntries)
-    .where(eq(schema.dinnerEntries.menuId, menu.id));
+    .where(
+      and(eq(schema.dinnerEntries.familyId, familyId), inArray(schema.dinnerEntries.date, dates))
+    );
   const entryIds = entryRows.map((e) => e.id);
 
   // Leftovers sources, restricted to the same family's menus

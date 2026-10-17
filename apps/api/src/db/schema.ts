@@ -213,30 +213,41 @@ export const restaurantDishRatings = sqliteTable('restaurant_dish_ratings', {
 });
 
 // Dinner entries table
-export const dinnerEntries = sqliteTable('dinner_entries', {
-  id: text('id').primaryKey(),
-  menuId: text('menu_id')
-    .notNull()
-    .references(() => weeklyMenus.id, { onDelete: 'cascade' }),
-  date: text('date').notNull(),
-  type: text('type', {
-    enum: ['assembled', 'fend_for_self', 'dining_out', 'custom', 'leftovers'],
-  })
-    .notNull()
-    .default('assembled'),
-  customText: text('custom_text'),
-  customSideText: text('custom_side_text'),
-  restaurantName: text('restaurant_name'),
-  restaurantNotes: text('restaurant_notes'),
-  restaurantId: text('restaurant_id').references(() => restaurants.id),
-  mainDishId: text('main_dish_id').references(() => dishes.id),
-  sourceEntryId: text('source_entry_id').references((): AnySQLiteColumn => dinnerEntries.id),
-  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
-  skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
-  scale: integer('scale').notNull().default(1),
-  sideScale: integer('side_scale').notNull().default(1),
-  ...timestamps,
-});
+export const dinnerEntries = sqliteTable(
+  'dinner_entries',
+  {
+    id: text('id').primaryKey(),
+    menuId: text('menu_id')
+      .notNull()
+      .references(() => weeklyMenus.id, { onDelete: 'cascade' }),
+    // Direct family_id exists ONLY to enforce one entry per family per date
+    // (SQLite cannot enforce uniqueness across a join). Deliberate exception to the
+    // 'children are scoped transitively via menu' convention. Must equal
+    // weekly_menus.family_id of menu_id; every insert sets it.
+    familyId: text('family_id')
+      .notNull()
+      .references(() => families.id),
+    date: text('date').notNull(),
+    type: text('type', {
+      enum: ['assembled', 'fend_for_self', 'dining_out', 'custom', 'leftovers'],
+    })
+      .notNull()
+      .default('assembled'),
+    customText: text('custom_text'),
+    customSideText: text('custom_side_text'),
+    restaurantName: text('restaurant_name'),
+    restaurantNotes: text('restaurant_notes'),
+    restaurantId: text('restaurant_id').references(() => restaurants.id),
+    mainDishId: text('main_dish_id').references(() => dishes.id),
+    sourceEntryId: text('source_entry_id').references((): AnySQLiteColumn => dinnerEntries.id),
+    completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+    skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+    scale: integer('scale').notNull().default(1),
+    sideScale: integer('side_scale').notNull().default(1),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex('dinner_entries_family_date_unique').on(table.familyId, table.date)]
+);
 
 // Entry side dishes junction table
 export const entrySideDishes = sqliteTable('entry_side_dishes', {

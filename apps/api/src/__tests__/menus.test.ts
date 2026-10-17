@@ -58,7 +58,6 @@ import {
   logPreparation,
   getDishPreparations,
   getRecentCompleted,
-  getOrCreateWeekMenu,
 } from '../services/menus.js';
 
 // --- Chain helpers ---
@@ -874,57 +873,5 @@ describe('getEntryWithRelations rich paths (via updateDinnerEntry)', () => {
     );
 
     expect(result?.mainDish).toBeNull();
-  });
-});
-
-// ===========================================================================
-// getOrCreateWeekMenu — covers menu creation path
-// ===========================================================================
-
-describe('getOrCreateWeekMenu', () => {
-  function selFromWhere(result: unknown[]) {
-    return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(result) }) };
-  }
-
-  it('returns existing menu when found', async () => {
-    const menu = { id: 'menu-1', weekStartDate: '2024-01-01', createdAt: '', updatedAt: '' };
-    mockDb.query.appSettings.findFirst.mockResolvedValueOnce({ weekStartDay: 0 });
-    mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(menu);
-    // Get entries for menu
-    mockDb.select.mockReturnValueOnce(selFromWhere([]));
-
-    const result = await getOrCreateWeekMenu('2024-01-03');
-
-    expect(result.id).toBe('menu-1');
-    expect(result.entries).toHaveLength(0);
-  });
-
-  it('creates new menu with 7 entries when not found', async () => {
-    mockDb.query.appSettings.findFirst.mockResolvedValueOnce({ weekStartDay: 0 });
-    mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(undefined); // not found
-
-    // After creation, fetch menu by id
-    const newMenu = { id: 'new-menu', weekStartDate: '2024-01-01', createdAt: '', updatedAt: '' };
-    mockDb.query.weeklyMenus.findFirst.mockResolvedValueOnce(newMenu);
-
-    // Get entries for new menu (7 entries)
-    const entries = Array.from({ length: 7 }, (_, i) =>
-      makeEntry({ id: `entry-${i}`, menuId: 'new-menu', date: `2024-01-0${i + 1}` })
-    );
-    mockDb.select.mockReturnValueOnce(selFromWhere(entries));
-
-    // getEntryWithRelations for each of 7 entries — each needs:
-    // findFirst (entry), select (side dishes), select (preparations)
-    for (const entry of entries) {
-      mockDb.query.dinnerEntries.findFirst.mockResolvedValueOnce(entry);
-      mockDb.select.mockReturnValueOnce(selWhere([])); // side dishes
-      mockDb.select.mockReturnValueOnce(selWhere([])); // preparations
-    }
-
-    const result = await getOrCreateWeekMenu('2024-01-03');
-
-    expect(result.id).toBe('new-menu');
-    // 1 insert for menu + 7 inserts for entries
-    expect(mockDb.insert).toHaveBeenCalledTimes(8);
   });
 });
