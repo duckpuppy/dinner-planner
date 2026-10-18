@@ -47,10 +47,12 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 dinner-planner
 
-# Video download tools
-RUN apk add --no-cache ffmpeg python3 \
+# Video download tools. yt-dlp needs a JS runtime to solve YouTube player
+# challenges (https://github.com/yt-dlp/yt-dlp/wiki/EJS); deno is its default.
+RUN apk add --no-cache ffmpeg python3 deno \
   && wget -q -O /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-  && chmod +x /usr/local/bin/yt-dlp
+  && chmod +x /usr/local/bin/yt-dlp \
+  && deno --version
 
 # Copy prod deploy bundle into workspace-relative path so static file resolution works.
 # API server.ts uses: join(__dirname, '../../web/dist')
