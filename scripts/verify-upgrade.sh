@@ -12,11 +12,15 @@
 #   --keep            keep the work dir on PASS (always kept on FAIL)
 #   --force           skip the HEAD == origin/testing check only
 #
+# Row counts must be unchanged except for the documented dedupe decreases
+# (dinner_entries, weekly_menus, entry_side_dishes, prep_tasks), which are
+# reported with their counts.
+#
 # Exactly one of --from-host / --db is required. The source DB is never modified.
 set -euo pipefail
 
 usage() {
-  sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 HOST=""
@@ -172,11 +176,22 @@ while IFS= read -r t; do
   [[ -n "$t" ]] || continue
   POST["$t"]="$(sq "$COPY" "SELECT count(*) FROM \"$t\";")"
 done < <(list_tables "$COPY")
+# Migration 0036 (dinner-9o1.2) removes duplicate (family, date) dinner entries,
+# so these tables may legitimately SHRINK (never grow). The decrease is reported,
+# not failed. Every other table must be unchanged.
+#   dinner_entries / weekly_menus  removed duplicate entries / the menus they emptied
+#   entry_side_dishes / prep_tasks exact repeats collapsed when a removed entry's
+#                                  children were merged onto the surviving entry
+ALLOW_DECREASE=" dinner_entries weekly_menus entry_side_dishes prep_tasks "
 for t in "${!PRE[@]}"; do
   if [[ -z "${POST[$t]+x}" ]]; then
     fail "table $t existed before (${PRE[$t]} rows) but is gone after migration"
   elif [[ "${PRE[$t]}" != "${POST[$t]}" ]]; then
-    fail "row count changed for $t: ${PRE[$t]} -> ${POST[$t]}"
+    if [[ "$ALLOW_DECREASE" == *" $t "* && "${POST[$t]}" -lt "${PRE[$t]}" ]]; then
+      echo "  ALLOWED decrease (dedupe, dinner-9o1.2): $t ${PRE[$t]} -> ${POST[$t]} (-$((PRE[$t] - POST[$t])))"
+    else
+      fail "row count changed for $t: ${PRE[$t]} -> ${POST[$t]}"
+    fi
   fi
 done
 for t in "${!POST[@]}"; do
@@ -185,17 +200,33 @@ done
 echo "  compared ${#PRE[@]} pre-existing tables"
 
 echo " -- family_id columns"
+# video_jobs.family_id is nullable by design: jobs created before dinner-5vx have none.
+NULLABLE_FAMILY_TABLES="video_jobs"
 while IFS= read -r t; do
   [[ -n "$t" ]] || continue
   nulls="$(sq "$COPY" "SELECT count(*) FROM \"$t\" WHERE family_id IS NULL;")"
   dangling="$(sq "$COPY" "SELECT count(*) FROM \"$t\" WHERE family_id IS NOT NULL AND family_id NOT IN (SELECT id FROM families);")"
   notnull="$(sq "$COPY" "SELECT \"notnull\" FROM pragma_table_info('$t') WHERE name='family_id';")"
   msg=""
+  if [[ " $NULLABLE_FAMILY_TABLES " == *" $t "* ]]; then
+    # Nullable by design (see schema.ts): only dangling references are an error.
+    [[ "$dangling" -ne 0 ]] && msg+=" dangling=$dangling"
+    if [[ -n "$msg" ]]; then fail "$t.family_id:$msg"; else ok "$t.family_id (nullable by design: $nulls NULL, 0 dangling)"; fi
+    continue
+  fi
   [[ "$nulls" -ne 0 ]] && msg+=" nulls=$nulls"
   [[ "$dangling" -ne 0 ]] && msg+=" dangling=$dangling"
   [[ "$notnull" -ne 1 ]] && msg+=" column-not-NOT-NULL"
   if [[ -n "$msg" ]]; then fail "$t.family_id:$msg"; else ok "$t.family_id (0 NULL, 0 dangling, NOT NULL)"; fi
 done < <(sq "$COPY" "SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) p WHERE m.type='table' AND p.name='family_id' ORDER BY m.name;")
+
+echo " -- dinner_entries uniqueness"
+if [[ -n "$(sq "$COPY" "SELECT name FROM sqlite_master WHERE type='table' AND name='dinner_entries';")" ]]; then
+  dup_dates="$(sq "$COPY" "SELECT count(*) FROM (SELECT 1 FROM dinner_entries GROUP BY family_id, date HAVING count(*) > 1);")"
+  if [[ "$dup_dates" -eq 0 ]]; then ok "no duplicate (family_id, date) dinner entries"; else fail "$dup_dates (family_id, date) pairs still have duplicate dinner entries"; fi
+  orphan_children="$(sq "$COPY" "SELECT (SELECT count(*) FROM preparations WHERE dinner_entry_id NOT IN (SELECT id FROM dinner_entries)) + (SELECT count(*) FROM prep_tasks WHERE entry_id NOT IN (SELECT id FROM dinner_entries)) + (SELECT count(*) FROM entry_side_dishes WHERE entry_id NOT IN (SELECT id FROM dinner_entries)) + (SELECT count(*) FROM dinner_entries WHERE source_entry_id IS NOT NULL AND source_entry_id NOT IN (SELECT id FROM dinner_entries));")"
+  if [[ "$orphan_children" -eq 0 ]]; then ok "no dinner_entries children left pointing at removed entries"; else fail "$orphan_children child rows reference missing dinner entries"; fi
+fi
 
 echo " -- database integrity"
 fk="$(sq "$COPY" 'PRAGMA foreign_key_check;')"

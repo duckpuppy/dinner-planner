@@ -1,0 +1,1 @@
+ALTER TABLE `dinner_entries` ADD `family_id` text REFERENCES families(id);

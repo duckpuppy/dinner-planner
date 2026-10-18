@@ -344,7 +344,7 @@ describe('display links + kiosk', () => {
       const mk = (i: number, v: Partial<typeof schema.dinnerEntries.$inferInsert>) =>
         db
           .insert(schema.dinnerEntries)
-          .values({ id: entryFor(i), menuId, date: days[i], ...v })
+          .values({ id: entryFor(i), menuId, familyId: FAM_A, date: days[i], ...v })
           .run();
 
       mk(0, { type: 'assembled', mainDishId: `bare-${run}` });
@@ -359,6 +359,7 @@ describe('display links + kiosk', () => {
         .values({
           id: `foreign-entry-${run}`,
           menuId: otherMenuId,
+          familyId: FAM_B,
           date: days[1],
           type: 'assembled',
           mainDishId: `foreign-${run}`,

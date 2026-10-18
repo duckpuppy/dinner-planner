@@ -288,6 +288,112 @@ async function getEntryWithRelations(entryId: string): Promise<DinnerEntryRespon
 }
 
 /**
+ * Find or create the family's menu for the week starting at `weekStart` and
+ * guarantee it holds exactly one entry for each of its 7 dates.
+ *
+ * Entries are unique per (family_id, date) across ALL of a family's menus. When
+ * the "week starts on" setting changes, the new week overlaps entries owned by
+ * a menu with the old alignment; those entries are re-parented here (their
+ * sides, prep tasks and preparations hang off the entry id and travel with it)
+ * instead of being duplicated, and only the missing dates are inserted. Menus
+ * left without entries are deleted. Runs on every call, not just creation, so
+ * weeks whose entries were left behind in an overlapping menu (e.g. by the
+ * 0036 dedupe migration) heal themselves. One synchronous transaction, so
+ * concurrent requests cannot interleave.
+ *
+ * Note: grocery_checks are keyed by week_date, so check state saved under the
+ * old week's key is orphaned after a start-day change (intentionally not
+ * migrated).
+ */
+function ensureWeekMenu(familyId: string, weekStart: Date, weekStartStr: string) {
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    dates.push(formatDate(d));
+  }
+
+  return db.transaction((tx) => {
+    const now = new Date().toISOString();
+
+    let menu = tx
+      .select()
+      .from(schema.weeklyMenus)
+      .where(
+        and(
+          eq(schema.weeklyMenus.weekStartDate, weekStartStr),
+          eq(schema.weeklyMenus.familyId, familyId)
+        )
+      )
+      .get();
+
+    if (!menu) {
+      menu = {
+        id: crypto.randomUUID(),
+        familyId,
+        weekStartDate: weekStartStr,
+        createdAt: now,
+        updatedAt: now,
+      };
+      tx.insert(schema.weeklyMenus).values(menu).run();
+    }
+    const menuId = menu.id;
+
+    const existing = tx
+      .select({
+        id: schema.dinnerEntries.id,
+        menuId: schema.dinnerEntries.menuId,
+        date: schema.dinnerEntries.date,
+      })
+      .from(schema.dinnerEntries)
+      .where(
+        and(eq(schema.dinnerEntries.familyId, familyId), inArray(schema.dinnerEntries.date, dates))
+      )
+      .all();
+    const byDate = new Map(existing.map((e) => [e.date, e]));
+
+    const oldMenuIds = new Set<string>();
+    for (const date of dates) {
+      const found = byDate.get(date);
+      if (!found) {
+        tx.insert(schema.dinnerEntries)
+          .values({
+            id: crypto.randomUUID(),
+            menuId,
+            familyId,
+            date,
+            type: 'assembled',
+            completed: false,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+      } else if (found.menuId !== menuId) {
+        tx.update(schema.dinnerEntries)
+          .set({ menuId })
+          .where(eq(schema.dinnerEntries.id, found.id))
+          .run();
+        oldMenuIds.add(found.menuId);
+      }
+    }
+
+    for (const oldMenuId of oldMenuIds) {
+      const remaining = tx
+        .select({ id: schema.dinnerEntries.id })
+        .from(schema.dinnerEntries)
+        .where(eq(schema.dinnerEntries.menuId, oldMenuId))
+        .limit(1)
+        .all();
+      if (remaining.length === 0) {
+        tx.delete(schema.weeklyMenus).where(eq(schema.weeklyMenus.id, oldMenuId)).run();
+      }
+    }
+
+    return menu;
+  });
+}
+
+/**
  * Get or create a weekly menu for a given date
  */
 export async function getOrCreateWeekMenu(
@@ -299,54 +405,13 @@ export async function getOrCreateWeekMenu(
   const weekStart = getWeekStartDate(date, weekStartDay);
   const weekStartStr = formatDate(weekStart);
 
-  // Check if menu exists for this family
-  let menu = await db.query.weeklyMenus.findFirst({
-    where: and(
-      eq(schema.weeklyMenus.weekStartDate, weekStartStr),
-      eq(schema.weeklyMenus.familyId, familyId)
-    ),
-  });
-
-  if (!menu) {
-    // Create new menu
-    const menuId = crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    await db.insert(schema.weeklyMenus).values({
-      id: menuId,
-      familyId,
-      weekStartDate: weekStartStr,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    // Create entries for each day of the week
-    for (let i = 0; i < 7; i++) {
-      const entryDate = new Date(weekStart);
-      entryDate.setDate(entryDate.getDate() + i);
-      const entryId = crypto.randomUUID();
-
-      await db.insert(schema.dinnerEntries).values({
-        id: entryId,
-        menuId,
-        date: formatDate(entryDate),
-        type: 'assembled',
-        completed: false,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    menu = await db.query.weeklyMenus.findFirst({
-      where: eq(schema.weeklyMenus.id, menuId),
-    });
-  }
+  const menu = ensureWeekMenu(familyId, weekStart, weekStartStr);
 
   // Get entries
   const entries = await db
     .select()
     .from(schema.dinnerEntries)
-    .where(eq(schema.dinnerEntries.menuId, menu!.id));
+    .where(eq(schema.dinnerEntries.menuId, menu.id));
 
   const entriesWithRelations = await Promise.all(
     entries.map(async (entry) => (await getEntryWithRelations(entry.id))!)
@@ -356,11 +421,11 @@ export async function getOrCreateWeekMenu(
   entriesWithRelations.sort((a, b) => a.date.localeCompare(b.date));
 
   return {
-    id: menu!.id,
-    weekStartDate: menu!.weekStartDate,
+    id: menu.id,
+    weekStartDate: menu.weekStartDate,
     entries: entriesWithRelations,
-    createdAt: menu!.createdAt,
-    updatedAt: menu!.updatedAt,
+    createdAt: menu.createdAt,
+    updatedAt: menu.updatedAt,
   };
 }
 
@@ -370,26 +435,25 @@ export async function getOrCreateWeekMenu(
 export async function getTodayEntry(familyId: string): Promise<DinnerEntryResponse | null> {
   const today = formatDate(new Date());
 
+  // Make sure the current week exists and is fully populated (re-parenting any
+  // overlapping entries), then look the day up by (family, date). That pair is
+  // unique, so there is exactly one candidate; the ORDER BY is only a safety
+  // net so a stray duplicate could never mask a planned entry.
+  await getOrCreateWeekMenu(today, familyId);
+
   const entry = await db
     .select({ id: schema.dinnerEntries.id })
     .from(schema.dinnerEntries)
-    .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
-    .where(and(eq(schema.dinnerEntries.date, today), eq(schema.weeklyMenus.familyId, familyId)))
+    .where(and(eq(schema.dinnerEntries.date, today), eq(schema.dinnerEntries.familyId, familyId)))
+    .orderBy(
+      desc(
+        sql`(${schema.dinnerEntries.type} != 'assembled' OR ${schema.dinnerEntries.mainDishId} IS NOT NULL OR ${schema.dinnerEntries.customText} IS NOT NULL)`
+      ),
+      desc(schema.dinnerEntries.updatedAt)
+    )
     .limit(1);
 
-  if (entry.length === 0) {
-    // Auto-create by fetching the week
-    await getOrCreateWeekMenu(today, familyId);
-    const newEntry = await db
-      .select({ id: schema.dinnerEntries.id })
-      .from(schema.dinnerEntries)
-      .innerJoin(schema.weeklyMenus, eq(schema.dinnerEntries.menuId, schema.weeklyMenus.id))
-      .where(and(eq(schema.dinnerEntries.date, today), eq(schema.weeklyMenus.familyId, familyId)))
-      .limit(1);
-    return newEntry.length > 0 ? getEntryWithRelations(newEntry[0].id) : null;
-  }
-
-  return getEntryWithRelations(entry[0].id);
+  return entry.length > 0 ? getEntryWithRelations(entry[0].id) : null;
 }
 
 /**
