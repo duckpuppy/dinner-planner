@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { importVideoUrlSchema, reextractJobSchema } from '@dinner-planner/shared';
+import { cleanPostTitle, importVideoUrlSchema, reextractJobSchema } from '@dinner-planner/shared';
 import {
   createVideoJob,
   getVideoJobForFamily,
@@ -96,8 +96,12 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
     }
 
     const infoJson = (resultMetadata?.infoJson ?? null) as Record<string, unknown> | null;
-    const rawTitle = typeof infoJson?.title === 'string' ? infoJson.title : null;
     const rawDescription = typeof infoJson?.description === 'string' ? infoJson.description : null;
+    // Some extractors (Facebook) return engagement stats as the title; hand the client a usable one.
+    const rawTitle =
+      typeof infoJson?.title === 'string'
+        ? cleanPostTitle(infoJson.title, rawDescription ?? '')
+        : null;
 
     return {
       ...job,

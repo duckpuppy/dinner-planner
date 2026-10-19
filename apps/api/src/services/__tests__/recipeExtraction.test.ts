@@ -216,6 +216,22 @@ describe('extractRecipeFromMetadata', () => {
     );
   });
 
+  it('feeds the model a cleaned title instead of engagement stats', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+
+    await extractRecipeFromMetadata({
+      title: '978K views · 16K reactions',
+      description: 'Cowboy Mashed Potato Casserole\nIngredients: potatoes',
+    });
+
+    const callArg = mockExtractRecipeFromText.mock.calls[0][0];
+    expect(callArg).not.toContain('978K');
+    expect(callArg.startsWith('Cowboy Mashed Potato Casserole\n\nCowboy Mashed')).toBe(true);
+  });
+
   it('truncates very long transcripts to 8000 characters', async () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
