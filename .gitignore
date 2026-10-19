@@ -50,6 +50,7 @@ vite.config.js
 
 # TypeScript
 *.tsbuildinfo
+apps/web/vite.config.d.ts
 
 # Android (Capacitor) - commit project files, ignore build outputs
 apps/web/android/app/build/
