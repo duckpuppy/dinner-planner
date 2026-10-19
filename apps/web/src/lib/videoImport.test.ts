@@ -120,4 +120,9 @@ describe('extractionNotice', () => {
       'AI recipe extraction failed — prefilled from the post.'
     );
   });
+  it('shows a notice for no_recipe', () => {
+    expect(extractionNotice({ ...baseJob, extractionStatus: 'no_recipe' })).toBe(
+      'No recipe found in this post — prefilled from the post. Check it before saving.'
+    );
+  });
 });

@@ -1065,7 +1065,7 @@ export interface VideoJob {
   error: string | null;
   rawTitle: string | null;
   rawDescription: string | null;
-  extractionStatus: 'llm' | 'failed' | 'disabled' | 'no_description' | null;
+  extractionStatus: 'llm' | 'failed' | 'disabled' | 'no_description' | 'no_recipe' | null;
   extractionError: string | null;
   /** Set on metadata-only imports (no downloaded video / thumbnail). */
   warning: string | null;

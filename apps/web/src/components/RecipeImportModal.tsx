@@ -447,7 +447,10 @@ function ReviewPanel({
   const hasRecipe = job.extractionStatus === 'llm' && !!job.extractedRecipe;
   const notice = hasRecipe ? null : extractionNotice(job);
   const canRetry =
-    !hasRecipe && (job.extractionStatus === 'failed' || job.extractionStatus === 'no_description');
+    !hasRecipe &&
+    (job.extractionStatus === 'failed' ||
+      job.extractionStatus === 'no_description' ||
+      job.extractionStatus === 'no_recipe');
 
   return (
     <div className="space-y-4">

@@ -125,15 +125,6 @@ describe('extractRecipeFromText', () => {
     expect(callBody.stream).toBe(false);
   });
 
-  it('returns null on invalid JSON in response field', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ response: 'not valid json {{{' }),
-    });
-    const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
-    expect(result).toBeNull();
-  });
-
   it('returns null when response field is missing', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -167,18 +158,101 @@ describe('extractRecipeFromText', () => {
     expect(result.recipe).toBeNull();
   });
 
-  it('returns null when recipe fails schema validation', async () => {
-    const invalidRecipe = { ...VALID_RECIPE, type: 'dessert' }; // invalid enum value
-    mockFetch.mockResolvedValueOnce(makeGenerateResponse(invalidRecipe));
+  it('coerces an unknown type to main instead of rejecting the response', async () => {
+    mockFetch.mockResolvedValueOnce(makeGenerateResponse({ ...VALID_RECIPE, type: 'dessert' }));
     const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
-    expect(result).toBeNull();
+    expect(result?.type).toBe('main');
   });
 
-  it('returns null when ingredients are missing required fields', async () => {
-    const badIngredients = { ...VALID_RECIPE, ingredients: [{ name: 'salt' }] }; // missing category
-    mockFetch.mockResolvedValueOnce(makeGenerateResponse(badIngredients));
+  it('tolerates ingredients with missing fields', async () => {
+    mockFetch.mockResolvedValueOnce(
+      makeGenerateResponse({ ...VALID_RECIPE, ingredients: [{ name: 'salt' }] })
+    );
     const result = await extractRecipeFromText('text', 'http://localhost:11434', 'gemma4-e4b');
-    expect(result).toBeNull();
+    expect(result?.ingredients).toEqual([
+      { quantity: null, unit: null, name: 'salt', notes: null, category: 'Other', storeIds: [] },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Outcome split: malformed vs valid-but-empty
+// ---------------------------------------------------------------------------
+describe('extractRecipeFromTextDetailed output handling', () => {
+  const URL_ = 'http://localhost:11434';
+  const noDelay = { retryDelaysMs: [0, 0] };
+  const rawResponse = (response: string) => ({
+    ok: true,
+    json: () => Promise.resolve({ response }),
+  });
+
+  it('accepts instructions: null when the recipe has ingredients (usable, normalised)', async () => {
+    mockFetch.mockResolvedValueOnce(makeGenerateResponse({ ...VALID_RECIPE, instructions: null }));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe?.instructions).toBe('');
+    expect(result.error).toBeNull();
+    expect(result.notUsable).toBeUndefined();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalises float and zero times', async () => {
+    mockFetch.mockResolvedValueOnce(
+      makeGenerateResponse({ ...VALID_RECIPE, prepTime: 7.5, cookTime: 0, servings: 4.2 })
+    );
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).toMatchObject({ prepTime: 8, cookTime: null, servings: 4 });
+  });
+
+  it('reports a valid but empty object as notUsable without retrying', async () => {
+    mockFetch.mockResolvedValue(makeGenerateResponse({}));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result).toEqual({
+      recipe: null,
+      error: 'No recipe found in this post.',
+      notUsable: true,
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats the reported all-null model output as notUsable (not unreadable)', async () => {
+    mockFetch.mockResolvedValue(
+      makeGenerateResponse({ ...VALID_RECIPE, name: 'Reel', ingredients: [], instructions: null })
+    );
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.notUsable).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries non-JSON output once, then fails with the unreadable message', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetch.mockResolvedValue(rawResponse('not valid json {{{'));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).toBeNull();
+    expect(result.notUsable).toBeUndefined();
+    expect(result.error).toBe("The AI model's response couldn't be read as a recipe");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('recovers when the retry after non-JSON output is valid', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetch
+      .mockResolvedValueOnce(rawResponse('oops'))
+      .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe?.name).toBe('Pasta Carbonara');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('retries JSON that is not an object (e.g. an array) once, then fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetch.mockResolvedValue(rawResponse('[1,2,3]'));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe).toBeNull();
+    expect(result.error).toBe("The AI model's response couldn't be read as a recipe");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 });
 
