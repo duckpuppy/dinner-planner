@@ -8,9 +8,15 @@ import {
   type DownloadResult,
 } from './videoDownload.js';
 import { extractRecipeFromMetadata, type ExtractionStatus } from './recipeExtraction.js';
-import { buildLinkMeta, followLinks, type LinkMeta } from './linkedRecipe.js';
+import { buildLinkMeta, followLinks, type LinkMeta, type LinkStage } from './linkedRecipe.js';
 import { YtdlpError } from './ytdlpErrors.js';
 import { logEvent } from './appEvents.js';
+import {
+  parseUserInput,
+  pastedLinkFailure,
+  resolvePastedLink,
+  type UserInput,
+} from './userInputExtraction.js';
 
 export const NO_VIDEO_WARNING =
   'Video could not be downloaded; recipe extracted from the post description';
@@ -57,15 +63,47 @@ interface ExtractionOutcome {
 /**
  * Run recipe extraction and return the columns to persist. Never throws: an
  * unexpected extraction crash is recorded as extractionStatus='failed'.
+ *
+ * `userInput` (dinner-22c.3) is what the user pasted in the review step: a pasted
+ * `recipeUrl` replaces auto-discovered links; `extraText` is added to the model input
+ * (link discovery from the caption still runs).
  */
 async function runExtraction(
   sourceUrl: string,
   infoJson: Record<string, unknown>,
-  transcript: string | null
+  transcript: string | null,
+  userInput?: UserInput | null
 ): Promise<ExtractionOutcome> {
   try {
     // Link-following stage (dinner-22c.4): a recipe linked from the post wins over the LLM.
-    const link = await followLinks(sourceUrl, infoJson, transcript);
+    let link: LinkStage;
+    if (userInput?.recipeUrl) {
+      const pasted = await resolvePastedLink(userInput.recipeUrl, sourceUrl);
+      if (!pasted.ok) {
+        if (!userInput.extraText) {
+          return {
+            extractedRecipe: null,
+            extractionStatus: pasted.status,
+            extractionError: pasted.error,
+            linkMeta: buildLinkMeta({ recipe: null, outcomes: [], linkedPage: null }, false),
+          };
+        }
+        link = await followLinks(sourceUrl, infoJson, transcript);
+      } else {
+        link = pasted.stage;
+        const failure = pastedLinkFailure(link);
+        if (failure && !userInput.extraText) {
+          return {
+            extractedRecipe: null,
+            extractionStatus: failure.status,
+            extractionError: failure.error,
+            linkMeta: buildLinkMeta(link, false),
+          };
+        }
+      }
+    } else {
+      link = await followLinks(sourceUrl, infoJson, transcript);
+    }
     if (link.recipe) {
       return {
         extractedRecipe: JSON.stringify(link.recipe),
@@ -74,7 +112,10 @@ async function runExtraction(
         linkMeta: buildLinkMeta(link, true),
       };
     }
-    const extraction = await extractRecipeFromMetadata(infoJson, transcript, link.linkedPage);
+    const extraction = await extractRecipeFromMetadata(infoJson, transcript, {
+      linkedPage: link.linkedPage,
+      extraText: userInput?.extraText,
+    });
     let extractedRecipe: string | null = null;
     if (extraction.recipe) {
       // Patch sourceUrl and videoUrl from job data — LLM always outputs these as null
@@ -107,10 +148,21 @@ const STALE_EXTRACTING_MINUTES = 10;
  * runs at a time. Returns false if the job is not claimable (not complete, or already
  * extracting and not stale).
  */
-export async function claimReextract(jobId: string): Promise<boolean> {
+export async function claimReextract(jobId: string, userInput?: UserInput): Promise<boolean> {
+  // When the caller supplies input, persist it under resultMetadata.userInput in the same
+  // atomic UPDATE so later plain retries and page reloads reuse it.
+  const metadataPatch = userInput
+    ? {
+        resultMetadata: sql`json_set(${schema.videoJobs.resultMetadata}, '$.userInput', json(${JSON.stringify(userInput)}))`,
+      }
+    : {};
   const claimed = await db
     .update(schema.videoJobs)
-    .set({ status: 'extracting', updatedAt: sql`datetime('now')` as unknown as string })
+    .set({
+      status: 'extracting',
+      updatedAt: sql`datetime('now')` as unknown as string,
+      ...metadataPatch,
+    })
     .where(
       and(
         eq(schema.videoJobs.id, jobId),
@@ -155,7 +207,12 @@ async function _runReextract(jobId: string): Promise<void> {
     }
     outcome =
       job && infoJson
-        ? await runExtraction(job.sourceUrl, infoJson, job.transcript ?? null)
+        ? await runExtraction(
+            job.sourceUrl,
+            infoJson,
+            job.transcript ?? null,
+            parseUserInput(storedMeta.userInput)
+          )
         : {
             extractedRecipe: null,
             extractionStatus: 'failed',
@@ -172,7 +229,7 @@ async function _runReextract(jobId: string): Promise<void> {
     };
   }
   // Whatever happened, release the 'extracting' state. Merge (never replace) resultMetadata
-  // so infoJson and any other stored keys survive.
+  // so infoJson, userInput and any other stored keys survive.
   const { linkMeta, ...columns } = outcome;
   await db
     .update(schema.videoJobs)

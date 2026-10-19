@@ -1,4 +1,28 @@
-import type { CreateDishData, VideoJob } from '@/lib/api';
+import type { CreateDishData, ReextractInput, VideoJob } from '@/lib/api';
+
+/**
+ * Turn what the user typed in the review step into the re-extract payload: a single
+ * http(s) URL becomes `recipeUrl`, anything else `extraText`. Returns null when empty.
+ */
+export function buildReextractInput(raw: string): ReextractInput | null {
+  const text = raw.trim();
+  if (!text) return null;
+  if (!/\s/.test(text) && /^https?:\/\//i.test(text)) {
+    try {
+      new URL(text);
+      return { recipeUrl: text };
+    } catch {
+      // not a valid URL: treat as text
+    }
+  }
+  return { extraText: text };
+}
+
+/** The text to show again in the review textarea for a job that already has user input. */
+export function rememberedInput(job: VideoJob): string {
+  const input = job.resultMetadata?.userInput;
+  return input?.recipeUrl ?? input?.extraText ?? '';
+}
 
 const MAX_TITLE_LENGTH = 80;
 
@@ -91,7 +115,10 @@ export function extractionNotice(job: VideoJob): string | null {
     case 'no_description':
       return 'The post had no description to extract from.';
     case 'no_recipe':
-      return 'No recipe found in this post — prefilled from the post. Check it before saving.';
+      if (job.resultMetadata?.userInput?.recipeUrl && job.extractionError) {
+        return `${job.extractionError} Prefilled from the post.`;
+      }
+      return 'No recipe found in this post — prefilled from the post. If the recipe is in a comment, paste it or its link below. Check it before saving.';
     default:
       return null;
   }

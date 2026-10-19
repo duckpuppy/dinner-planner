@@ -290,6 +290,24 @@ export const importVideoUrlSchema = z.object({
   url: z.string().url('Must be a valid URL'),
 });
 
+/**
+ * Optional body for POST /api/jobs/:id/extract: extra input from the user when the
+ * recipe lives somewhere the server cannot read (e.g. the creator's comment).
+ * Empty strings mean "not provided"; the route drops them.
+ */
+export const REEXTRACT_EXTRA_TEXT_MAX = 10000;
+export const reextractJobSchema = z.object({
+  extraText: z.string().trim().max(REEXTRACT_EXTRA_TEXT_MAX).optional(),
+  recipeUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((v) => v === '' || (/^https?:\/\//i.test(v) && z.string().url().safeParse(v).success), {
+      message: 'Must be a valid http(s) URL',
+    })
+    .optional(),
+});
+
 export const videoJobStatusSchema = z.enum([
   'pending',
   'downloading',
@@ -518,6 +536,7 @@ export type CreateCustomItemInput = z.infer<typeof createCustomItemSchema>;
 export type CreateStandingItemInput = z.infer<typeof createStandingItemSchema>;
 export type UpdateCustomItemInput = z.infer<typeof updateCustomItemSchema>;
 export type ImportVideoUrlInput = z.infer<typeof importVideoUrlSchema>;
+export type ReextractJobInput = z.infer<typeof reextractJobSchema>;
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
 export type RestaurantQueryInput = z.infer<typeof restaurantQuerySchema>;

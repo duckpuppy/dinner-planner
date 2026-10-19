@@ -373,6 +373,33 @@ describe('selectComments', () => {
   });
 });
 
+describe('extractRecipeFromMetadata — user-provided extra text', () => {
+  const direct = () => makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' });
+
+  it('appends the extra text as its own section', async () => {
+    mockGetSettings.mockResolvedValueOnce(direct());
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    await extractRecipeFromMetadata({ title: 'T', description: 'D' }, null, '  2 cups flour ');
+    expect(mockExtractRecipeFromText.mock.calls[0][0]).toContain(
+      'Additional text provided by the user:\n2 cups flour'
+    );
+  });
+
+  it('does not short-circuit to no_description when only extra text exists', async () => {
+    mockGetSettings.mockResolvedValueOnce(direct());
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    const r = await extractRecipeFromMetadata({ title: 'T' }, null, 'pasted recipe');
+    expect(r.status).toBe('llm');
+    expect(mockExtractRecipeFromText).toHaveBeenCalledTimes(1);
+  });
+
+  it('blank extra text still yields no_description', async () => {
+    mockGetSettings.mockResolvedValueOnce(direct());
+    const r = await extractRecipeFromMetadata({ title: 'T' }, null, '   ');
+    expect(r.status).toBe('no_description');
+  });
+});
+
 describe('extractRecipeFromMetadata — comments flag', () => {
   const metadata = {
     title: 'T',

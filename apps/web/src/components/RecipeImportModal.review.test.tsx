@@ -275,6 +275,94 @@ describe('RecipeImportModal review step', () => {
       expect(screen.getByText('Too many attempts. Please try again in a minute.')).toBeDefined();
     });
 
+    describe('extra text or link', () => {
+      const pasteLabel = "Paste the recipe, the creator's comment, or a link";
+
+      it('disables Extract again while the input is empty', async () => {
+        await startImport(failed());
+        const btn = screen.getByRole('button', { name: 'Extract again' }) as HTMLButtonElement;
+        expect(btn.disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText(pasteLabel), { target: { value: '   ' } });
+        expect(btn.disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText(pasteLabel), { target: { value: 'flour' } });
+        expect(btn.disabled).toBe(false);
+      });
+
+      it('sends pasted text as extraText, then polls and applies the recipe', async () => {
+        await startImport(failed());
+        vi.mocked(dishesApi.reextractVideoJob).mockResolvedValueOnce({
+          job: makeJob({ status: 'extracting' }),
+        });
+        vi.mocked(dishesApi.getVideoJob).mockResolvedValueOnce({
+          job: makeJob({ extractionStatus: 'llm', extractedRecipe: recipe }),
+        });
+        fireEvent.change(screen.getByLabelText(pasteLabel), {
+          target: { value: '  2 cups flour, 1 egg  ' },
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name: 'Extract again' }));
+        });
+        await tick(0);
+        expect(dishesApi.reextractVideoJob).toHaveBeenCalledWith('job-1', {
+          extraText: '2 cups flour, 1 egg',
+        });
+        expect(screen.getByText('Extracting recipe...')).toBeDefined();
+        expect(
+          (screen.getByRole('button', { name: 'Extract again' }) as HTMLButtonElement).disabled
+        ).toBe(true);
+        await tick(2001);
+        expect(screen.getByText(/Recipe extracted/)).toBeDefined();
+      });
+
+      it('sends a single URL as recipeUrl', async () => {
+        await startImport(failed());
+        vi.mocked(dishesApi.reextractVideoJob).mockResolvedValueOnce({
+          job: makeJob({ status: 'extracting' }),
+        });
+        fireEvent.change(screen.getByLabelText(pasteLabel), {
+          target: { value: 'https://example.com/recipe' },
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name: 'Extract again' }));
+        });
+        expect(dishesApi.reextractVideoJob).toHaveBeenCalledWith('job-1', {
+          recipeUrl: 'https://example.com/recipe',
+        });
+      });
+
+      it('the plain retry button stays bodyless', async () => {
+        await startImport(failed());
+        vi.mocked(dishesApi.reextractVideoJob).mockResolvedValueOnce({
+          job: makeJob({ status: 'extracting' }),
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name: 'Try extraction again' }));
+        });
+        expect(dishesApi.reextractVideoJob).toHaveBeenCalledWith('job-1');
+      });
+
+      it('remembers the previous input from the job and keeps the field open', async () => {
+        await startImport(
+          makeJob({
+            extractionStatus: 'no_recipe',
+            rawTitle: 'Soup',
+            resultMetadata: { userInput: { extraText: 'my earlier paste' } },
+          })
+        );
+        expect((screen.getByLabelText(pasteLabel) as HTMLTextAreaElement).value).toBe(
+          'my earlier paste'
+        );
+      });
+
+      it('is reachable from a successful import that is only showing a warning', async () => {
+        await startImport(
+          makeJob({ extractionStatus: 'llm', extractedRecipe: recipe, warning: 'no video' })
+        );
+        expect(screen.getByText('Add text or a link')).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Extract again' })).toBeDefined();
+      });
+    });
+
     it('gives up after about four minutes', async () => {
       await startImport(failed());
       vi.mocked(dishesApi.reextractVideoJob).mockResolvedValueOnce({

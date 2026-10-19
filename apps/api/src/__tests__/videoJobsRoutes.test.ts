@@ -971,3 +971,103 @@ describe('POST /api/jobs/:id/extract (asynchronous)', () => {
     expect(job.rawTitle).toBe('T');
   });
 });
+
+// ===========================================================================
+// dinner-22c.3: optional body on POST /api/jobs/:id/extract
+// ===========================================================================
+
+describe('POST /api/jobs/:id/extract with user input', () => {
+  let app: TestApp;
+  const mockClaim = vi.mocked(videoJobsService.claimReextract);
+  const mockProcess = vi.mocked(videoJobsService.processReextract);
+  const stored = JSON.stringify({
+    infoJson: { title: 'T', description: 'D' },
+    userInput: { extraText: 'earlier' },
+    extractionSource: 'linked_page',
+  });
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    mockGetVideoJob.mockReset();
+    mockClaim.mockReset();
+    mockProcess.mockReset();
+    mockGetVideoJob.mockResolvedValue(
+      asJob({ id: 'j1', status: 'complete', resultMetadata: stored })
+    );
+    mockClaim.mockResolvedValue(true);
+  });
+
+  const post = (payload?: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/jobs/j1/extract',
+      headers: payload === undefined ? bearerHeader(app) : jsonHeaders(app),
+      payload: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+
+  it('a bodyless request still works and claims without input', async () => {
+    const res = await post();
+    expect(res.statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenCalledWith('j1');
+    expect(mockProcess).toHaveBeenCalledWith('j1');
+  });
+
+  it('an empty object or blank fields count as no input', async () => {
+    expect((await post({})).statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenLastCalledWith('j1');
+    expect((await post({ extraText: '   ', recipeUrl: '' })).statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenLastCalledWith('j1');
+  });
+
+  it('passes trimmed extraText to the claim', async () => {
+    const res = await post({ extraText: '  2 cups flour  ' });
+    expect(res.statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenCalledWith('j1', { extraText: '2 cups flour' });
+  });
+
+  it('passes recipeUrl to the claim', async () => {
+    const res = await post({ recipeUrl: 'https://example.com/r' });
+    expect(res.statusCode).toBe(202);
+    expect(mockClaim).toHaveBeenCalledWith('j1', { recipeUrl: 'https://example.com/r' });
+  });
+
+  it('exposes persisted userInput and extractionSource on the job', async () => {
+    const res = await post({ extraText: 'x' });
+    const { job } = JSON.parse(res.body);
+    expect(job.resultMetadata.userInput).toEqual({ extraText: 'earlier' });
+    expect(job.resultMetadata.extractionSource).toBe('linked_page');
+  });
+
+  it('400s on over-long text, a bad URL, and a non-http scheme (and starts nothing)', async () => {
+    for (const body of [
+      { extraText: 'a'.repeat(10001) },
+      { recipeUrl: 'not a url' },
+      { recipeUrl: 'ftp://example.com/r' },
+    ]) {
+      const res = await post(body);
+      expect(res.statusCode).toBe(400);
+    }
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockProcess).not.toHaveBeenCalled();
+  });
+
+  it('404s for another family and never claims or stores the input', async () => {
+    mockGetVideoJob.mockResolvedValue(null);
+    const res = await post({ extraText: 'sneaky' });
+    expect(res.statusCode).toBe(404);
+    expect(mockGetVideoJob).toHaveBeenCalledWith('j1', 'fam-1');
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockProcess).not.toHaveBeenCalled();
+  });
+
+  it('409s when already running, even with input', async () => {
+    mockClaim.mockResolvedValue(false);
+    const res = await post({ extraText: 'x' });
+    expect(res.statusCode).toBe(409);
+    expect(mockProcess).not.toHaveBeenCalled();
+  });
+});

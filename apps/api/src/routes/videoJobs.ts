@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { importVideoUrlSchema } from '@dinner-planner/shared';
+import { importVideoUrlSchema, reextractJobSchema } from '@dinner-planner/shared';
 import {
   createVideoJob,
   getVideoJobForFamily,
@@ -133,6 +133,9 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
    * Asynchronous: sets the job to status='extracting', returns 202 { job } immediately and
    * finishes in the background (status back to 'complete' with extractionStatus/
    * extractionError updated). Clients poll GET /api/jobs/:id.
+   * Optional JSON body { extraText?, recipeUrl? } (see reextractJobSchema): text the user pasted
+   * or a link to the recipe page; persisted on the job (resultMetadata.userInput) and reused by
+   * later plain re-extractions. An absent body (or {}) means no extra input.
    * Family-scoped (404 cross-family). 409 if the job isn't complete, has no stored
    * metadata, or an extraction is already running (an orphaned one older than 10 minutes
    * is reclaimed).
@@ -145,6 +148,24 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
+      // Optional body: absent (or {} / blank fields) means "no extra input".
+      let userInput: { extraText?: string; recipeUrl?: string } | undefined;
+      if (request.body !== undefined && request.body !== null) {
+        const parsed = reextractJobSchema.safeParse(request.body);
+        if (!parsed.success) {
+          return reply.status(400).send({
+            error: 'Invalid request',
+            details: parsed.error.flatten().fieldErrors,
+          });
+        }
+        const { extraText, recipeUrl } = parsed.data;
+        if (extraText || recipeUrl) {
+          userInput = {
+            ...(extraText ? { extraText } : {}),
+            ...(recipeUrl ? { recipeUrl } : {}),
+          };
+        }
+      }
       const existing = await getVideoJobForFamily(id, request.user.familyId);
       if (!existing) {
         return reply.status(404).send({ error: 'Job not found' });
@@ -155,7 +176,7 @@ export async function videoJobsRoutes(fastify: FastifyInstance) {
       if (!existing.resultMetadata) {
         return reply.status(409).send({ error: 'Job has no stored metadata to extract from' });
       }
-      if (!(await claimReextract(id))) {
+      if (!(await (userInput ? claimReextract(id, userInput) : claimReextract(id)))) {
         return reply.status(409).send({ error: 'Extraction already in progress' });
       }
 
