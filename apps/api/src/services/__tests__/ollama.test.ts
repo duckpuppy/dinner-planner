@@ -226,6 +226,26 @@ describe('extractRecipeFromTextDetailed output handling', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    'No detailed instructions provided in the text.',
+    'Not specified',
+    'N/A',
+    'Instructions not provided.',
+  ])('treats placeholder instructions %j with no ingredients as notUsable', async (p) => {
+    mockFetch.mockResolvedValue(
+      makeGenerateResponse({
+        ...VALID_RECIPE,
+        name: 'Homemade McRibs',
+        ingredients: [],
+        instructions: p,
+      })
+    );
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.notUsable).toBe(true);
+    expect(result.recipe).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('returns a recipe with a blank name when it has ingredients', async () => {
     mockFetch.mockResolvedValueOnce(makeGenerateResponse({ ...VALID_RECIPE, name: '' }));
     const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);

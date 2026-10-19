@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { importedRecipeSchema } from './index.js';
-import { isUsableRecipe, modelRecipeSchema, normalizeModelRecipe } from './modelRecipe.js';
+import {
+  isPlaceholderText,
+  isUsableRecipe,
+  modelRecipeSchema,
+  normalizeModelRecipe,
+} from './modelRecipe.js';
 
 const GOOD = {
   name: 'Pasta',
@@ -157,16 +162,19 @@ describe('modelRecipeSchema', () => {
   });
 });
 
+const LONG_STEPS = 'Mix the ingredients and bake at 350F for 30 minutes.';
+
 describe('isUsableRecipe', () => {
   const base = { name: 'X', ingredients: [], instructions: '' };
   it('ignores the name', () => {
-    expect(isUsableRecipe({ ...base, name: '  ', instructions: 'Cook' })).toBe(true);
+    expect(isUsableRecipe({ ...base, name: '  ', instructions: LONG_STEPS })).toBe(true);
     expect(isUsableRecipe({ ...base, name: '' })).toBe(false);
   });
   it('requires ingredients or instructions', () => {
     expect(isUsableRecipe(base)).toBe(false);
     expect(isUsableRecipe({ ...base, instructions: '   ' })).toBe(false);
-    expect(isUsableRecipe({ ...base, instructions: 'Cook' })).toBe(true);
+    expect(isUsableRecipe({ ...base, instructions: LONG_STEPS })).toBe(true);
+    expect(isUsableRecipe({ ...base, instructions: 'Cook' })).toBe(false);
     expect(
       isUsableRecipe({
         ...base,
@@ -175,5 +183,67 @@ describe('isUsableRecipe', () => {
         ],
       })
     ).toBe(true);
+  });
+});
+
+describe('placeholder handling', () => {
+  const PLACEHOLDERS = [
+    'No detailed instructions provided in the text.',
+    'Not specified',
+    'N/A',
+    'Instructions not provided.',
+  ];
+
+  it.each(PLACEHOLDERS)('detects %j as a placeholder', (p) => {
+    expect(isPlaceholderText(p)).toBe(true);
+  });
+
+  it('does not flag real short text or blanks', () => {
+    expect(isPlaceholderText(LONG_STEPS)).toBe(false);
+    expect(isPlaceholderText('')).toBe(false);
+    expect(isPlaceholderText('Serve warm.')).toBe(false);
+  });
+
+  it('applies only below 80 characters', () => {
+    const at79 = 'Not specified: ' + 'x'.repeat(79 - 'Not specified: '.length);
+    expect(at79).toHaveLength(79);
+    expect(isPlaceholderText(at79)).toBe(true);
+    expect(isPlaceholderText(at79 + 'x')).toBe(false);
+  });
+
+  it.each(PLACEHOLDERS)('normalises %j instructions to empty and not usable', (p) => {
+    const r = normalizeModelRecipe({ ...GOOD, ingredients: [], instructions: p });
+    expect(r?.instructions).toBe('');
+    expect(isUsableRecipe(r!)).toBe(false);
+  });
+
+  it('blanks placeholder description and ingredient notes', () => {
+    const r = normalizeModelRecipe({
+      ...GOOD,
+      description: 'Not provided',
+      ingredients: [{ name: 'salt', notes: 'N/A' }],
+    });
+    expect(r?.description).toBe('');
+    expect(r?.ingredients[0].notes).toBeNull();
+  });
+
+  it('keeps real short instructions usable', () => {
+    const r = normalizeModelRecipe({ ...GOOD, ingredients: [], instructions: LONG_STEPS });
+    expect(r?.instructions).toBe(LONG_STEPS);
+    expect(isUsableRecipe(r!)).toBe(true);
+  });
+
+  it('keeps ingredients-only recipes usable', () => {
+    const r = normalizeModelRecipe({ ...GOOD, instructions: 'N/A' });
+    expect(r?.instructions).toBe('');
+    expect(isUsableRecipe(r!)).toBe(true);
+  });
+
+  it('leaves long instructions that mention "not specified" untouched', () => {
+    const text =
+      'Bake until golden; the oven temperature is not specified so use 350F. Rest ten minutes before slicing.';
+    expect(text.length).toBeGreaterThanOrEqual(80);
+    const r = normalizeModelRecipe({ ...GOOD, ingredients: [], instructions: text });
+    expect(r?.instructions).toBe(text);
   });
 });
