@@ -222,6 +222,8 @@ Pushes to `main` no longer build an APK.
 
 `android-release.yml` is deliberately separate from `release.yml`, so an APK failure never blocks `deploy.yml`. `release.yml` creates the GitHub Release after pushing the tag, so the APK job polls for the release (every 20 seconds, up to 15 minutes) before uploading with `--clobber`. If it times out, re-run it, or dispatch it with the tag.
 
+GitHub drops job outputs that contain a secret's value. The artifact name contains the key alias (`dinner-planner`), so the publish jobs use the known name rather than `needs.build.outputs` (PR #300).
+
 #### Required secrets
 
 | Secret                      | Meaning                                    |

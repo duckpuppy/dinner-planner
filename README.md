@@ -198,7 +198,7 @@ pnpm test -- --watch
 #### End-to-end tests (Playwright)
 
 Browser tests cover the offline-first, multi-shopper grocery flow against the real API (live sync,
-offline queue across a reload, last-write-wins conflicts). See [docs/e2e.md](docs/e2e.md).
+offline queue across a reload, last-write-wins conflicts). See [docs/dev/e2e.md](docs/dev/e2e.md).
 
 ```bash
 # One-time: download Chromium
