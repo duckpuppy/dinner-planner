@@ -159,8 +159,9 @@ describe('modelRecipeSchema', () => {
 
 describe('isUsableRecipe', () => {
   const base = { name: 'X', ingredients: [], instructions: '' };
-  it('requires a name', () => {
-    expect(isUsableRecipe({ ...base, name: '  ', instructions: 'Cook' })).toBe(false);
+  it('ignores the name', () => {
+    expect(isUsableRecipe({ ...base, name: '  ', instructions: 'Cook' })).toBe(true);
+    expect(isUsableRecipe({ ...base, name: '' })).toBe(false);
   });
   it('requires ingredients or instructions', () => {
     expect(isUsableRecipe(base)).toBe(false);

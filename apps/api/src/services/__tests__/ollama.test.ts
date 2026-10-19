@@ -223,6 +223,23 @@ describe('extractRecipeFromTextDetailed output handling', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it('returns a recipe with a blank name when it has ingredients', async () => {
+    mockFetch.mockResolvedValueOnce(makeGenerateResponse({ ...VALID_RECIPE, name: '' }));
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.recipe?.name).toBe('');
+    expect(result.recipe?.ingredients).toHaveLength(2);
+    expect(result.notUsable).toBeUndefined();
+  });
+
+  it('treats a blank name with no ingredients or instructions as notUsable', async () => {
+    mockFetch.mockResolvedValue(
+      makeGenerateResponse({ ...VALID_RECIPE, name: '', ingredients: [], instructions: '' })
+    );
+    const result = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(result.notUsable).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('retries non-JSON output once, then fails with the unreadable message', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockFetch.mockResolvedValue(rawResponse('not valid json {{{'));

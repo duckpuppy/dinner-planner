@@ -129,11 +129,12 @@ export const modelRecipeSchema = z.unknown().transform((val, ctx): ImportedRecip
   return recipe;
 });
 
-/** A recipe is worth showing/saving when it has a name and some ingredients or instructions. */
-export function isUsableRecipe(
-  r: Pick<ImportedRecipe, 'name' | 'ingredients' | 'instructions'>
-): boolean {
-  return r.name.trim() !== '' && (r.ingredients.length > 0 || r.instructions.trim() !== '');
+/**
+ * A recipe is worth showing/saving when it has ingredients or instructions. The name is
+ * deliberately ignored: the client falls back to the post title when it is blank.
+ */
+export function isUsableRecipe(r: Pick<ImportedRecipe, 'ingredients' | 'instructions'>): boolean {
+  return r.ingredients.length > 0 || r.instructions.trim() !== '';
 }
 
 /** User-facing message when the model ran fine but the post contains no recipe. */
