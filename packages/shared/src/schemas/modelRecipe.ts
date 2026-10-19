@@ -66,9 +66,20 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 /** Strings at or above this length are never treated as placeholders. */
 export const PLACEHOLDER_MAX_CHARS = 80;
 
+const PLACEHOLDER_PHRASE =
+  '(?:no (?:detailed )?(?:instructions|steps|recipe|ingredients)|not (?:provided|specified|available|included|mentioned|listed))';
+const PLACEHOLDER_VERB = '(?:provided|specified|available|included|mentioned|listed)';
+
 const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
-  /^(no|none|n\/a|unknown|unspecified)\b/i,
-  /\b(no (detailed )?(instructions|steps|recipe|ingredients)|not (provided|specified|available|included|mentioned|listed))\b/i,
+  // The whole string is a bare "nothing here" token.
+  /^(none|n\/a|na|unknown|unspecified|not applicable|no)\.?$/i,
+  // A placeholder phrase that is essentially the whole string: up to two plain leading words
+  // ("Instructions not provided."), an optional trailing verb and an optional "in the text".
+  new RegExp(
+    `^(?:[a-z]+\\s+){0,2}${PLACEHOLDER_PHRASE}(?:\\s+${PLACEHOLDER_VERB})?` +
+      '(?:\\s+(?:in|from|on|for)\\s+(?:the|this)\\s+[a-z]+)?[.!]?$',
+    'i'
+  ),
 ];
 
 /**

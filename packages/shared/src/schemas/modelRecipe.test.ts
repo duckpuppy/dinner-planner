@@ -192,7 +192,20 @@ describe('placeholder handling', () => {
     'Not specified',
     'N/A',
     'Instructions not provided.',
+    'none',
+    'No instructions.',
   ];
+
+  it.each([
+    'No-bake chocolate oatmeal cookies',
+    'No-knead bread',
+    'no salt added',
+    'None of the usual fuss',
+    'No need to preheat, just stir the batter and bake.',
+    'Salt, not included in the kit',
+  ])('does not flag legitimate text %j', (t) => {
+    expect(isPlaceholderText(t)).toBe(false);
+  });
 
   it.each(PLACEHOLDERS)('detects %j as a placeholder', (p) => {
     expect(isPlaceholderText(p)).toBe(true);
@@ -205,7 +218,7 @@ describe('placeholder handling', () => {
   });
 
   it('applies only below 80 characters', () => {
-    const at79 = 'Not specified: ' + 'x'.repeat(79 - 'Not specified: '.length);
+    const at79 = 'x'.repeat(79 - ' not specified'.length) + ' not specified';
     expect(at79).toHaveLength(79);
     expect(isPlaceholderText(at79)).toBe(true);
     expect(isPlaceholderText(at79 + 'x')).toBe(false);
