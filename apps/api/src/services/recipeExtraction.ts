@@ -1,9 +1,9 @@
-import { type ImportedRecipe } from '@dinner-planner/shared';
+import { NO_RECIPE_MESSAGE, type ImportedRecipe } from '@dinner-planner/shared';
 import { getSettings } from './settings.js';
 import { extractRecipeFromTextDetailed } from './ollama.js';
 import { isVideoCommentsEnabled } from './videoImportConfig.js';
 
-export type ExtractionStatus = 'llm' | 'failed' | 'disabled' | 'no_description';
+export type ExtractionStatus = 'llm' | 'failed' | 'disabled' | 'no_description' | 'no_recipe';
 
 export interface ExtractionResult {
   recipe: ImportedRecipe | null;
@@ -12,7 +12,7 @@ export interface ExtractionResult {
   source: 'llm' | 'none';
   /** Why the recipe is (or isn't) present */
   status: ExtractionStatus;
-  /** Friendly reason when status is 'failed' */
+  /** Friendly reason when status is 'failed' or 'no_recipe' */
   error: string | null;
 }
 
@@ -82,7 +82,16 @@ export async function extractRecipeFromMetadata(
     return noneResult('disabled');
   }
 
-  if (!rawDescription) {
+  const transcriptText =
+    transcript && transcript.trim().length > 0
+      ? transcript.length > MAX_TRANSCRIPT_LENGTH
+        ? transcript.slice(0, MAX_TRANSCRIPT_LENGTH) + '...'
+        : transcript
+      : null;
+  const commentsText = isVideoCommentsEnabled() ? selectComments(metadata) : null;
+
+  // Only skip the model when there is no text at all to extract from.
+  if (!rawDescription.trim() && !transcriptText && !commentsText) {
     return noneResult('no_description');
   }
 
@@ -92,28 +101,24 @@ export async function extractRecipeFromMetadata(
       return noneResult('disabled');
     }
 
-    let text = rawTitle ? `${rawTitle}\n\n${rawDescription}` : rawDescription;
-
-    if (transcript && transcript.length > 0) {
-      // Truncate very long transcripts to avoid overwhelming the LLM context
-      const truncated =
-        transcript.length > MAX_TRANSCRIPT_LENGTH
-          ? transcript.slice(0, MAX_TRANSCRIPT_LENGTH) + '...'
-          : transcript;
-      text += `\n\nVideo transcript:\n${truncated}`;
+    const sections: string[] = [];
+    if (rawTitle) sections.push(rawTitle);
+    if (rawDescription) sections.push(rawDescription);
+    if (transcriptText) sections.push(`Video transcript:\n${transcriptText}`);
+    if (commentsText) {
+      sections.push(`Video comments (the uploader's own comments first):\n${commentsText}`);
     }
-
-    if (isVideoCommentsEnabled()) {
-      const comments = selectComments(metadata);
-      if (comments) {
-        text += `\n\nVideo comments (the uploader's own comments first):\n${comments}`;
-      }
-    }
+    const text = sections.join('\n\n');
 
     const model = (settings.ollamaModel as string | null | undefined) ?? 'gemma4-e4b';
-    const { recipe, error } = await extractRecipeFromTextDetailed(text, ollamaUrl, model);
+    const { recipe, error, notUsable } = await extractRecipeFromTextDetailed(
+      text,
+      ollamaUrl,
+      model
+    );
 
     if (!recipe) {
+      if (notUsable) return noneResult('no_recipe', error ?? NO_RECIPE_MESSAGE);
       return noneResult('failed', error ?? 'Recipe extraction failed');
     }
 

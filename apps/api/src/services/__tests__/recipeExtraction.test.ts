@@ -252,6 +252,55 @@ describe('extractRecipeFromMetadata — status', () => {
     expect(r.status).toBe('no_description');
   });
 
+  it('reports no_description when there is no description, transcript or comments', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    const r = await extractRecipeFromMetadata({ title: 'T', description: '   ' }, '  ');
+    expect(r.status).toBe('no_description');
+    expect(mockExtractRecipeFromText).not.toHaveBeenCalled();
+  });
+
+  it('runs the model when the description is empty but a transcript exists', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    const r = await extractRecipeFromMetadata({ title: 'Pasta' }, 'add garlic then pasta');
+    expect(r.status).toBe('llm');
+    expect(mockExtractRecipeFromText).toHaveBeenCalledWith(
+      'Pasta\n\nVideo transcript:\nadd garlic then pasta',
+      'http://localhost:11434',
+      'gemma4-e4b'
+    );
+  });
+
+  it('builds the text from the transcript alone when there is no title or description', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    await extractRecipeFromMetadata({}, 'just words');
+    expect(mockExtractRecipeFromText.mock.calls[0][0]).toBe('Video transcript:\njust words');
+  });
+
+  it('reports no_recipe (not failed) when the model finds no usable recipe', async () => {
+    mockGetSettings.mockResolvedValueOnce(
+      makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })
+    );
+    mockExtractRecipeFromText.mockResolvedValueOnce({
+      recipe: null,
+      error: 'No recipe found in this post.',
+      notUsable: true,
+    });
+    const r = await extractRecipeFromMetadata({ title: 'Reel', description: 'so fun' });
+    expect(r.status).toBe('no_recipe');
+    expect(r.error).toBe('No recipe found in this post.');
+    expect(r.recipe).toBeNull();
+    expect(r.source).toBe('none');
+    expect(r.rawTitle).toBe('Reel');
+  });
+
   it('reports failed with the friendly error and keeps the raw title/description', async () => {
     mockGetSettings.mockResolvedValueOnce(
       makeSettings({ llmMode: 'direct', ollamaUrl: 'http://localhost:11434' })

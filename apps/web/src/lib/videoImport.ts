@@ -90,6 +90,8 @@ export function extractionNotice(job: VideoJob): string | null {
       return 'AI extraction is turned off (Admin → Settings) — prefilled from the post.';
     case 'no_description':
       return 'The post had no description to extract from.';
+    case 'no_recipe':
+      return 'No recipe found in this post — prefilled from the post. Check it before saving.';
     default:
       return null;
   }
