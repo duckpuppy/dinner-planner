@@ -405,3 +405,31 @@ describe('extractRecipeFromMetadata — comments flag', () => {
     }
   });
 });
+
+describe('extractRecipeFromMetadata — linked page', () => {
+  it('appends a "Linked page (<host>)" section to the model input', async () => {
+    mockGetSettings.mockResolvedValue({
+      llmMode: 'direct',
+      ollamaUrl: 'http://ollama:11434',
+      ollamaModel: 'm',
+    } as never);
+    mockExtractRecipeFromText.mockResolvedValue({ recipe: null, error: null, notUsable: true });
+    await extractRecipeFromMetadata({ title: 'T', description: 'see link' }, null, {
+      host: 'blog.example.com',
+      text: 'PAGE BODY',
+    });
+    const text = mockExtractRecipeFromText.mock.calls[0][0] as string;
+    expect(text).toContain('Linked page (blog.example.com):\nPAGE BODY');
+    expect(text.indexOf('see link')).toBeLessThan(text.indexOf('Linked page'));
+  });
+
+  it('runs the model on linked text even when the caption is empty', async () => {
+    mockGetSettings.mockResolvedValue({
+      llmMode: 'direct',
+      ollamaUrl: 'http://ollama:11434',
+    } as never);
+    mockExtractRecipeFromText.mockResolvedValue({ recipe: null, error: null, notUsable: true });
+    const r = await extractRecipeFromMetadata({}, null, { host: 'h.com', text: 'x' });
+    expect(r.status).toBe('no_recipe');
+  });
+});

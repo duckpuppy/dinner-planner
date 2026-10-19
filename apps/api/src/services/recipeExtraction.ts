@@ -61,7 +61,9 @@ export function selectComments(
 
 export async function extractRecipeFromMetadata(
   metadata: Record<string, unknown>,
-  transcript?: string | null
+  transcript?: string | null,
+  /** Readable text of a page the post links to (dinner-22c.4), fed to the model as an extra section */
+  linkedPage?: { host: string; text: string } | null
 ): Promise<ExtractionResult> {
   const rawTitle = typeof metadata['title'] === 'string' ? metadata['title'] : '';
   const rawDescription = typeof metadata['description'] === 'string' ? metadata['description'] : '';
@@ -91,7 +93,7 @@ export async function extractRecipeFromMetadata(
   const commentsText = isVideoCommentsEnabled() ? selectComments(metadata) : null;
 
   // Only skip the model when there is no text at all to extract from.
-  if (!rawDescription.trim() && !transcriptText && !commentsText) {
+  if (!rawDescription.trim() && !transcriptText && !commentsText && !linkedPage) {
     return noneResult('no_description');
   }
 
@@ -108,6 +110,7 @@ export async function extractRecipeFromMetadata(
     if (commentsText) {
       sections.push(`Video comments (the uploader's own comments first):\n${commentsText}`);
     }
+    if (linkedPage) sections.push(`Linked page (${linkedPage.host}):\n${linkedPage.text}`);
     const text = sections.join('\n\n');
 
     const model = (settings.ollamaModel as string | null | undefined) ?? 'gemma4-e4b';

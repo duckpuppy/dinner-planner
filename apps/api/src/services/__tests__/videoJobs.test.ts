@@ -50,6 +50,21 @@ vi.mock('../recipeExtraction.js', () => ({
     .mockResolvedValue({ recipe: null, rawTitle: '', rawDescription: '', source: 'none' }),
 }));
 
+vi.mock('../linkedRecipe.js', async () => {
+  const actual = await vi.importActual<typeof import('../linkedRecipe.js')>('../linkedRecipe.js');
+  return {
+    buildLinkMeta: actual.buildLinkMeta,
+    followLinks: vi.fn().mockResolvedValue({
+      recipe: null,
+      pageText: null,
+      pageHost: null,
+      outcomes: [],
+      linkedPage: null,
+    }),
+  };
+});
+
+import * as linkedRecipe from '../linkedRecipe.js';
 import * as videoDownload from '../videoDownload.js';
 import * as recipeExtraction from '../recipeExtraction.js';
 import {
@@ -66,6 +81,14 @@ import { YtdlpError } from '../ytdlpErrors.js';
 const mockDownloadVideo = vi.mocked(videoDownload.downloadVideo);
 const mockFetchMetadataOnly = vi.mocked(videoDownload.fetchMetadataOnly);
 const mockGetVideoStorageUsage = vi.mocked(videoDownload.getVideoStorageUsage);
+const mockFollowLinks = vi.mocked(linkedRecipe.followLinks);
+const noLinks = {
+  recipe: null,
+  pageText: null,
+  pageHost: null,
+  outcomes: [],
+  linkedPage: null,
+};
 const mockExtractRecipeFromMetadata = vi.mocked(recipeExtraction.extractRecipeFromMetadata);
 
 // --- Chain helpers ---
@@ -92,6 +115,7 @@ function makeUpdate() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockFollowLinks.mockResolvedValue(noLinks);
 });
 
 // ---------------------------------------------------------------------------
@@ -217,7 +241,7 @@ describe('processVideoJob — download succeeds', () => {
     await processVideoJob('job-1', 100_000_000);
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null);
+    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null, null);
     expect(updates.length).toBeGreaterThanOrEqual(2);
     const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
     expect(lastUpdate.set).toHaveBeenCalledWith(
@@ -728,7 +752,8 @@ describe('processReextract', () => {
     expect(mockDownloadVideo).not.toHaveBeenCalled();
     expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(
       { title: 'T', description: 'D' },
-      'tr'
+      'tr',
+      null
     );
     expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -814,5 +839,169 @@ describe('processReextract', () => {
     expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'complete', extractionStatus: 'failed' })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Link-following stage (dinner-22c.4)
+// ---------------------------------------------------------------------------
+
+describe('link-following stage', () => {
+  const outcomes = [{ url: 'blog.example.com/soup', result: 'recipe' as const }];
+  const linked = {
+    name: 'Linked Soup',
+    description: null,
+    ingredients: [{ name: 'water', quantity: 1, unit: 'cup', notes: null }],
+    instructions: 'Boil',
+    sourceUrl: 'https://blog.example.com/soup',
+    videoUrl: 'https://www.tiktok.com/t/abc/',
+    tags: [],
+  };
+
+  function captureUpdates() {
+    const updates: ReturnType<typeof makeUpdate>[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = makeUpdate();
+      updates.push(u);
+      return u;
+    });
+    return updates;
+  }
+
+  async function runJob() {
+    mockGetVideoStorageUsage.mockResolvedValue(0);
+    mockDb.select.mockReturnValue(
+      makeSelect([{ id: 'j', sourceUrl: 'https://www.tiktok.com/t/abc/', status: 'pending' }])
+    );
+    mockDownloadVideo.mockResolvedValue({
+      videoFilename: 'v.mp4',
+      thumbnailFilename: null,
+      infoJson: { title: 'T', description: 'full recipe at https://blog.example.com/soup' },
+      videoSize: 1,
+      videoDuration: 1,
+      transcript: null,
+    });
+    const updates = captureUpdates();
+    await processVideoJob('j', 100_000_000);
+    await new Promise((r) => setTimeout(r, 50));
+    return updates[updates.length - 1].set.mock.calls[0][0] as Record<string, string | null>;
+  }
+
+  it('uses a linked recipe as-is, skips the LLM, and does not patch its sourceUrl/videoUrl', async () => {
+    mockFollowLinks.mockResolvedValue({ ...noLinks, recipe: linked as never, outcomes });
+    const set = await runJob();
+    expect(mockExtractRecipeFromMetadata).not.toHaveBeenCalled();
+    expect(set.extractionStatus).toBe('llm');
+    expect(JSON.parse(set.extractedRecipe!)).toMatchObject({
+      sourceUrl: 'https://blog.example.com/soup',
+      videoUrl: 'https://www.tiktok.com/t/abc/',
+    });
+    const meta = JSON.parse(set.resultMetadata!);
+    expect(meta.extractionSource).toBe('linked_page');
+    expect(meta.linkOutcomes).toEqual(outcomes);
+    expect(meta.infoJson).toBeDefined();
+    expect(set).not.toHaveProperty('linkMeta');
+  });
+
+  it('feeds linked page text to the model and records linked_text', async () => {
+    const linkedPage = { host: 'blog.example.com', text: 'page text' };
+    mockFollowLinks.mockResolvedValue({
+      ...noLinks,
+      pageText: 'page text',
+      pageHost: 'blog.example.com',
+      linkedPage,
+      outcomes: [{ url: 'blog.example.com/soup', result: 'text' }],
+    });
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: { name: 'R', ingredients: [], tags: [] } as never,
+      rawTitle: 'T',
+      rawDescription: 'D',
+      source: 'llm',
+      status: 'llm',
+      error: null,
+    });
+    const set = await runJob();
+    expect(mockExtractRecipeFromMetadata.mock.calls[0][2]).toEqual(linkedPage);
+    const meta = JSON.parse(set.resultMetadata!);
+    expect(meta.extractionSource).toBe('linked_text');
+    // LLM output still gets the post URL patched in
+    expect(JSON.parse(set.extractedRecipe!).sourceUrl).toBe('https://www.tiktok.com/t/abc/');
+  });
+
+  it('a blocked link does not fail the import: caption extraction proceeds and the outcome is recorded', async () => {
+    mockFollowLinks.mockResolvedValue({
+      ...noLinks,
+      outcomes: [{ url: 'blog.example.com/soup', result: 'blocked' }],
+    });
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: { name: 'R', ingredients: [], tags: [] } as never,
+      rawTitle: 'T',
+      rawDescription: 'D',
+      source: 'llm',
+      status: 'llm',
+      error: null,
+    });
+    const set = await runJob();
+    expect(set.extractionStatus).toBe('llm');
+    const meta = JSON.parse(set.resultMetadata!);
+    expect(meta.extractionSource).toBe('caption');
+    expect(meta.linkOutcomes).toEqual([{ url: 'blog.example.com/soup', result: 'blocked' }]);
+  });
+
+  it('re-extract runs the link stage and merges into resultMetadata without clobbering other keys', async () => {
+    mockDb.select.mockReturnValue(
+      makeSelect([
+        {
+          id: 'j1',
+          sourceUrl: 'https://www.tiktok.com/t/abc/',
+          transcript: 'tr',
+          resultMetadata: JSON.stringify({
+            infoJson: { title: 'T' },
+            thumbnailFilename: 'a.jpg',
+            userInput: 'extra',
+          }),
+        },
+      ])
+    );
+    mockFollowLinks.mockResolvedValue({ ...noLinks, recipe: linked as never, outcomes });
+    const updates = captureUpdates();
+
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(mockFollowLinks).toHaveBeenCalledWith(
+      'https://www.tiktok.com/t/abc/',
+      { title: 'T' },
+      'tr'
+    );
+    const set = updates[updates.length - 1].set.mock.calls[0][0] as Record<string, string>;
+    expect(set.status).toBe('complete');
+    expect(JSON.parse(set.resultMetadata)).toEqual({
+      infoJson: { title: 'T' },
+      thumbnailFilename: 'a.jpg',
+      userInput: 'extra',
+      extractionSource: 'linked_page',
+      linkOutcomes: outcomes,
+    });
+  });
+
+  it('re-extract leaves resultMetadata untouched when extraction crashed', async () => {
+    mockDb.select.mockReturnValue(
+      makeSelect([
+        {
+          id: 'j1',
+          sourceUrl: 'u',
+          transcript: null,
+          resultMetadata: JSON.stringify({ infoJson: {} }),
+        },
+      ])
+    );
+    mockFollowLinks.mockRejectedValue(new Error('boom'));
+    const updates = captureUpdates();
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+    const set = updates[updates.length - 1].set.mock.calls[0][0] as Record<string, unknown>;
+    expect(set.extractionStatus).toBe('failed');
+    expect(set).not.toHaveProperty('resultMetadata');
   });
 });

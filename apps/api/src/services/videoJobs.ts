@@ -7,7 +7,8 @@ import {
   getVideoStorageUsage,
   type DownloadResult,
 } from './videoDownload.js';
-import { extractRecipeFromMetadata } from './recipeExtraction.js';
+import { extractRecipeFromMetadata, type ExtractionStatus } from './recipeExtraction.js';
+import { buildLinkMeta, followLinks, type LinkMeta } from './linkedRecipe.js';
 import { YtdlpError } from './ytdlpErrors.js';
 import { logEvent } from './appEvents.js';
 
@@ -45,6 +46,14 @@ export async function getVideoJobForFamily(jobId: string, familyId: string) {
   return job ?? null;
 }
 
+interface ExtractionOutcome {
+  extractedRecipe: string | null;
+  extractionStatus: ExtractionStatus;
+  extractionError: string | null;
+  /** Stored in resultMetadata, not a column: where the recipe came from + link results */
+  linkMeta: LinkMeta | null;
+}
+
 /**
  * Run recipe extraction and return the columns to persist. Never throws: an
  * unexpected extraction crash is recorded as extractionStatus='failed'.
@@ -53,9 +62,19 @@ async function runExtraction(
   sourceUrl: string,
   infoJson: Record<string, unknown>,
   transcript: string | null
-) {
+): Promise<ExtractionOutcome> {
   try {
-    const extraction = await extractRecipeFromMetadata(infoJson, transcript);
+    // Link-following stage (dinner-22c.4): a recipe linked from the post wins over the LLM.
+    const link = await followLinks(sourceUrl, infoJson, transcript);
+    if (link.recipe) {
+      return {
+        extractedRecipe: JSON.stringify(link.recipe),
+        extractionStatus: 'llm',
+        extractionError: null,
+        linkMeta: buildLinkMeta(link, true),
+      };
+    }
+    const extraction = await extractRecipeFromMetadata(infoJson, transcript, link.linkedPage);
     let extractedRecipe: string | null = null;
     if (extraction.recipe) {
       // Patch sourceUrl and videoUrl from job data — LLM always outputs these as null
@@ -67,14 +86,16 @@ async function runExtraction(
       extractedRecipe,
       extractionStatus: extraction.status ?? (extraction.recipe ? 'llm' : 'failed'),
       extractionError: extraction.error ?? null,
-    } as const;
+      linkMeta: buildLinkMeta(link, extraction.recipe !== null),
+    };
   } catch (err) {
     console.error('[videoJobs] extraction crashed:', err);
     return {
       extractedRecipe: null,
       extractionStatus: 'failed',
       extractionError: 'Recipe extraction failed unexpectedly',
-    } as const;
+      linkMeta: null,
+    };
   }
 }
 
@@ -118,7 +139,8 @@ export function processReextract(jobId: string): void {
 }
 
 async function _runReextract(jobId: string): Promise<void> {
-  let outcome: Awaited<ReturnType<typeof runExtraction>>;
+  let outcome: ExtractionOutcome;
+  let storedMeta: Record<string, unknown> = {};
   try {
     const job = await getVideoJob(jobId);
     let infoJson: Record<string, unknown> | null = null;
@@ -126,6 +148,7 @@ async function _runReextract(jobId: string): Promise<void> {
       const meta = JSON.parse(job?.resultMetadata ?? '') as {
         infoJson?: Record<string, unknown>;
       };
+      storedMeta = meta;
       infoJson = meta.infoJson ?? {};
     } catch {
       infoJson = null;
@@ -137,6 +160,7 @@ async function _runReextract(jobId: string): Promise<void> {
             extractedRecipe: null,
             extractionStatus: 'failed',
             extractionError: 'No stored post metadata to extract from',
+            linkMeta: null,
           };
   } catch (err) {
     console.error(`[videoJobs] Re-extraction of job ${jobId} crashed:`, err);
@@ -144,12 +168,19 @@ async function _runReextract(jobId: string): Promise<void> {
       extractedRecipe: null,
       extractionStatus: 'failed',
       extractionError: 'Recipe extraction failed unexpectedly',
+      linkMeta: null,
     };
   }
-  // Whatever happened, release the 'extracting' state.
+  // Whatever happened, release the 'extracting' state. Merge (never replace) resultMetadata
+  // so infoJson and any other stored keys survive.
+  const { linkMeta, ...columns } = outcome;
   await db
     .update(schema.videoJobs)
-    .set({ ...outcome, status: 'complete' })
+    .set({
+      ...columns,
+      ...(linkMeta ? { resultMetadata: JSON.stringify({ ...storedMeta, ...linkMeta }) } : {}),
+      status: 'complete',
+    })
     .where(eq(schema.videoJobs.id, jobId));
 }
 
@@ -238,7 +269,11 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
     }
 
     // 5. Extract recipe from video metadata (title + description + transcript) via LLM if configured
-    const outcome = await runExtraction(job.sourceUrl, result.infoJson, result.transcript);
+    const { linkMeta, ...outcome } = await runExtraction(
+      job.sourceUrl,
+      result.infoJson,
+      result.transcript
+    );
 
     // 6. Update job with results → complete
     await db
@@ -252,6 +287,7 @@ async function _runJob(jobId: string, storageLimit: number): Promise<void> {
           infoJson: result.infoJson,
           videoSize: result.videoSize,
           videoDuration: result.videoDuration,
+          ...linkMeta,
         }),
         transcript: result.transcript ?? null,
         warning,
