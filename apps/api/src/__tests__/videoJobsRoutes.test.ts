@@ -948,4 +948,26 @@ describe('POST /api/jobs/:id/extract (asynchronous)', () => {
     expect(job.rawTitle).toBe('T');
     expect(job.rawDescription).toBe('D');
   });
+
+  it('a no_recipe extraction is exposed on GET with its message and the raw fields', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({
+        id: 'j1',
+        status: 'complete',
+        resultMetadata: stored,
+        extractedRecipe: null,
+        extractionStatus: 'no_recipe',
+        extractionError: 'No recipe found in this post.',
+      })
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/j1',
+      headers: bearerHeader(app),
+    });
+    const { job } = JSON.parse(res.body);
+    expect(job.extractionStatus).toBe('no_recipe');
+    expect(job.extractionError).toBe('No recipe found in this post.');
+    expect(job.rawTitle).toBe('T');
+  });
 });

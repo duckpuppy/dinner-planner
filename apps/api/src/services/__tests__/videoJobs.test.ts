@@ -604,6 +604,49 @@ describe('processVideoJob — extraction outcome', () => {
   });
 });
 
+describe('processVideoJob — no_recipe outcome', () => {
+  it('persists extractionStatus=no_recipe with a null recipe', async () => {
+    mockGetVideoStorageUsage.mockResolvedValue(0);
+    mockDb.select.mockReturnValue(
+      makeSelect([{ id: 'job-n', sourceUrl: 'https://www.tiktok.com/t/abc/', status: 'pending' }])
+    );
+    mockDownloadVideo.mockResolvedValue({
+      videoFilename: 'v.mp4',
+      thumbnailFilename: null,
+      infoJson: { title: 'Reel', description: 'so fun' },
+      videoSize: 10,
+      videoDuration: 5,
+      transcript: null,
+    });
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'Reel',
+      rawDescription: 'so fun',
+      source: 'none',
+      status: 'no_recipe',
+      error: 'No recipe found in this post.',
+    });
+    const updates: ReturnType<typeof makeUpdate>[] = [];
+    mockDb.update.mockImplementation(() => {
+      const u = makeUpdate();
+      updates.push(u);
+      return u;
+    });
+
+    await processVideoJob('job-n', 100_000_000);
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'complete',
+        extractedRecipe: null,
+        extractionStatus: 'no_recipe',
+        extractionError: 'No recipe found in this post.',
+      })
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // getVideoJobForFamily / createVideoJob familyId / reextractVideoJob
 // ---------------------------------------------------------------------------
@@ -717,6 +760,31 @@ describe('processReextract', () => {
         status: 'complete',
         extractionStatus: 'failed',
         extractionError: 'The AI model returned an error (HTTP 500)',
+        extractedRecipe: null,
+      })
+    );
+  });
+
+  it('records extractionStatus=no_recipe on re-extraction when the model finds no recipe', async () => {
+    mockDb.select.mockReturnValue(makeSelect([stored]));
+    mockExtractRecipeFromMetadata.mockResolvedValue({
+      recipe: null,
+      rawTitle: 'T',
+      rawDescription: 'D',
+      source: 'none',
+      status: 'no_recipe',
+      error: 'No recipe found in this post.',
+    });
+    const updates = captureUpdates();
+
+    processReextract('j1');
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'complete',
+        extractionStatus: 'no_recipe',
+        extractionError: 'No recipe found in this post.',
         extractedRecipe: null,
       })
     );

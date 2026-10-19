@@ -1,4 +1,9 @@
-import { importedRecipeSchema, type ImportedRecipe } from '@dinner-planner/shared';
+import {
+  isUsableRecipe,
+  normalizeModelRecipe,
+  NO_RECIPE_MESSAGE,
+  type ImportedRecipe,
+} from '@dinner-planner/shared';
 
 const SYSTEM_PROMPT = `You are a recipe extraction assistant. Extract a structured recipe from the following text.
 Return a JSON object with these exact fields:
@@ -48,11 +53,20 @@ export interface ExtractionAttempt {
   recipe: ImportedRecipe | null;
   /** Friendly, user-facing reason when recipe is null */
   error: string | null;
+  /**
+   * True when the model ran and returned a valid response that contained no usable
+   * recipe (e.g. the post simply has none). Not an error and not retried.
+   */
+  notUsable?: boolean;
 }
+
+const UNREADABLE_MESSAGE = "The AI model's response couldn't be read as a recipe";
 
 type AttemptOutcome =
   | { kind: 'ok'; recipe: ImportedRecipe }
-  | { kind: 'retry'; error: string }
+  | { kind: 'not_usable' }
+  /** `invalid`: malformed output (not JSON / not an object); retried once, then fatal. */
+  | { kind: 'retry'; error: string; invalid?: boolean }
   | { kind: 'fatal'; error: string };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -112,16 +126,21 @@ async function generateOnce(
       parsed = JSON.parse(rawText);
     } catch (err) {
       console.warn('[ollama] failed to parse response as JSON:', err);
-      return { kind: 'fatal', error: "The AI model's response couldn't be read as a recipe" };
+      return { kind: 'retry', error: UNREADABLE_MESSAGE, invalid: true };
     }
 
-    const result = importedRecipeSchema.safeParse(parsed);
-    if (!result.success) {
-      console.warn('[ollama] recipe validation failed:', result.error.issues);
-      return { kind: 'fatal', error: "The AI model's response couldn't be read as a recipe" };
+    const recipe = normalizeModelRecipe(parsed);
+    if (!recipe) {
+      console.warn('[ollama] response was not a recipe object');
+      return { kind: 'retry', error: UNREADABLE_MESSAGE, invalid: true };
     }
 
-    return { kind: 'ok', recipe: result.data };
+    if (!isUsableRecipe(recipe)) {
+      console.warn('[ollama] model returned a valid but empty recipe');
+      return { kind: 'not_usable' };
+    }
+
+    return { kind: 'ok', recipe };
   } catch (err) {
     console.warn('[ollama] extractRecipeFromText error:', err);
     return {
@@ -137,7 +156,8 @@ async function generateOnce(
 
 /**
  * Call Ollama /api/generate. Retries on 5xx and network errors (not 4xx, not timeouts)
- * with backoff between attempts. Returns the recipe or a friendly error.
+ * with backoff between attempts, and once on malformed (non-JSON) output. A valid but
+ * empty recipe is not retried; it is reported via `notUsable`. Returns the recipe or a friendly error.
  */
 export async function extractRecipeFromTextDetailed(
   text: string,
@@ -147,6 +167,7 @@ export async function extractRecipeFromTextDetailed(
 ): Promise<ExtractionAttempt> {
   const delays = opts.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   let lastError = 'Recipe extraction failed';
+  let invalidSeen = false;
 
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     if (attempt > 0) {
@@ -155,8 +176,16 @@ export async function extractRecipeFromTextDetailed(
     }
     const outcome = await generateOnce(text, ollamaUrl, model);
     if (outcome.kind === 'ok') return { recipe: outcome.recipe, error: null };
+    if (outcome.kind === 'not_usable') {
+      return { recipe: null, error: NO_RECIPE_MESSAGE, notUsable: true };
+    }
     lastError = outcome.error;
     if (outcome.kind === 'fatal') break;
+    if (outcome.invalid) {
+      // Malformed output gets exactly one retry regardless of the backoff budget.
+      if (invalidSeen) break;
+      invalidSeen = true;
+    }
   }
 
   return { recipe: null, error: lastError };

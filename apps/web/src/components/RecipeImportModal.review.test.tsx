@@ -156,6 +156,18 @@ describe('RecipeImportModal review step', () => {
     expect(screen.getByRole('button', { name: 'Try extraction again' })).toBeDefined();
   });
 
+  it('no_recipe: shows notice and retry button', async () => {
+    await startImport(
+      makeJob({
+        extractionStatus: 'no_recipe',
+        extractionError: 'No recipe found in this post.',
+        rawTitle: 'Soup',
+      })
+    );
+    expect(screen.getByText(/No recipe found in this post/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Try extraction again' })).toBeDefined();
+  });
+
   it('warning-only import shows the notice, keeps the recipe, and renders no player', async () => {
     await startImport(
       makeJob({
