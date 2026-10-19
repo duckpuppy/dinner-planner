@@ -122,7 +122,8 @@ export async function extractRecipeFromMetadata(
     if (commentsText) {
       sections.push(`Video comments (the uploader's own comments first):\n${commentsText}`);
     }
-    if (linkedPage) sections.push(`Linked page (${linkedPage.host}):
+    if (linkedPage)
+      sections.push(`Linked page (${linkedPage.host}):
 ${linkedPage.text}`);
     const text = sections.join('\n\n');
 

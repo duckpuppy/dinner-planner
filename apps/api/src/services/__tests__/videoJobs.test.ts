@@ -241,7 +241,9 @@ describe('processVideoJob — download succeeds', () => {
     await processVideoJob('job-1', 100_000_000);
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null, null);
+    expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(downloadResult.infoJson, null, {
+      linkedPage: null,
+    });
     expect(updates.length).toBeGreaterThanOrEqual(2);
     const lastUpdate = updates[updates.length - 1] as ReturnType<typeof makeUpdate>;
     expect(lastUpdate.set).toHaveBeenCalledWith(
@@ -753,7 +755,7 @@ describe('processReextract', () => {
     expect(mockExtractRecipeFromMetadata).toHaveBeenCalledWith(
       { title: 'T', description: 'D' },
       'tr',
-      null
+      { linkedPage: null }
     );
     expect(updates[updates.length - 1].set).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -921,7 +923,7 @@ describe('link-following stage', () => {
       error: null,
     });
     const set = await runJob();
-    expect(mockExtractRecipeFromMetadata.mock.calls[0][2]).toEqual(linkedPage);
+    expect(mockExtractRecipeFromMetadata.mock.calls[0][2]).toMatchObject({ linkedPage });
     const meta = JSON.parse(set.resultMetadata!);
     expect(meta.extractionSource).toBe('linked_text');
     // LLM output still gets the post URL patched in

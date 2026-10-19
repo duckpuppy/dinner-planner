@@ -1,6 +1,6 @@
 /**
  * Re-extraction with user-supplied input (dinner-22c.3), against a real in-memory
- * SQLite database. The model call and the page import are mocked.
+ * SQLite database. The model call and the link resolver are mocked.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
@@ -24,9 +24,17 @@ vi.mock('../db/index.js', async () => {
 vi.mock('../services/recipeExtraction.js', () => ({
   extractRecipeFromMetadata: vi.fn(),
 }));
-vi.mock('../services/recipeImport.js', () => ({
-  importRecipeFromUrl: vi.fn(),
-}));
+vi.mock('../services/linkedRecipe.js', async () => {
+  const actual = await vi.importActual<typeof import('../services/linkedRecipe.js')>(
+    '../services/linkedRecipe.js'
+  );
+  return {
+    buildLinkMeta: actual.buildLinkMeta,
+    extractCandidateUrls: actual.extractCandidateUrls,
+    followLinks: vi.fn(),
+    resolveLinkedRecipe: vi.fn(),
+  };
+});
 vi.mock('../services/videoDownload.js', () => ({
   downloadVideo: vi.fn(),
   fetchMetadataOnly: vi.fn(),
@@ -36,16 +44,17 @@ vi.mock('../services/appEvents.js', () => ({ logEvent: vi.fn() }));
 
 import { claimReextract, processReextract, getVideoJob } from '../services/videoJobs.js';
 import { extractRecipeFromMetadata } from '../services/recipeExtraction.js';
-import { importRecipeFromUrl } from '../services/recipeImport.js';
-import { SsrfBlockedError } from '../services/safeFetch.js';
+import { followLinks, resolveLinkedRecipe } from '../services/linkedRecipe.js';
 import {
   LINKED_PAGE_NO_RECIPE_MESSAGE,
   LINK_UNUSABLE_MESSAGE,
   LINK_UNREADABLE_MESSAGE,
+  LINK_BLOCKED_MESSAGE,
 } from '../services/userInputExtraction.js';
 
 const mockExtract = vi.mocked(extractRecipeFromMetadata);
-const mockImport = vi.mocked(importRecipeFromUrl);
+const mockFollow = vi.mocked(followLinks);
+const mockResolve = vi.mocked(resolveLinkedRecipe);
 
 let sqlite: Database.Database;
 let testDb: ReturnType<typeof drizzle<typeof schema>>;
@@ -54,11 +63,26 @@ const POST_URL = 'https://www.facebook.com/reel/123';
 const PAGE_URL = 'https://example.com/recipe';
 
 function recipe(name: string, sourceUrl: string | null = null) {
-  return { name, sourceUrl, videoUrl: null, ingredients: [], steps: [] } as never;
+  return {
+    name,
+    sourceUrl,
+    videoUrl: sourceUrl ? POST_URL : null,
+    ingredients: [],
+    steps: [],
+  } as never;
 }
 
 function noRecipe() {
   return { recipe: null, status: 'no_recipe', error: 'x' } as never;
+}
+
+function resolved(result: 'recipe' | 'text' | 'blocked' | 'no_recipe' | 'error') {
+  return {
+    recipe: result === 'recipe' ? recipe('Page recipe', PAGE_URL) : null,
+    pageText: result === 'text' ? 'Blog post with a recipe in prose' : null,
+    pageHost: result === 'text' ? 'example.com' : null,
+    outcomes: [{ url: 'example.com/recipe', result }],
+  } as never;
 }
 
 beforeAll(() => {
@@ -72,7 +96,15 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockExtract.mockReset();
-  mockImport.mockReset();
+  mockFollow.mockReset();
+  mockResolve.mockReset();
+  mockFollow.mockResolvedValue({
+    recipe: null,
+    pageText: null,
+    pageHost: null,
+    outcomes: [],
+    linkedPage: null,
+  });
   sqlite.exec('DELETE FROM video_jobs; DELETE FROM families;');
   testDb.insert(schema.families).values({ id: 'fam-a', name: 'A' }).run();
   testDb
@@ -115,9 +147,10 @@ describe('claimReextract persistence', () => {
     expect(meta.userInput).toEqual({ extraText: 'pasted' });
     expect(meta.thumbnailFilename).toBe('t.jpg');
     expect(meta.infoJson).toEqual({ title: 'T', description: '' });
+    expect(meta.extractionSource).toBe('caption');
   });
 
-  it('does not touch resultMetadata when no input is given', async () => {
+  it('does not add userInput when none is given', async () => {
     mockExtract.mockResolvedValue(noRecipe());
     const { meta } = await run();
     expect(meta.userInput).toBeUndefined();
@@ -130,62 +163,105 @@ describe('claimReextract persistence', () => {
     expect(mockExtract).toHaveBeenLastCalledWith(
       { title: 'T', description: '' },
       'spoken words',
-      'remember me'
+      expect.objectContaining({ extraText: 'remember me' })
     );
   });
 
+  it('a persisted recipeUrl is reused by a plain re-extract', async () => {
+    mockResolve.mockResolvedValue(resolved('recipe'));
+    await run({ recipeUrl: PAGE_URL });
+    const { meta } = await run();
+    expect(mockResolve).toHaveBeenCalledTimes(2);
+    expect(meta.userInput).toEqual({ recipeUrl: PAGE_URL });
+  });
+
   it('new input replaces the old input entirely', async () => {
-    mockImport.mockResolvedValue(recipe('R', PAGE_URL));
+    mockResolve.mockResolvedValue(resolved('recipe'));
     await run({ recipeUrl: PAGE_URL });
     mockExtract.mockResolvedValue(noRecipe());
     const { meta } = await run({ extraText: 'now text' });
     expect(meta.userInput).toEqual({ extraText: 'now text' });
-    expect(meta.extractionSource).toBeUndefined();
+    expect(meta.extractionSource).toBe('caption');
   });
 });
 
 describe('extraText', () => {
-  it('reaches the model input and a successful recipe gets the post URL', async () => {
+  it('reaches the model input, caption link discovery still runs, post URL is patched', async () => {
     mockExtract.mockResolvedValue({
       recipe: recipe('Soup'),
       status: 'llm',
       error: null,
     } as never);
     const { job, recipe: r } = await run({ extraText: '2 cups flour' });
-    expect(mockExtract).toHaveBeenCalledWith(
-      { title: 'T', description: '' },
-      'spoken words',
-      '2 cups flour'
-    );
+    expect(mockFollow).toHaveBeenCalledTimes(1);
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: null,
+      extraText: '2 cups flour',
+    });
     expect(job.extractionStatus).toBe('llm');
     expect(r?.sourceUrl).toBe(POST_URL);
     expect(r?.videoUrl).toBe(POST_URL);
-    expect(mockImport).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
+  });
+
+  it('a link found in the caption still wins over the model', async () => {
+    mockFollow.mockResolvedValue({
+      recipe: recipe('Caption link recipe', 'https://blog.test/r'),
+      pageText: null,
+      pageHost: null,
+      outcomes: [{ url: 'blog.test/r', result: 'recipe' }],
+      linkedPage: null,
+    } as never);
+    const { recipe: r, meta } = await run({ extraText: 'text' });
+    expect(r?.name).toBe('Caption link recipe');
+    expect(meta.extractionSource).toBe('linked_page');
+    expect(mockExtract).not.toHaveBeenCalled();
   });
 });
 
-describe('recipeUrl', () => {
-  it('uses the page recipe directly (no LLM), patches sourceUrl/videoUrl, records the source', async () => {
-    mockImport.mockResolvedValue(recipe('Page recipe', PAGE_URL));
+describe('pasted recipeUrl (resolved via linkedRecipe.resolveLinkedRecipe)', () => {
+  it('uses the page recipe directly (no LLM, no auto-discovery), records linked_page', async () => {
+    mockResolve.mockResolvedValue(resolved('recipe'));
     const { job, meta, recipe: r } = await run({ recipeUrl: PAGE_URL });
+    expect(mockResolve).toHaveBeenCalledWith([PAGE_URL], { postUrl: POST_URL });
+    expect(mockFollow).not.toHaveBeenCalled();
     expect(mockExtract).not.toHaveBeenCalled();
     expect(job.extractionStatus).toBe('llm');
     expect(job.extractionError).toBeNull();
-    expect(r?.name).toBe('Page recipe');
     expect(r?.sourceUrl).toBe(PAGE_URL);
     expect(r?.videoUrl).toBe(POST_URL);
     expect(meta.extractionSource).toBe('linked_page');
     expect(meta.userInput).toEqual({ recipeUrl: PAGE_URL });
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'recipe' }]);
+  });
+
+  it('falls back to the page text: fed to the model as the linked page, source linked_text', async () => {
+    mockResolve.mockResolvedValue(resolved('text'));
+    mockExtract.mockResolvedValue({ recipe: recipe('Prose'), status: 'llm', error: null } as never);
+    const { job, meta } = await run({ recipeUrl: PAGE_URL });
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: { host: 'example.com', text: 'Blog post with a recipe in prose' },
+      extraText: undefined,
+    });
+    expect(job.extractionStatus).toBe('llm');
+    expect(meta.extractionSource).toBe('linked_text');
+  });
+
+  it('a blocked site gets the paste-the-text message (no LLM call)', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    const { job } = await run({ recipeUrl: PAGE_URL });
+    expect(job.status).toBe('complete');
+    expect(job.extractionStatus).toBe('failed');
+    expect(job.extractionError).toBe(
+      'That site blocked our automated request. Open the page and paste the recipe text here instead.'
+    );
+    expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+    expect(mockExtract).not.toHaveBeenCalled();
   });
 
   it('a page without recipe data finishes as no_recipe with the paste hint', async () => {
-    mockImport.mockRejectedValue(
-      new Error(
-        'No recipe data found on this page. The site may not support structured recipe data.'
-      )
-    );
+    mockResolve.mockResolvedValue(resolved('no_recipe'));
     const { job, recipe: r } = await run({ recipeUrl: PAGE_URL });
-    expect(job.status).toBe('complete');
     expect(job.extractionStatus).toBe('no_recipe');
     expect(job.extractionError).toBe(
       'That page has no recipe data we can read. Paste the recipe text instead.'
@@ -195,28 +271,29 @@ describe('recipeUrl', () => {
     expect(mockExtract).not.toHaveBeenCalled();
   });
 
-  it('SSRF-blocked and invalid links give the generic message, never the raw error', async () => {
-    mockImport.mockRejectedValue(new SsrfBlockedError('URL not allowed: private 10.0.0.1'));
-    let out = await run({ recipeUrl: 'https://10.0.0.1/x' });
-    expect(out.job.extractionStatus).toBe('failed');
-    expect(out.job.extractionError).toBe("That link can't be used.");
-    expect(out.job.extractionError).toBe(LINK_UNUSABLE_MESSAGE);
-
-    mockImport.mockRejectedValue(new Error('Invalid URL'));
-    out = await run({ recipeUrl: 'https://x.test/' });
-    expect(out.job.extractionError).toBe(LINK_UNUSABLE_MESSAGE);
-  });
-
-  it('a 403 / network failure gives a friendly message without the raw text', async () => {
-    mockImport.mockRejectedValue(new Error('HTTP 403 fetching recipe URL'));
+  it('a fetch error gives a friendly message without raw text', async () => {
+    mockResolve.mockResolvedValue(resolved('error'));
     const { job } = await run({ recipeUrl: PAGE_URL });
     expect(job.extractionStatus).toBe('failed');
     expect(job.extractionError).toBe(LINK_UNREADABLE_MESSAGE);
-    expect(job.extractionError).not.toMatch(/403|HTTP/);
   });
 
-  it('falls back to the pasted text when the link yields nothing but text was also given', async () => {
-    mockImport.mockRejectedValue(new Error('No recipe data found on this page.'));
+  it('private-address and social-media links are rejected before any fetch', async () => {
+    for (const url of [
+      'https://10.0.0.1/x',
+      'https://localhost/x',
+      'https://www.facebook.com/p/1',
+    ]) {
+      const { job } = await run({ recipeUrl: url });
+      expect(job.extractionStatus).toBe('failed');
+      expect(job.extractionError).toBe("That link can't be used.");
+      expect(job.extractionError).toBe(LINK_UNUSABLE_MESSAGE);
+    }
+    expect(mockResolve).not.toHaveBeenCalled();
+  });
+
+  it('with both fields, a failed link falls back to the pasted text', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
     mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
     const { job } = await run({ recipeUrl: PAGE_URL, extraText: 'also text' });
     expect(job.extractionStatus).toBe('llm');
@@ -234,7 +311,7 @@ describe('recipeUrl', () => {
         resultMetadata: '{"infoJson":{}}',
       })
       .run();
-    mockImport.mockResolvedValue(recipe('R', PAGE_URL));
+    mockResolve.mockResolvedValue(resolved('recipe'));
     await run({ recipeUrl: PAGE_URL });
     const [other] = testDb
       .select()

@@ -105,8 +105,12 @@ export function mergeExtractedRecipe(
 
 /** User-facing notice for a completed job that has no extracted recipe. */
 export function extractionNotice(job: VideoJob): string | null {
+  // A pasted link that could not be used: the server's message already says what to do next.
+  const linkError =
+    job.resultMetadata?.userInput?.recipeUrl && job.extractionError ? job.extractionError : null;
   switch (job.extractionStatus) {
     case 'failed':
+      if (linkError) return `${linkError} Prefilled from the post.`;
       return `AI recipe extraction failed — prefilled from the post.${
         job.extractionError ? ` ${job.extractionError}` : ''
       }`;
@@ -115,9 +119,7 @@ export function extractionNotice(job: VideoJob): string | null {
     case 'no_description':
       return 'The post had no description to extract from.';
     case 'no_recipe':
-      if (job.resultMetadata?.userInput?.recipeUrl && job.extractionError) {
-        return `${job.extractionError} Prefilled from the post.`;
-      }
+      if (linkError) return `${linkError} Prefilled from the post.`;
       return 'No recipe found in this post — prefilled from the post. If the recipe is in a comment, paste it or its link below. Check it before saving.';
     default:
       return null;

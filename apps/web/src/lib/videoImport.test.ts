@@ -184,4 +184,18 @@ describe('extractionNotice — linked page', () => {
       'That page has no recipe data we can read. Paste the recipe text instead. Prefilled from the post.'
     );
   });
+
+  it('shows the blocked-site message for a failed pasted link', () => {
+    expect(
+      extractionNotice({
+        ...baseJob,
+        extractionStatus: 'failed',
+        extractionError:
+          'That site blocked our automated request. Open the page and paste the recipe text here instead.',
+        resultMetadata: { userInput: { recipeUrl: 'https://a.test' } },
+      })
+    ).toBe(
+      'That site blocked our automated request. Open the page and paste the recipe text here instead. Prefilled from the post.'
+    );
+  });
 });

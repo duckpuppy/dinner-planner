@@ -379,7 +379,9 @@ describe('extractRecipeFromMetadata — user-provided extra text', () => {
   it('appends the extra text as its own section', async () => {
     mockGetSettings.mockResolvedValueOnce(direct());
     mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
-    await extractRecipeFromMetadata({ title: 'T', description: 'D' }, null, '  2 cups flour ');
+    await extractRecipeFromMetadata({ title: 'T', description: 'D' }, null, {
+      extraText: '  2 cups flour ',
+    });
     expect(mockExtractRecipeFromText.mock.calls[0][0]).toContain(
       'Additional text provided by the user:\n2 cups flour'
     );
@@ -393,7 +395,7 @@ describe('extractRecipeFromMetadata — user-provided extra text', () => {
       await extractRecipeFromMetadata(
         { title: 'T', description: 'D', comments: [{ text: 'a comment' }] },
         'a transcript',
-        'user text'
+        { extraText: 'user text', linkedPage: { host: 'h.com', text: 'PAGE' } }
       );
     } finally {
       delete process.env.VIDEO_IMPORT_COMMENTS;
@@ -403,19 +405,22 @@ describe('extractRecipeFromMetadata — user-provided extra text', () => {
     expect(user).toBeGreaterThan(text.indexOf('D'));
     expect(user).toBeLessThan(text.indexOf('Video transcript:'));
     expect(user).toBeLessThan(text.indexOf('Video comments'));
+    expect(text.indexOf('Linked page')).toBeGreaterThan(text.indexOf('Video comments'));
   });
 
   it('does not short-circuit to no_description when only extra text exists', async () => {
     mockGetSettings.mockResolvedValueOnce(direct());
     mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
-    const r = await extractRecipeFromMetadata({ title: 'T' }, null, 'pasted recipe');
+    const r = await extractRecipeFromMetadata({ title: 'T' }, null, {
+      extraText: 'pasted recipe',
+    });
     expect(r.status).toBe('llm');
     expect(mockExtractRecipeFromText).toHaveBeenCalledTimes(1);
   });
 
   it('blank extra text still yields no_description', async () => {
     mockGetSettings.mockResolvedValueOnce(direct());
-    const r = await extractRecipeFromMetadata({ title: 'T' }, null, '   ');
+    const r = await extractRecipeFromMetadata({ title: 'T' }, null, { extraText: '   ' });
     expect(r.status).toBe('no_description');
   });
 });
@@ -462,8 +467,7 @@ describe('extractRecipeFromMetadata — linked page', () => {
     } as never);
     mockExtractRecipeFromText.mockResolvedValue({ recipe: null, error: null, notUsable: true });
     await extractRecipeFromMetadata({ title: 'T', description: 'see link' }, null, {
-      host: 'blog.example.com',
-      text: 'PAGE BODY',
+      linkedPage: { host: 'blog.example.com', text: 'PAGE BODY' },
     });
     const text = mockExtractRecipeFromText.mock.calls[0][0] as string;
     expect(text).toContain('Linked page (blog.example.com):\nPAGE BODY');
@@ -476,7 +480,9 @@ describe('extractRecipeFromMetadata — linked page', () => {
       ollamaUrl: 'http://ollama:11434',
     } as never);
     mockExtractRecipeFromText.mockResolvedValue({ recipe: null, error: null, notUsable: true });
-    const r = await extractRecipeFromMetadata({}, null, { host: 'h.com', text: 'x' });
+    const r = await extractRecipeFromMetadata({}, null, {
+      linkedPage: { host: 'h.com', text: 'x' },
+    });
     expect(r.status).toBe('no_recipe');
   });
 });
