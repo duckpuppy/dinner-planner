@@ -15,7 +15,8 @@
     "clean": "rm -rf dist",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "eval:extraction": "tsx scripts/eval-extraction.ts"
   },
   "dependencies": {
     "@dinner-planner/shared": "workspace:*",

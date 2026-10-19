@@ -32,19 +32,22 @@ Migrations run automatically on startup — no manual steps needed.
 
 ## Environment Variables
 
-| Variable                    | Required | Default                    | Description                                                                                                               |
-| --------------------------- | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `JWT_SECRET`                | **Yes**  | —                          | Secret for signing JWTs. Min 32 chars. Generate with `openssl rand -base64 32`                                            |
-| `ADMIN_PASSWORD`            | **Yes**  | —                          | Password for the initial admin account                                                                                    |
-| `ADMIN_USERNAME`            | No       | `admin`                    | Username for the initial admin account                                                                                    |
-| `CORS_ORIGIN`               | No       | `http://localhost:3000`    | Allowed CORS origin(s), comma-separated. Set to your public URL in production; add `https://localhost` for the native app |
-| `PORT`                      | No       | `3000`                     | Port the API server listens on                                                                                            |
-| `HOST`                      | No       | `0.0.0.0`                  | Host the API server binds to                                                                                              |
-| `DATABASE_URL`              | No       | `file:/app/data/dinner.db` | SQLite database path                                                                                                      |
-| `NODE_ENV`                  | No       | `production`               | Set to `development` for debug logging                                                                                    |
-| `JWT_ACCESS_EXPIRY`         | No       | `15m`                      | Access token lifetime                                                                                                     |
-| `JWT_REFRESH_EXPIRY`        | No       | `7d`                       | Refresh token lifetime (web). Sliding: extended on every refresh                                                          |
-| `JWT_REFRESH_EXPIRY_NATIVE` | No       | `30d`                      | Refresh token lifetime for the native app (`X-Client-Platform: native`). Sliding                                          |
+| Variable                    | Required | Default                    | Description                                                                                                                                                         |
+| --------------------------- | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                | **Yes**  | —                          | Secret for signing JWTs. Min 32 chars. Generate with `openssl rand -base64 32`                                                                                      |
+| `ADMIN_PASSWORD`            | **Yes**  | —                          | Password for the initial admin account                                                                                                                              |
+| `ADMIN_USERNAME`            | No       | `admin`                    | Username for the initial admin account                                                                                                                              |
+| `CORS_ORIGIN`               | No       | `http://localhost:3000`    | Allowed CORS origin(s), comma-separated. Set to your public URL in production; add `https://localhost` for the native app                                           |
+| `PORT`                      | No       | `3000`                     | Port the API server listens on                                                                                                                                      |
+| `HOST`                      | No       | `0.0.0.0`                  | Host the API server binds to                                                                                                                                        |
+| `DATABASE_URL`              | No       | `file:/app/data/dinner.db` | SQLite database path                                                                                                                                                |
+| `NODE_ENV`                  | No       | `production`               | Set to `development` for debug logging                                                                                                                              |
+| `JWT_ACCESS_EXPIRY`         | No       | `15m`                      | Access token lifetime                                                                                                                                               |
+| `JWT_REFRESH_EXPIRY`        | No       | `7d`                       | Refresh token lifetime (web). Sliding: extended on every refresh                                                                                                    |
+| `JWT_REFRESH_EXPIRY_NATIVE` | No       | `30d`                      | Refresh token lifetime for the native app (`X-Client-Platform: native`). Sliding                                                                                    |
+| `OLLAMA_NUM_CTX`            | No       | `8192`                     | Context window (tokens) requested per Ollama call. Ollama defaults to 4096 below 24 GiB VRAM, which can truncate long transcripts. Input is trimmed to ~85% of this |
+| `OLLAMA_KEEP_ALIVE`         | No       | `30m`                      | How long Ollama keeps the model loaded after a call (`-1` = forever). Avoids a cold model load on each import                                                       |
+| `OLLAMA_TEMPERATURE`        | No       | `0`                        | Sampling temperature for recipe extraction                                                                                                                          |
 
 ### Generating a JWT Secret
 
