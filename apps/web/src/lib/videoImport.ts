@@ -1,3 +1,4 @@
+import { cleanPostTitle } from '@dinner-planner/shared';
 import type { CreateDishData, ReextractInput, VideoJob } from '@/lib/api';
 
 /**
@@ -77,9 +78,10 @@ export function cleanVideoTitle(raw: string | null | undefined): string {
 /** Minimal dish prefill built from the post when no recipe could be extracted. */
 export function buildFallbackDraft(job: VideoJob): CreateDishData {
   const meta = job.resultMetadata ?? {};
-  const title = job.rawTitle ?? (typeof meta.title === 'string' ? meta.title : null);
   const description =
     job.rawDescription ?? (typeof meta.description === 'string' ? meta.description : '');
+  const rawTitle = job.rawTitle ?? (typeof meta.title === 'string' ? meta.title : null);
+  const title = rawTitle === null ? null : cleanPostTitle(rawTitle, description ?? '');
   return {
     name: cleanVideoTitle(title),
     description: description ?? '',

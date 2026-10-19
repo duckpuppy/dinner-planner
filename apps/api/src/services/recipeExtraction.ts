@@ -1,4 +1,4 @@
-import { NO_RECIPE_MESSAGE, type ImportedRecipe } from '@dinner-planner/shared';
+import { NO_RECIPE_MESSAGE, cleanPostTitle, type ImportedRecipe } from '@dinner-planner/shared';
 import { getSettings } from './settings.js';
 import { extractRecipeFromTextDetailed } from './ollama.js';
 import { isVideoCommentsEnabled } from './videoImportConfig.js';
@@ -113,7 +113,8 @@ export async function extractRecipeFromMetadata(
     }
 
     const sections: string[] = [];
-    if (rawTitle) sections.push(rawTitle);
+    const modelTitle = cleanPostTitle(rawTitle, rawDescription);
+    if (modelTitle) sections.push(modelTitle);
     if (rawDescription) sections.push(rawDescription);
     // Right after the description (before transcript/comments/linked page) so trailing-first
     // context trimming never drops what the user explicitly supplied.
