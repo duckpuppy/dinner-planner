@@ -23,6 +23,14 @@ vi.mock('node:dns', () => ({
 }));
 
 import dns from 'node:dns';
+import * as safeFetchModule from '../services/safeFetch.js';
+
+// Keep the real implementation for SSRF/DNS tests; individual tests override it
+// with canned responses.
+vi.mock('../services/safeFetch.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/safeFetch.js')>();
+  return { ...actual, safeFetch: vi.fn(actual.safeFetch) };
+});
 
 // Helper: wrap a recipe object in a minimal HTML page with JSON-LD
 function makeHtml(jsonLd: unknown): string {
@@ -449,13 +457,33 @@ describe('validateRecipeUrl', () => {
 // importRecipeFromUrl (mocked fetch + DNS)
 // ------------------------------------------------------------------
 
-const HTML_HEADERS = new Headers({ 'content-type': 'text/html; charset=utf-8' });
+function okResult(body: string, extra: Partial<safeFetchModule.SafeFetchResult> = {}) {
+  return {
+    status: 200,
+    ok: true,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+    finalUrl: 'https://example.com/recipe',
+    body,
+    ...extra,
+  } satisfies safeFetchModule.SafeFetchResult;
+}
 
 describe('importRecipeFromUrl', () => {
-  beforeEach(() => {
-    vi.unstubAllGlobals();
+  const mockedSafeFetch = vi.mocked(safeFetchModule.safeFetch);
+  let realSafeFetch: typeof safeFetchModule.safeFetch;
+
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import('../services/safeFetch.js')>(
+      '../services/safeFetch.js'
+    );
+    realSafeFetch = actual.safeFetch;
+    mockedSafeFetch.mockReset();
+    mockedSafeFetch.mockImplementation(realSafeFetch);
     // Default: DNS resolves to a public IP
-    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '93.184.216.34', family: 4 });
+    vi.mocked(dns.promises.lookup).mockReset();
+    vi.mocked(dns.promises.lookup).mockResolvedValue([
+      { address: '93.184.216.34', family: 4 },
+    ] as never);
   });
 
   it('throws SsrfBlockedError on http URL (https-only)', async () => {
@@ -470,22 +498,33 @@ describe('importRecipeFromUrl', () => {
     );
   });
 
+  it('throws SsrfBlockedError on bracketed IPv6 loopback / mapped literals', async () => {
+    await expect(importRecipeFromUrl('https://[::1]/recipe')).rejects.toThrow(SsrfBlockedError);
+    await expect(importRecipeFromUrl('https://[::ffff:127.0.0.1]/recipe')).rejects.toThrow(
+      SsrfBlockedError
+    );
+  });
+
   it('throws SsrfBlockedError when DNS resolves to private IP', async () => {
-    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '10.0.0.1', family: 4 });
+    vi.mocked(dns.promises.lookup).mockResolvedValue([{ address: '10.0.0.1', family: 4 }] as never);
     await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
       SsrfBlockedError
     );
   });
 
   it('throws SsrfBlockedError when DNS resolves to loopback', async () => {
-    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '127.0.0.1', family: 4 });
+    vi.mocked(dns.promises.lookup).mockResolvedValue([
+      { address: '127.0.0.1', family: 4 },
+    ] as never);
     await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
       SsrfBlockedError
     );
   });
 
   it('throws SsrfBlockedError error message mentions private or loopback', async () => {
-    vi.mocked(dns.promises.lookup).mockResolvedValue({ address: '192.168.1.1', family: 4 });
+    vi.mocked(dns.promises.lookup).mockResolvedValue([
+      { address: '192.168.1.1', family: 4 },
+    ] as never);
     await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow(
       'URL not allowed: private or loopback addresses are blocked'
     );
@@ -499,83 +538,56 @@ describe('importRecipeFromUrl', () => {
   });
 
   it('throws on HTTP error', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 404, headers: HTML_HEADERS })
-    );
+    mockedSafeFetch.mockResolvedValue(okResult('', { status: 404, ok: false }));
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow('HTTP 404');
   });
 
-  it('throws for non-HTML content type', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        text: async () => '{}',
-      })
+  it('maps content-type rejection', async () => {
+    mockedSafeFetch.mockRejectedValue(
+      new safeFetchModule.SafeFetchError('URL does not point to an HTML page', 'content_type')
     );
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
       'does not point to an HTML page'
     );
   });
 
-  it('throws when page has no recipe', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: HTML_HEADERS,
-        text: async () => '<html><body>No recipe</body></html>',
-      })
+  it('maps oversized responses', async () => {
+    mockedSafeFetch.mockRejectedValue(
+      new safeFetchModule.SafeFetchError('Response too large to process', 'too_large')
     );
+    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
+      'Response too large to process'
+    );
+  });
+
+  it('maps network failures to a generic error', async () => {
+    mockedSafeFetch.mockRejectedValue(new safeFetchModule.SafeFetchError('boom', 'network'));
+    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
+      'Failed to fetch recipe URL'
+    );
+  });
+
+  it('passes https-only, HTML-only, capped options to safeFetch', async () => {
+    mockedSafeFetch.mockResolvedValue(okResult(makeHtml(BASE_RECIPE)));
+    await importRecipeFromUrl('https://example.com/recipe');
+    const opts = mockedSafeFetch.mock.calls[0]?.[1];
+    expect(opts?.allowedProtocols).toEqual(['https:']);
+    expect(opts?.maxBytes).toBe(2 * 1024 * 1024);
+    expect(opts?.maxRedirects).toBe(5);
+    expect(opts?.headers?.['User-Agent']).toMatch(/Mozilla/);
+    expect(opts?.allowedContentTypes?.some((re) => re.test('text/html; charset=utf-8'))).toBe(true);
+    expect(opts?.allowedContentTypes?.some((re) => re.test('application/json'))).toBe(false);
+  });
+
+  it('throws when page has no recipe', async () => {
+    mockedSafeFetch.mockResolvedValue(okResult('<html><body>No recipe</body></html>'));
     await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
       'No recipe data found'
     );
   });
 
-  it('throws when Content-Length exceeds 5MB', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: new Headers({
-          'content-type': 'text/html',
-          'content-length': String(6 * 1024 * 1024),
-        }),
-        text: async () => '<html></html>',
-      })
-    );
-    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
-      'Response too large to process'
-    );
-  });
-
-  it('throws when streaming body exceeds 5MB', async () => {
-    const bigBody = 'x'.repeat(6 * 1024 * 1024);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: new Headers({ 'content-type': 'text/html' }),
-        text: async () => bigBody,
-      })
-    );
-    await expect(importRecipeFromUrl('https://example.com')).rejects.toThrow(
-      'Response too large to process'
-    );
-  });
-
   it('returns parsed recipe on success', async () => {
-    const html = makeHtml(BASE_RECIPE);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: HTML_HEADERS,
-        text: async () => html,
-      })
-    );
+    mockedSafeFetch.mockResolvedValue(okResult(makeHtml(BASE_RECIPE)));
     const result = await importRecipeFromUrl('https://example.com/recipe');
     expect(result.name).toBe('Spaghetti Bolognese');
   });

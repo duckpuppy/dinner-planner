@@ -1,60 +1,15 @@
 import * as cheerio from 'cheerio';
-import dns from 'node:dns';
 import type { ImportedRecipe } from '@dinner-planner/shared';
 import { inferCategory } from './categoryHeuristics.js';
+import {
+  SafeFetchError,
+  SsrfBlockedError,
+  assertHostnameAllowed,
+  isPrivateIP,
+  safeFetch,
+} from './safeFetch.js';
 
-/**
- * Custom error thrown when a URL is blocked for SSRF reasons.
- * The route layer catches this and returns HTTP 400.
- */
-export class SsrfBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SsrfBlockedError';
-  }
-}
-
-/**
- * Returns true if the given IP address falls within a private, loopback,
- * link-local, or otherwise reserved range that should not be reachable
- * from a public-facing service.
- */
-export function isPrivateIP(ip: string): boolean {
-  // IPv4 ranges
-  const ipv4Patterns = [
-    /^127\./, // 127.0.0.0/8  loopback
-    /^10\./, // 10.0.0.0/8   private
-    /^172\.(1[6-9]|2\d|3[01])\./, // 172.16.0.0/12 private
-    /^192\.168\./, // 192.168.0.0/16 private
-    /^169\.254\./, // 169.254.0.0/16 link-local (AWS metadata etc.)
-    /^0\.0\.0\.0$/, // unspecified
-  ];
-
-  // IPv6 ranges
-  const ipv6Patterns = [
-    /^::1$/, // ::1 loopback
-    /^fc[0-9a-f]{2}:/i, // fc00::/7 unique local (first half)
-    /^fd[0-9a-f]{2}:/i, // fd00::/8 unique local (second half of fc00::/7)
-    /^fe80:/i, // fe80::/10 link-local
-  ];
-
-  const lower = ip.toLowerCase();
-  return ipv4Patterns.some((p) => p.test(lower)) || ipv6Patterns.some((p) => p.test(lower));
-}
-
-// Static hostname-level SSRF block (defense in depth before DNS resolution)
-const PRIVATE_HOST_PATTERNS = [
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^169\.254\./,
-  /^::1$/,
-  /^fc[0-9a-f]{2}:/i,
-  /^fd[0-9a-f]{2}:/i,
-  /^fe80:/i,
-  /^0\.0\.0\.0$/,
-];
+export { SsrfBlockedError, isPrivateIP };
 
 // Domains known to block server-side scraping or lack structured recipe data
 const UNSUPPORTED_DOMAINS = [
@@ -87,9 +42,7 @@ export function validateRecipeUrl(rawUrl: string): URL {
   }
 
   const host = parsed.hostname.toLowerCase();
-  if (host === 'localhost' || PRIVATE_HOST_PATTERNS.some((p) => p.test(host))) {
-    throw new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked');
-  }
+  assertHostnameAllowed(host);
 
   const isSocialMedia = UNSUPPORTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
   if (isSocialMedia) {
@@ -99,24 +52,6 @@ export function validateRecipeUrl(rawUrl: string): URL {
   }
 
   return parsed;
-}
-
-/**
- * Resolve the hostname to an IP via DNS and verify it is not a private address.
- * Throws SsrfBlockedError if the resolved IP is in a blocked range.
- */
-async function assertPublicHost(hostname: string): Promise<void> {
-  let address: string;
-  try {
-    const result = await dns.promises.lookup(hostname);
-    address = result.address;
-  } catch {
-    throw new Error('Could not resolve hostname');
-  }
-
-  if (isPrivateIP(address)) {
-    throw new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked');
-  }
 }
 
 // Validate a URL string — returns url if valid, null otherwise
@@ -309,52 +244,45 @@ function extractVideoUrl(recipe: Record<string, unknown>): string | null {
   return typeof url === 'string' ? validateUrl(url) : null;
 }
 
-const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+const FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
 
 // Fetch URL, extract recipe, throw if not found
 export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> {
   const parsed = validateRecipeUrl(url);
 
-  // DNS-based SSRF check: resolve hostname and block private IPs
-  await assertPublicHost(parsed.hostname);
-
-  let res: Response;
+  // safeFetch re-validates scheme/host/resolved addresses on every redirect hop
+  // and pins the connection to the validated addresses (no DNS rebinding).
+  let res;
   try {
-    res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(10_000),
+    res = await safeFetch(parsed.toString(), {
+      headers: FETCH_HEADERS,
+      timeoutMs: 10_000,
+      maxBytes: MAX_RESPONSE_BYTES,
+      maxRedirects: 5,
+      allowedProtocols: ['https:'],
+      // Only parse HTML responses
+      allowedContentTypes: [/^text\/html\b/i, /^application\/xhtml\+xml\b/i],
     });
-  } catch {
-    throw new Error('Failed to fetch recipe URL');
+  } catch (err) {
+    if (err instanceof SsrfBlockedError) throw err;
+    if (err instanceof SafeFetchError && err.code !== 'network' && err.code !== 'timeout') {
+      throw new Error(err.message, { cause: err });
+    }
+    throw new Error('Failed to fetch recipe URL', { cause: err });
   }
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} fetching recipe URL`);
   }
 
-  // Check Content-Type — only parse HTML responses
-  const contentType = res.headers.get('content-type') ?? '';
-  if (!/^text\/html\b/i.test(contentType) && !/^application\/xhtml\+xml\b/i.test(contentType)) {
-    throw new Error('URL does not point to an HTML page');
-  }
-
-  // Guard against excessively large responses
-  const contentLength = res.headers.get('content-length');
-  if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
-    throw new Error('Response too large to process');
-  }
-
-  const html = await res.text();
-  if (html.length > MAX_RESPONSE_BYTES) {
-    throw new Error('Response too large to process');
-  }
-
-  const recipe = parseSchemaOrgRecipe(html, url);
+  const recipe = parseSchemaOrgRecipe(res.body, url);
   if (!recipe) {
     throw new Error(
       'No recipe data found on this page. The site may not support structured recipe data.'
