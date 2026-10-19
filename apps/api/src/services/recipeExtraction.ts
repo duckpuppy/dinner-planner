@@ -59,11 +59,17 @@ export function selectComments(
   return text.length > maxChars ? text.slice(0, maxChars) + '...' : text;
 }
 
+export interface ExtractionOptions {
+  /** Readable text of a page the post links to (dinner-22c.4), fed to the model as an extra section */
+  linkedPage?: { host: string; text: string } | null;
+  /** Text the user pasted in the import review step (dinner-22c.3) */
+  extraText?: string | null;
+}
+
 export async function extractRecipeFromMetadata(
   metadata: Record<string, unknown>,
   transcript?: string | null,
-  /** Readable text of a page the post links to (dinner-22c.4), fed to the model as an extra section */
-  linkedPage?: { host: string; text: string } | null
+  options: ExtractionOptions = {}
 ): Promise<ExtractionResult> {
   const rawTitle = typeof metadata['title'] === 'string' ? metadata['title'] : '';
   const rawDescription = typeof metadata['description'] === 'string' ? metadata['description'] : '';
@@ -92,8 +98,11 @@ export async function extractRecipeFromMetadata(
       : null;
   const commentsText = isVideoCommentsEnabled() ? selectComments(metadata) : null;
 
+  const { linkedPage } = options;
+  const userText = options.extraText && options.extraText.trim() ? options.extraText.trim() : null;
+
   // Only skip the model when there is no text at all to extract from.
-  if (!rawDescription.trim() && !transcriptText && !commentsText && !linkedPage) {
+  if (!rawDescription.trim() && !transcriptText && !commentsText && !linkedPage && !userText) {
     return noneResult('no_description');
   }
 
@@ -106,11 +115,16 @@ export async function extractRecipeFromMetadata(
     const sections: string[] = [];
     if (rawTitle) sections.push(rawTitle);
     if (rawDescription) sections.push(rawDescription);
+    // Right after the description (before transcript/comments/linked page) so trailing-first
+    // context trimming never drops what the user explicitly supplied.
+    if (userText) sections.push(`Additional text provided by the user:\n${userText}`);
     if (transcriptText) sections.push(`Video transcript:\n${transcriptText}`);
     if (commentsText) {
       sections.push(`Video comments (the uploader's own comments first):\n${commentsText}`);
     }
-    if (linkedPage) sections.push(`Linked page (${linkedPage.host}):\n${linkedPage.text}`);
+    if (linkedPage)
+      sections.push(`Linked page (${linkedPage.host}):
+${linkedPage.text}`);
     const text = sections.join('\n\n');
 
     const model = (settings.ollamaModel as string | null | undefined) ?? 'gemma4-e4b';

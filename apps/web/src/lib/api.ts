@@ -533,8 +533,12 @@ export const dishes = {
   getVideoJob: (jobId: string) => request<{ job: VideoJob }>(`/jobs/${jobId}`),
 
   /** Re-run recipe extraction from stored metadata. Returns 202 immediately; poll getVideoJob. */
-  reextractVideoJob: (jobId: string) =>
-    request<{ job: VideoJob }>(`/jobs/${jobId}/extract`, { method: 'POST' }),
+  reextractVideoJob: (jobId: string, input?: ReextractInput) =>
+    // A bodyless POST must stay bodyless (the request helper only sets Content-Type with a body).
+    request<{ job: VideoJob }>(`/jobs/${jobId}/extract`, {
+      method: 'POST',
+      ...(input ? { body: JSON.stringify(input) } : {}),
+    }),
 
   deleteVideo: (id: string) =>
     request<{ success: boolean }>(`/dishes/${id}/video`, { method: 'DELETE' }),
@@ -1053,6 +1057,12 @@ export interface AppSettings {
   updatedAt: string;
 }
 
+/** Extra input for a re-extraction: pasted text or a link to the recipe page (one of them). */
+export interface ReextractInput {
+  extraText?: string;
+  recipeUrl?: string;
+}
+
 export interface VideoJob {
   id: string;
   dishId: string | null;
@@ -1060,7 +1070,13 @@ export interface VideoJob {
   status: 'pending' | 'downloading' | 'extracting' | 'complete' | 'failed';
   progress: number;
   resultVideoFilename: string | null;
-  resultMetadata: Record<string, unknown> | null;
+  /** Also carries `userInput` (last text/link the user supplied) and `extractionSource`. */
+  resultMetadata:
+    | (Record<string, unknown> & {
+        userInput?: ReextractInput;
+        extractionSource?: 'linked_page';
+      })
+    | null;
   extractedRecipe: CreateDishData | null;
   error: string | null;
   rawTitle: string | null;

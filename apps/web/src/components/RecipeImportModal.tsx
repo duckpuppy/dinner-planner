@@ -2,10 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { X, Link, Loader2, Video, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { dishes as dishesApi, ApiError, type CreateDishData, type VideoJob } from '@/lib/api';
+import {
+  dishes as dishesApi,
+  ApiError,
+  type CreateDishData,
+  type ReextractInput,
+  type VideoJob,
+} from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   buildFallbackDraft,
+  buildReextractInput,
+  rememberedInput,
   extractionNotice,
   mergeExtractedRecipe,
   NO_VIDEO_NOTICE,
@@ -191,12 +199,14 @@ export function RecipeImportModal({ onImported, onClose }: RecipeImportModalProp
     return () => clearInterval(timer);
   }, [reextractPolling, reviewJobId]);
 
-  async function handleReextract() {
+  async function handleReextract(input?: ReextractInput) {
     if (!review) return;
     setReextractMessage(null);
     setReextractStarting(true);
     try {
-      await dishesApi.reextractVideoJob(review.job.id);
+      await (input
+        ? dishesApi.reextractVideoJob(review.job.id, input)
+        : dishesApi.reextractVideoJob(review.job.id));
       setReextractPolling(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -420,7 +430,7 @@ interface ReviewPanelProps {
   busy: boolean;
   message: string | null;
   onChange: (field: 'name' | 'description', value: string) => void;
-  onReextract: () => void;
+  onReextract: (input?: ReextractInput) => void;
   onContinue: () => void;
   onCancel: () => void;
 }
@@ -444,6 +454,8 @@ function ReviewPanel({
   onCancel,
 }: ReviewPanelProps) {
   const { job, draft } = review;
+  const [extraInput, setExtraInput] = useState(() => rememberedInput(job));
+  const pendingInput = buildReextractInput(extraInput);
   const hasRecipe = job.extractionStatus === 'llm' && !!job.extractedRecipe;
   const notice = hasRecipe ? null : extractionNotice(job);
   const canRetry =
@@ -489,6 +501,33 @@ function ReviewPanel({
         />
       </div>
 
+      <details className="rounded-md border p-3" open={canRetry || extraInput !== ''}>
+        <summary className="cursor-pointer text-sm font-medium min-h-[44px] flex items-center">
+          Add text or a link
+        </summary>
+        <div className="space-y-2 pt-2">
+          <label className="block text-sm font-medium" htmlFor="import-extra-input">
+            Paste the recipe, the creator&apos;s comment, or a link
+          </label>
+          <textarea
+            id="import-extra-input"
+            value={extraInput}
+            onChange={(e) => setExtraInput(e.target.value)}
+            rows={4}
+            maxLength={10000}
+            className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={() => pendingInput && onReextract(pendingInput)}
+            disabled={busy || !pendingInput}
+            className="min-h-[44px] py-2 px-4 border rounded-md hover:bg-muted disabled:opacity-50"
+          >
+            Extract again
+          </button>
+        </div>
+      </details>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -504,7 +543,7 @@ function ReviewPanel({
         {canRetry && (
           <button
             type="button"
-            onClick={onReextract}
+            onClick={() => onReextract()}
             disabled={busy}
             className="py-2 px-4 border rounded-md hover:bg-muted disabled:opacity-50"
           >

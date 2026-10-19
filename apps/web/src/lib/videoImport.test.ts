@@ -4,6 +4,8 @@ import {
   buildFallbackDraft,
   mergeExtractedRecipe,
   extractionNotice,
+  buildReextractInput,
+  rememberedInput,
 } from './videoImport';
 import type { VideoJob } from './api';
 
@@ -122,7 +124,78 @@ describe('extractionNotice', () => {
   });
   it('shows a notice for no_recipe', () => {
     expect(extractionNotice({ ...baseJob, extractionStatus: 'no_recipe' })).toBe(
-      'No recipe found in this post — prefilled from the post. Check it before saving.'
+      'No recipe found in this post — prefilled from the post. If the recipe is in a comment, paste it or its link below. Check it before saving.'
+    );
+  });
+});
+
+describe('buildReextractInput', () => {
+  it('returns null for empty / whitespace input', () => {
+    expect(buildReextractInput('')).toBeNull();
+    expect(buildReextractInput('  \n ')).toBeNull();
+  });
+  it('treats a single http(s) URL as recipeUrl (trimmed)', () => {
+    expect(buildReextractInput('  https://example.com/r?id=1 ')).toEqual({
+      recipeUrl: 'https://example.com/r?id=1',
+    });
+    expect(buildReextractInput('http://example.com/r')).toEqual({
+      recipeUrl: 'http://example.com/r',
+    });
+  });
+  it('treats text, or text containing a URL, as extraText', () => {
+    expect(buildReextractInput('2 cups flour')).toEqual({ extraText: '2 cups flour' });
+    expect(buildReextractInput('see https://example.com/r for more')).toEqual({
+      extraText: 'see https://example.com/r for more',
+    });
+    expect(buildReextractInput('https://a.test/x https://b.test/y')).toEqual({
+      extraText: 'https://a.test/x https://b.test/y',
+    });
+  });
+  it('does not treat other schemes as a link', () => {
+    expect(buildReextractInput('ftp://a.test/x')).toEqual({ extraText: 'ftp://a.test/x' });
+  });
+});
+
+describe('rememberedInput', () => {
+  it('reads the persisted user input', () => {
+    expect(
+      rememberedInput({ ...baseJob, resultMetadata: { userInput: { extraText: 'abc' } } })
+    ).toBe('abc');
+    expect(
+      rememberedInput({
+        ...baseJob,
+        resultMetadata: { userInput: { recipeUrl: 'https://a.test' } },
+      })
+    ).toBe('https://a.test');
+    expect(rememberedInput(baseJob)).toBe('');
+  });
+});
+
+describe('extractionNotice — linked page', () => {
+  it('shows the linked-page error when a link was the last input', () => {
+    expect(
+      extractionNotice({
+        ...baseJob,
+        extractionStatus: 'no_recipe',
+        extractionError: 'That page has no recipe data we can read. Paste the recipe text instead.',
+        resultMetadata: { userInput: { recipeUrl: 'https://a.test' } },
+      })
+    ).toBe(
+      'That page has no recipe data we can read. Paste the recipe text instead. Prefilled from the post.'
+    );
+  });
+
+  it('shows the blocked-site message for a failed pasted link', () => {
+    expect(
+      extractionNotice({
+        ...baseJob,
+        extractionStatus: 'failed',
+        extractionError:
+          'That site blocked our automated request. Open the page and paste the recipe text here instead.',
+        resultMetadata: { userInput: { recipeUrl: 'https://a.test' } },
+      })
+    ).toBe(
+      'That site blocked our automated request. Open the page and paste the recipe text here instead. Prefilled from the post.'
     );
   });
 });
