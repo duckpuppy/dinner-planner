@@ -385,6 +385,26 @@ describe('extractRecipeFromMetadata — user-provided extra text', () => {
     );
   });
 
+  it('places the extra text before the transcript and comments sections', async () => {
+    mockGetSettings.mockResolvedValueOnce(direct());
+    mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
+    process.env.VIDEO_IMPORT_COMMENTS = 'true';
+    try {
+      await extractRecipeFromMetadata(
+        { title: 'T', description: 'D', comments: [{ text: 'a comment' }] },
+        'a transcript',
+        'user text'
+      );
+    } finally {
+      delete process.env.VIDEO_IMPORT_COMMENTS;
+    }
+    const text = mockExtractRecipeFromText.mock.calls[0][0];
+    const user = text.indexOf('Additional text provided by the user:');
+    expect(user).toBeGreaterThan(text.indexOf('D'));
+    expect(user).toBeLessThan(text.indexOf('Video transcript:'));
+    expect(user).toBeLessThan(text.indexOf('Video comments'));
+  });
+
   it('does not short-circuit to no_description when only extra text exists', async () => {
     mockGetSettings.mockResolvedValueOnce(direct());
     mockExtractRecipeFromText.mockResolvedValueOnce({ recipe: VALID_RECIPE, error: null });
