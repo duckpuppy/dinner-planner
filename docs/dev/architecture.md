@@ -65,6 +65,7 @@ Goal: several shoppers in one store, flaky connectivity, see each other's check-
   - TikTok `tiktok.com/<code>` links are normalized to `/t/<code>/`.
   - If the download fails, a metadata-only pass still extracts the recipe (the job completes with `warning`).
   - Ollama 5xx is retried twice with the body logged.
+- Ollama tuning (dinner-22c.2): requests send `options.temperature`/`num_ctx` and `keep_alive` (`OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_KEEP_ALIVE`, see `services/ollamaConfig.ts`) and a lenient JSON Schema as `format` (`RECIPE_FORMAT_SCHEMA`; a server that rejects it with HTTP 400 gets `format: "json"` for the rest of the process). Input is trimmed to ~85% of `num_ctx` (comments, then transcript, then description tail). Every successful call logs one `[ollama] generate ...` line with load/total ms and `prompt_eval_count`. To compare models see [extraction-eval.md](./extraction-eval.md).
   - Jobs record `extractionStatus`/`extractionError` and expose `rawTitle`/`rawDescription`.
   - `POST /api/jobs/:id/extract` re-runs extraction async (202 + poll, `status: 'extracting'`).
   - The import modal shows a review step (prefill from the cleaned title/description, "Try extraction again") when no recipe was extracted.

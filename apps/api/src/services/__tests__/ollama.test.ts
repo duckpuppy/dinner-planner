@@ -3,6 +3,8 @@ import {
   checkOllamaHealth,
   extractRecipeFromText,
   extractRecipeFromTextDetailed,
+  RECIPE_FORMAT_SCHEMA,
+  resetOllamaFormatCompat,
 } from '../ollama.js';
 
 // Mock global fetch
@@ -11,6 +13,7 @@ vi.stubGlobal('fetch', mockFetch);
 
 beforeEach(() => {
   mockFetch.mockReset();
+  resetOllamaFormatCompat();
 });
 
 // ---------------------------------------------------------------------------
@@ -121,7 +124,7 @@ describe('extractRecipeFromText', () => {
       })
     );
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(callBody.format).toBe('json');
+    expect(callBody.format).toEqual(RECIPE_FORMAT_SCHEMA);
     expect(callBody.stream).toBe(false);
   });
 
