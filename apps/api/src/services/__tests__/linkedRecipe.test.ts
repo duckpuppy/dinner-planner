@@ -247,6 +247,14 @@ describe('resolveLinkedRecipe', () => {
     expect(r.pageText).toBeNull();
   });
 
+  it('a 503 on the text fetch (still blocked after the browser retry) is blocked', async () => {
+    mockImport.mockRejectedValue(new Error('No recipe data found on this page.'));
+    mockSafeFetch.mockResolvedValue({ ...htmlRes('<html>busy</html>'), status: 503, ok: false });
+    const r = await resolveLinkedRecipe(['https://a.example.com/1'], { postUrl: POST });
+    expect(r.outcomes[0].result).toBe('blocked');
+    expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+  });
+
   it('SSRF-blocked is error and nothing about the reason leaks', async () => {
     mockImport.mockRejectedValue(
       new SsrfBlockedError('URL not allowed: private or loopback addresses are blocked')

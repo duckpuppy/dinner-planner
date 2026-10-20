@@ -6,8 +6,8 @@ import {
   SsrfBlockedError,
   assertHostnameAllowed,
   isPrivateIP,
-  safeFetch,
 } from './safeFetch.js';
+import { fetchPageWithFallback } from './fetchPage.js';
 
 export { SsrfBlockedError, isPrivateIP };
 
@@ -246,13 +246,6 @@ function extractVideoUrl(recipe: Record<string, unknown>): string | null {
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2 MB
 
-const FETCH_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-};
-
 // Fetch URL, extract recipe, throw if not found
 export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> {
   const parsed = validateRecipeUrl(url);
@@ -261,8 +254,7 @@ export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> 
   // and pins the connection to the validated addresses (no DNS rebinding).
   let res;
   try {
-    res = await safeFetch(parsed.toString(), {
-      headers: FETCH_HEADERS,
+    res = await fetchPageWithFallback(parsed.toString(), {
       timeoutMs: 10_000,
       maxBytes: MAX_RESPONSE_BYTES,
       maxRedirects: 5,
@@ -278,6 +270,13 @@ export async function importRecipeFromUrl(url: string): Promise<ImportedRecipe> 
     throw new Error('Failed to fetch recipe URL', { cause: err });
   }
 
+  if (res.blocked) {
+    // Still blocked after both header profiles (incl. a challenge served with 2xx or a 503):
+    // report as 403 so callers treat it as a block.
+    throw new Error(
+      `HTTP ${[401, 403, 429].includes(res.status) ? res.status : 403} fetching recipe URL`
+    );
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} fetching recipe URL`);
   }
