@@ -39,24 +39,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": ".claude/hooks/enforce-branch-before-edit.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit"
-      },
-      {
-        "hooks": [
-          {
-            "command": ".claude/hooks/enforce-branch-before-edit.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": "Write"
       }
     ],
     "SessionStart": [
