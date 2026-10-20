@@ -51,8 +51,8 @@ afterEach(() => {
 
 describe('ollama config', () => {
   it('has defaults', () => {
-    expect(getOllamaNumCtx()).toBe(8192);
-    expect(getOllamaKeepAlive()).toBe('30m');
+    expect(getOllamaNumCtx()).toBe(4096);
+    expect(getOllamaKeepAlive()).toBe('5m');
     expect(getOllamaTemperature()).toBe(0);
   });
 
@@ -66,7 +66,7 @@ describe('ollama config', () => {
     process.env.OLLAMA_NUM_CTX = 'abc';
     process.env.OLLAMA_TEMPERATURE = '-2';
     process.env.OLLAMA_KEEP_ALIVE = '1h';
-    expect(getOllamaNumCtx()).toBe(8192);
+    expect(getOllamaNumCtx()).toBe(4096);
     expect(getOllamaTemperature()).toBe(0);
     expect(getOllamaKeepAlive()).toBe('1h');
   });
@@ -77,22 +77,22 @@ describe('request body', () => {
     mockFetch.mockResolvedValueOnce(generateOk());
     await extractRecipeFromTextDetailed('text', URL_, 'm');
     const body = bodyOf(0);
-    expect(body.options).toEqual({ temperature: 0, num_ctx: 8192 });
-    expect(body.keep_alive).toBe('30m');
+    expect(body.options).toEqual({ temperature: 0, num_ctx: 4096 });
+    expect(body.keep_alive).toBe('5m');
     expect(body.format).toEqual(RECIPE_FORMAT_SCHEMA);
     expect(body.format.properties.instructions.type).toEqual(['string', 'null']);
     expect(body.format.properties.type.enum).toEqual(['main', 'side', 'both']);
   });
 
   it('honours env overrides', async () => {
-    process.env.OLLAMA_NUM_CTX = '4096';
-    process.env.OLLAMA_KEEP_ALIVE = '5m';
+    process.env.OLLAMA_NUM_CTX = '2048';
+    process.env.OLLAMA_KEEP_ALIVE = '10m';
     process.env.OLLAMA_TEMPERATURE = '0.2';
     mockFetch.mockResolvedValueOnce(generateOk());
     await extractRecipeFromTextDetailed('text', URL_, 'm');
     const body = bodyOf(0);
-    expect(body.options).toEqual({ temperature: 0.2, num_ctx: 4096 });
-    expect(body.keep_alive).toBe('5m');
+    expect(body.options).toEqual({ temperature: 0.2, num_ctx: 2048 });
+    expect(body.keep_alive).toBe('10m');
   });
 });
 
