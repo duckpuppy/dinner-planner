@@ -771,6 +771,28 @@ describe('GET /api/jobs/:id — scoping and new fields', () => {
     expect(job.extractedRecipe).toBeNull();
   });
 
+  it('returns a cleaned rawTitle when the extractor gave engagement stats', async () => {
+    mockGetVideoJob.mockResolvedValue(
+      asJob({
+        id: 'j3',
+        status: 'complete',
+        resultMetadata: JSON.stringify({
+          infoJson: {
+            title: '978K views · 16K reactions',
+            description: 'Cowboy Mashed Potato Casserole #recipe\nIngredients',
+          },
+        }),
+      })
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/j3',
+      headers: bearerHeader(app),
+    });
+    const { job } = JSON.parse(res.body);
+    expect(job.rawTitle).toBe('Cowboy Mashed Potato Casserole');
+  });
+
   it('returns null raw fields when there is no stored metadata', async () => {
     mockGetVideoJob.mockResolvedValue(asJob({ id: 'j2', status: 'pending', resultMetadata: null }));
     const res = await app.inject({

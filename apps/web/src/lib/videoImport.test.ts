@@ -77,6 +77,14 @@ describe('buildFallbackDraft', () => {
       ingredients: [],
     });
   });
+  it('does not prefill the name with engagement stats', () => {
+    const d = buildFallbackDraft({
+      ...baseJob,
+      rawTitle: '978K views · 16K reactions',
+      rawDescription: 'Cowboy Mashed Potato Casserole #recipe\nIngredients',
+    });
+    expect(d.name).toBe('Cowboy Mashed Potato Casserole');
+  });
   it('falls back to resultMetadata', () => {
     const d = buildFallbackDraft({
       ...baseJob,
