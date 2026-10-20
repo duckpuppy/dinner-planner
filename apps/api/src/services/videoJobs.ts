@@ -12,6 +12,8 @@ import { buildLinkMeta, followLinks, type LinkMeta, type LinkStage } from './lin
 import { YtdlpError } from './ytdlpErrors.js';
 import { logEvent } from './appEvents.js';
 import {
+  followLinksWithPastedText,
+  LINK_BLOCKED_MESSAGE,
   parseUserInput,
   pastedLinkFailure,
   resolvePastedLink,
@@ -65,8 +67,8 @@ interface ExtractionOutcome {
  * unexpected extraction crash is recorded as extractionStatus='failed'.
  *
  * `userInput` (dinner-22c.3) is what the user pasted in the review step: a pasted
- * `recipeUrl` replaces auto-discovered links; `extraText` is added to the model input
- * (link discovery from the caption still runs).
+ * `recipeUrl` replaces auto-discovered links; `extraText` is added to the model input and
+ * any links inside it are followed before the caption's (dinner-22c.11).
  */
 async function runExtraction(
   sourceUrl: string,
@@ -100,6 +102,23 @@ async function runExtraction(
             linkMeta: buildLinkMeta(link, false),
           };
         }
+      }
+    } else if (userInput?.extraText) {
+      // Links inside the pasted text are followed first (dinner-22c.11).
+      const pasted = await followLinksWithPastedText(
+        sourceUrl,
+        infoJson,
+        transcript,
+        userInput.extraText
+      );
+      link = pasted.stage;
+      if (pasted.blocked) {
+        return {
+          extractedRecipe: null,
+          extractionStatus: 'failed',
+          extractionError: LINK_BLOCKED_MESSAGE,
+          linkMeta: buildLinkMeta(link, false),
+        };
       }
     } else {
       link = await followLinks(sourceUrl, infoJson, transcript);

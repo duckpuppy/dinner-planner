@@ -1,5 +1,12 @@
-import { extractCandidateUrls, resolveLinkedRecipe, type LinkStage } from './linkedRecipe.js';
+import {
+  extractCandidateUrls,
+  followLinks,
+  resolveLinkedRecipe,
+  type LinkStage,
+} from './linkedRecipe.js';
+import { selectComments } from './recipeExtraction.js';
 import { assertHostnameAllowed } from './safeFetch.js';
+import { isVideoCommentsEnabled } from './videoImportConfig.js';
 
 /** What the user supplied in the import review step (persisted on the job). */
 export interface UserInput {
@@ -52,6 +59,46 @@ export async function resolvePastedLink(
         r.pageText && r.pageHost && !r.recipe ? { host: r.pageHost, text: r.pageText } : null,
     },
   };
+}
+
+/**
+ * Link stage when the user pasted free text (dinner-22c.11). Links inside the pasted text
+ * are resolved FIRST, then links from the post's caption/transcript/comments, sharing the
+ * one MAX_CANDIDATES cap (extractCandidateUrls de-duplicates and keeps text order).
+ * Without a usable link in the pasted text this is exactly `followLinks`.
+ * `blocked` is true when the user's own (first) link was blocked and nothing else was
+ * usable. Never throws.
+ */
+export async function followLinksWithPastedText(
+  postUrl: string,
+  infoJson: Record<string, unknown>,
+  transcript: string | null,
+  extraText: string
+): Promise<{ stage: LinkStage; blocked: boolean }> {
+  if (extractCandidateUrls([extraText], postUrl).length === 0) {
+    return { stage: await followLinks(postUrl, infoJson, transcript), blocked: false };
+  }
+  try {
+    const description = typeof infoJson['description'] === 'string' ? infoJson['description'] : '';
+    const comments = isVideoCommentsEnabled() ? selectComments(infoJson, 20_000) : null;
+    const candidates = extractCandidateUrls(
+      [extraText, description, transcript ?? '', comments ?? ''],
+      postUrl
+    );
+    const r = await resolveLinkedRecipe(candidates, { postUrl });
+    const stage: LinkStage = {
+      ...r,
+      linkedPage:
+        r.pageText && r.pageHost && !r.recipe ? { host: r.pageHost, text: r.pageText } : null,
+    };
+    return {
+      stage,
+      blocked: !stage.recipe && !stage.linkedPage && stage.outcomes[0]?.result === 'blocked',
+    };
+  } catch {
+    const stage = { recipe: null, pageText: null, pageHost: null, outcomes: [], linkedPage: null };
+    return { stage, blocked: false };
+  }
 }
 
 /** Friendly failure for a pasted link that yielded neither a recipe nor usable page text. */
