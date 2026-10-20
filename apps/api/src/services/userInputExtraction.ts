@@ -61,13 +61,25 @@ export async function resolvePastedLink(
   };
 }
 
+/** Pasted text (URLs removed, whitespace collapsed) at least this long is worth sending to the model. */
+export const PASTED_TEXT_MIN_CHARS = 200;
+
+/** Length of the pasted text once URLs are stripped and whitespace collapsed. */
+export function pastedTextLength(extraText: string): number {
+  return extraText
+    .replace(/(?:https?:\/\/|www\.)\S+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().length;
+}
+
 /**
  * Link stage when the user pasted free text (dinner-22c.11). Links inside the pasted text
  * are resolved FIRST, then links from the post's caption/transcript/comments, sharing the
  * one MAX_CANDIDATES cap (extractCandidateUrls de-duplicates and keeps text order).
  * Without a usable link in the pasted text this is exactly `followLinks`.
- * `blocked` is true when the user's own (first) link was blocked and nothing else was
- * usable. Never throws.
+ * `blocked` is true when the user's own (first) link was blocked, nothing else was usable
+ * AND the pasted text is short (< PASTED_TEXT_MIN_CHARS once URLs are removed); substantial
+ * pasted text falls through to the model instead. Never throws.
  */
 export async function followLinksWithPastedText(
   postUrl: string,
@@ -93,7 +105,11 @@ export async function followLinksWithPastedText(
     };
     return {
       stage,
-      blocked: !stage.recipe && !stage.linkedPage && stage.outcomes[0]?.result === 'blocked',
+      blocked:
+        !stage.recipe &&
+        !stage.linkedPage &&
+        stage.outcomes[0]?.result === 'blocked' &&
+        pastedTextLength(extraText) < PASTED_TEXT_MIN_CHARS,
     };
   } catch {
     const stage = { recipe: null, pageText: null, pageHost: null, outcomes: [], linkedPage: null };

@@ -53,6 +53,8 @@ import {
   LINK_UNUSABLE_MESSAGE,
   LINK_UNREADABLE_MESSAGE,
   LINK_BLOCKED_MESSAGE,
+  PASTED_TEXT_MIN_CHARS,
+  pastedTextLength,
 } from '../services/userInputExtraction.js';
 
 const mockExtract = vi.mocked(extractRecipeFromMetadata);
@@ -397,6 +399,44 @@ describe('links inside pasted extraText (dinner-22c.11)', () => {
     expect(mockExtract).not.toHaveBeenCalled();
     expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'blocked' }]);
     expect(meta.userInput).toEqual({ extraText: PASTE });
+  });
+
+  it('long pasted text + blocked link falls back to the model and records the block', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
+    const long = `${'word '.repeat(60)}${BLOG}`;
+    const { job, meta } = await run({ extraText: long });
+    expect(job.extractionStatus).toBe('llm');
+    expect(job.extractionError).toBeNull();
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: null,
+      extraText: long,
+    });
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'blocked' }]);
+  });
+
+  it('short pasted text + blocked link keeps the blocked message', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    const { job } = await run({ extraText: `${'a'.repeat(50)} ${BLOG}` });
+    expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+    expect(mockExtract).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [199, false],
+    [200, true],
+  ])('boundary: %i non-URL chars -> model called = %s', async (n, called) => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
+    const { job } = await run({ extraText: `${'a'.repeat(n)} ${BLOG}` });
+    expect(mockExtract.mock.calls.length > 0).toBe(called);
+    if (!called) expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+  });
+
+  it('URLs and extra whitespace do not count toward the length', () => {
+    expect(PASTED_TEXT_MIN_CHARS).toBe(200);
+    expect(pastedTextLength(`  ab \n\n  cd   ${BLOG} ${BLOG}x www.foo.com/bar`)).toBe(5);
+    expect(pastedTextLength(`${'a'.repeat(150)} https://x.test/${'p'.repeat(300)}`)).toBe(150);
   });
 
   it('a link that finds nothing still lets the pasted text reach the model', async () => {
