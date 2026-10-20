@@ -9,10 +9,10 @@ import { getOllamaKeepAlive, getOllamaNumCtx, getOllamaTemperature } from './oll
 const SYSTEM_PROMPT = `You are a recipe extraction assistant. Extract a structured recipe from the following text.
 Return a JSON object with these exact fields:
 - name (string): the dish name
-- description (string): brief description
+- description (string|null): one-sentence summary taken from the text, or null
 - type (string): "main" or "side"
 - ingredients (array): objects with quantity (number|null), unit (string|null), name (string), notes (string|null), category (string: Produce/Dairy/Meat/Pantry/Spices/Other)
-- instructions (string): step-by-step instructions
+- instructions (string|null): step-by-step cooking instructions, or null when the text contains none
 - prepTime (number|null): minutes
 - cookTime (number|null): minutes
 - servings (number|null)
@@ -21,7 +21,12 @@ Return a JSON object with these exact fields:
 - videoUrl: null
 - tags (string[]): cuisine type, cooking method, etc.
 
-If a field cannot be determined, use null or reasonable defaults.
+Rules:
+- Use only what the text actually says. Never invent ingredients, quantities or steps.
+- instructions must be null when the text contains no cooking steps.
+- Never write placeholder or apology text such as "not provided", "not specified", "N/A" or "No detailed instructions provided". Use null (or an empty ingredients array) instead.
+- If the text contains no recipe (for example the recipe is only linked or promised elsewhere), return an empty ingredients array and null instructions.
+- If any other field cannot be determined, use null.
 Respond with ONLY the JSON object, no other text.`;
 
 const nullable = (type: string) => ({ type: [type, 'null'] });

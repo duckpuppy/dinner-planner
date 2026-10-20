@@ -63,12 +63,48 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/** Strings at or above this length are never treated as placeholders. */
+export const PLACEHOLDER_MAX_CHARS = 80;
+
+const PLACEHOLDER_PHRASE =
+  '(?:no (?:detailed )?(?:instructions|steps|recipe|ingredients)|not (?:provided|specified|available|included|mentioned|listed))';
+const PLACEHOLDER_VERB = '(?:provided|specified|available|included|mentioned|listed)';
+
+const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
+  // The whole string is a bare "nothing here" token.
+  /^(none|n\/a|na|unknown|unspecified|not applicable|no)\.?$/i,
+  // A placeholder phrase that is essentially the whole string: up to two plain leading words
+  // ("Instructions not provided."), an optional trailing verb and an optional "in the text".
+  new RegExp(
+    `^(?:[a-z]+\\s+){0,2}${PLACEHOLDER_PHRASE}(?:\\s+${PLACEHOLDER_VERB})?` +
+      '(?:\\s+(?:in|from|on|for)\\s+(?:the|this)\\s+[a-z]+)?[.!]?$',
+    'i'
+  ),
+];
+
+/**
+ * True for short filler text a model writes when it has nothing to say ("No detailed
+ * instructions provided in the text.", "N/A", "Not specified"). Only strings shorter than
+ * PLACEHOLDER_MAX_CHARS qualify, so real instructions that merely mention these words survive.
+ */
+export function isPlaceholderText(s: string): boolean {
+  const t = s.trim();
+  if (t === '' || t.length >= PLACEHOLDER_MAX_CHARS) return false;
+  return PLACEHOLDER_PATTERNS.some((re) => re.test(t));
+}
+
+/** Trim, and blank out placeholder text. */
+function toFreeText(v: unknown): string {
+  const t = toText(v).trim();
+  return isPlaceholderText(t) ? '' : t;
+}
+
 function normalizeIngredient(raw: unknown): ImportedRecipe['ingredients'][number] | null {
   if (!isRecord(raw)) return null;
   const name = toText(raw['name']).trim().slice(0, MAX_NAME);
   if (name === '') return null;
   const unit = toText(raw['unit']).trim().slice(0, MAX_UNIT);
-  const notes = toText(raw['notes']).trim().slice(0, MAX_NOTES);
+  const notes = toFreeText(raw['notes']).slice(0, MAX_NOTES);
   const quantity = toNumber(raw['quantity']);
   const category = toText(raw['category']).trim();
   return {
@@ -99,10 +135,10 @@ export function normalizeModelRecipe(raw: unknown): ImportedRecipe | null {
 
   const candidate = {
     name: toText(raw['name']).trim(),
-    description: toText(raw['description']).trim(),
+    description: toFreeText(raw['description']),
     type: toType(raw['type']),
     ingredients,
-    instructions: toText(raw['instructions']).trim(),
+    instructions: toFreeText(raw['instructions']),
     prepTime: toPositiveInt(raw['prepTime']),
     cookTime: toPositiveInt(raw['cookTime']),
     servings: toPositiveInt(raw['servings']),
@@ -129,12 +165,20 @@ export const modelRecipeSchema = z.unknown().transform((val, ctx): ImportedRecip
   return recipe;
 });
 
+/** Minimum non-space characters of instructions that count as a recipe on their own. */
+export const MIN_USABLE_INSTRUCTION_CHARS = 40;
+
 /**
- * A recipe is worth showing/saving when it has ingredients or instructions. The name is
- * deliberately ignored: the client falls back to the post title when it is blank.
+ * A recipe is worth showing/saving when it has ingredients, or instructions with at least
+ * MIN_USABLE_INSTRUCTION_CHARS non-space characters (placeholder text is already blanked by the
+ * normaliser; very short fragments are not a recipe). The name is deliberately ignored: the
+ * client falls back to the post title when it is blank.
  */
 export function isUsableRecipe(r: Pick<ImportedRecipe, 'ingredients' | 'instructions'>): boolean {
-  return r.ingredients.length > 0 || r.instructions.trim() !== '';
+  return (
+    r.ingredients.length > 0 ||
+    r.instructions.replace(/\s/g, '').length >= MIN_USABLE_INSTRUCTION_CHARS
+  );
 }
 
 /** User-facing message when the model ran fine but the post contains no recipe. */

@@ -26,7 +26,7 @@ JSON files in `scripts/fixtures/extraction/`:
 }
 ```
 
-Only `name` and `title` are required. `expectRecipe` marks whether a usable recipe should come out; mismatches are flagged in the table. The bundled set covers: a caption with a full recipe, "recipe in comments", transcript-only, a non-recipe post, and a long post (about 11k assembled chars, close to the 4096-token Ollama default).
+Only `name` and `title` are required. `expectRecipe` marks whether a usable recipe should come out; mismatches are flagged in the table. The bundled set covers: a caption with a full recipe, "recipe in comments", transcript-only, a non-recipe post, a long post (about 11k assembled chars, close to the 4096-token Ollama default), a caption that only says the recipe is behind a link in the comments, and a one-line food caption. The last two (plus the non-recipe post) are `expectRecipe: false` and guard against the model returning placeholder prose such as "No detailed instructions provided" instead of nothing.
 
 With `--db`, every completed `video_jobs` row with `result_metadata` is added (title, description and up to 10 comments from the stored yt-dlp info, plus `transcript`). These have no expectation.
 
