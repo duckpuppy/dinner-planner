@@ -319,6 +319,56 @@ describe('extractRecipeFromTextDetailed retries', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('maps an out-of-memory 500 to a distinct message, logs it, and retries', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const oomBody = '{"error":"llama-server startup failed ... cudaMalloc failed: out of memory"}';
+    mockFetch
+      .mockResolvedValueOnce(serverError(oomBody))
+      .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+    const ok = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(ok.recipe?.name).toBe('Pasta Carbonara');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const logged = warn.mock.calls.map((c) => String(c[0]));
+    expect(logged.some((m) => m.includes('[ollama] model failed to start: out of memory'))).toBe(
+      true
+    );
+
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(serverError(oomBody));
+    const failed = await extractRecipeFromTextDetailed('text', URL_, 'm', noDelay);
+    expect(failed.recipe).toBeNull();
+    expect(failed.error).toBe('The AI model ran out of memory starting up. Try again in a minute.');
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
+
+  it('uses the longer delay for the first retry after an OOM, the normal one otherwise', async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(globalThis, 'setTimeout');
+    try {
+      const oom = serverError('cudaMalloc failed: out of memory');
+      mockFetch
+        .mockResolvedValueOnce(oom)
+        .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+      let p = extractRecipeFromTextDetailed('text', URL_, 'm', { retryDelaysMs: [3000, 10000] });
+      await vi.advanceTimersByTimeAsync(10000);
+      expect((await p).recipe).not.toBeNull();
+      expect(spy.mock.calls.some((c) => c[1] === 10000)).toBe(true);
+
+      spy.mockClear();
+      mockFetch
+        .mockResolvedValueOnce(serverError())
+        .mockResolvedValueOnce(makeGenerateResponse(VALID_RECIPE));
+      p = extractRecipeFromTextDetailed('text', URL_, 'm', { retryDelaysMs: [3000, 10000] });
+      await vi.advanceTimersByTimeAsync(3000);
+      expect((await p).recipe).not.toBeNull();
+      expect(spy.mock.calls.some((c) => c[1] === 10000)).toBe(false);
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it('retries a network error and succeeds', async () => {
     mockFetch
       .mockRejectedValueOnce(new Error('ECONNRESET'))

@@ -222,13 +222,16 @@ export interface ExtractionAttempt {
   notUsable?: boolean;
 }
 
+const OOM_BODY = /out of memory|cudaMalloc|failed to allocate/i;
+const OOM_MESSAGE = 'The AI model ran out of memory starting up. Try again in a minute.';
+
 const UNREADABLE_MESSAGE = "The AI model's response couldn't be read as a recipe";
 
 type AttemptOutcome =
   | { kind: 'ok'; recipe: ImportedRecipe }
   | { kind: 'not_usable' }
   /** `invalid`: malformed output (not JSON / not an object); retried once, then fatal. */
-  | { kind: 'retry'; error: string; invalid?: boolean }
+  | { kind: 'retry'; error: string; invalid?: boolean; oom?: boolean }
   | { kind: 'fatal'; error: string };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -310,6 +313,12 @@ async function generateOnce(
       } catch {
         // ignore unreadable body
       }
+      if (response.status >= 500 && OOM_BODY.test(bodyText)) {
+        console.warn(
+          `[ollama] model failed to start: out of memory ${response.status} ${response.statusText} body=${bodyText}`
+        );
+        return { kind: 'retry', error: OOM_MESSAGE, oom: true };
+      }
       console.warn(
         `[ollama] generate request failed: ${response.status} ${response.statusText} body=${bodyText}`
       );
@@ -377,11 +386,13 @@ export async function extractRecipeFromTextDetailed(
   const delays = opts.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   let lastError = 'Recipe extraction failed';
   let invalidSeen = false;
+  let lastWasOom = false;
 
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     if (attempt > 0) {
       console.warn(`[ollama] retrying generate (attempt ${attempt + 1} of ${delays.length + 1})`);
-      await sleep(delays[attempt - 1]);
+      // After a model-start OOM, give the GPU the longer pause even before the first retry.
+      await sleep(lastWasOom ? delays[delays.length - 1] : delays[attempt - 1]);
     }
     const outcome = await generateOnce(text, ollamaUrl, model, attempt + 1, opts.onReport);
     if (outcome.kind === 'ok') return { recipe: outcome.recipe, error: null };
@@ -389,6 +400,7 @@ export async function extractRecipeFromTextDetailed(
       return { recipe: null, error: NO_RECIPE_MESSAGE, notUsable: true };
     }
     lastError = outcome.error;
+    lastWasOom = outcome.kind === 'retry' && outcome.oom === true;
     if (outcome.kind === 'fatal') break;
     if (outcome.invalid) {
       // Malformed output gets exactly one retry regardless of the backoff budget.

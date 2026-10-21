@@ -15,6 +15,7 @@ import {
   fitTextToContext,
   type GenerateReport,
 } from '../src/services/ollama.js';
+import { getOllamaNumCtx } from '../src/services/ollamaConfig.js';
 
 interface Fixture {
   name: string;
@@ -185,7 +186,7 @@ async function main() {
   }
 
   // Sanity: how much would the input budget trim at the default context?
-  const numCtx = Number(process.env.OLLAMA_NUM_CTX) || 8192;
+  const numCtx = getOllamaNumCtx();
   const trimmedCases = cases.filter((c) => fitTextToContext(assemble(c), numCtx, 1200).trimmed);
   if (trimmedCases.length) {
     console.log(
