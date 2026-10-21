@@ -21,9 +21,12 @@ vi.mock('../db/index.js', async () => {
   };
 });
 
-vi.mock('../services/recipeExtraction.js', () => ({
-  extractRecipeFromMetadata: vi.fn(),
-}));
+vi.mock('../services/recipeExtraction.js', async () => {
+  const actual = await vi.importActual<typeof import('../services/recipeExtraction.js')>(
+    '../services/recipeExtraction.js'
+  );
+  return { extractRecipeFromMetadata: vi.fn(), selectComments: actual.selectComments };
+});
 vi.mock('../services/linkedRecipe.js', async () => {
   const actual = await vi.importActual<typeof import('../services/linkedRecipe.js')>(
     '../services/linkedRecipe.js'
@@ -50,6 +53,8 @@ import {
   LINK_UNUSABLE_MESSAGE,
   LINK_UNREADABLE_MESSAGE,
   LINK_BLOCKED_MESSAGE,
+  PASTED_TEXT_MIN_CHARS,
+  pastedTextLength,
 } from '../services/userInputExtraction.js';
 
 const mockExtract = vi.mocked(extractRecipeFromMetadata);
@@ -319,5 +324,146 @@ describe('pasted recipeUrl (resolved via linkedRecipe.resolveLinkedRecipe)', () 
       .where(eq(schema.videoJobs.id, 'j2'))
       .all();
     expect(other.resultMetadata).toBe('{"infoJson":{}}');
+  });
+});
+
+describe('links inside pasted extraText (dinner-22c.11)', () => {
+  const BLOG = 'https://cookinginthemidwest.com/blog/homemade-mcribs/';
+  const PASTE = `Here's my recipe! 🍟 ${BLOG}`;
+
+  function setCaption(description: string) {
+    sqlite
+      .prepare('UPDATE video_jobs SET result_metadata = ? WHERE id = ?')
+      .run(
+        JSON.stringify({ thumbnailFilename: 't.jpg', infoJson: { title: 'T', description } }),
+        'j1'
+      );
+  }
+
+  it('follows a link in text+link input and uses the page recipe directly', async () => {
+    mockResolve.mockResolvedValue(resolved('recipe'));
+    const { job, meta, recipe: r } = await run({ extraText: PASTE });
+    expect(mockResolve).toHaveBeenCalledWith([BLOG], { postUrl: POST_URL });
+    expect(mockFollow).not.toHaveBeenCalled();
+    expect(mockExtract).not.toHaveBeenCalled();
+    expect(job.extractionStatus).toBe('llm');
+    expect(r?.sourceUrl).toBe(PAGE_URL);
+    expect(r?.videoUrl).toBe(POST_URL);
+    expect(meta.extractionSource).toBe('linked_page');
+    expect(meta.userInput).toEqual({ extraText: PASTE });
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'recipe' }]);
+  });
+
+  it('feeds page text plus the pasted text to the model (linked_text)', async () => {
+    mockResolve.mockResolvedValue(resolved('text'));
+    mockExtract.mockResolvedValue({ recipe: recipe('Prose'), status: 'llm', error: null } as never);
+    const { meta } = await run({ extraText: PASTE });
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: { host: 'example.com', text: 'Blog post with a recipe in prose' },
+      extraText: PASTE,
+    });
+    expect(meta.extractionSource).toBe('linked_text');
+  });
+
+  it('link-only input still uses the recipeUrl path', async () => {
+    mockResolve.mockResolvedValue(resolved('recipe'));
+    await run({ recipeUrl: BLOG });
+    expect(mockResolve).toHaveBeenCalledWith([BLOG], { postUrl: POST_URL });
+    expect(mockFollow).not.toHaveBeenCalled();
+  });
+
+  it('keeps order, de-duplicates, and caps at 3 with user links first', async () => {
+    setCaption('See https://cap.test/a and https://cap.test/b and https://one.test/x');
+    mockResolve.mockResolvedValue(resolved('no_recipe'));
+    mockExtract.mockResolvedValue(noRecipe());
+    await run({ extraText: 'https://one.test/x then https://two.test/y' });
+    expect(mockResolve).toHaveBeenCalledWith(
+      ['https://one.test/x', 'https://two.test/y', 'https://cap.test/a'],
+      { postUrl: POST_URL }
+    );
+    expect(mockFollow).not.toHaveBeenCalled();
+  });
+
+  it('text without links is unchanged (caption link stage only)', async () => {
+    mockExtract.mockResolvedValue(noRecipe());
+    await run({ extraText: '2 cups flour' });
+    expect(mockFollow).toHaveBeenCalledTimes(1);
+    expect(mockResolve).not.toHaveBeenCalled();
+  });
+
+  it('a blocked pasted link yields the blocked message and no model call', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    const { job, meta } = await run({ extraText: PASTE });
+    expect(job.extractionStatus).toBe('failed');
+    expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+    expect(mockExtract).not.toHaveBeenCalled();
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'blocked' }]);
+    expect(meta.userInput).toEqual({ extraText: PASTE });
+  });
+
+  it('long pasted text + blocked link falls back to the model and records the block', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
+    const long = `${'word '.repeat(60)}${BLOG}`;
+    const { job, meta } = await run({ extraText: long });
+    expect(job.extractionStatus).toBe('llm');
+    expect(job.extractionError).toBeNull();
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: null,
+      extraText: long,
+    });
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'blocked' }]);
+  });
+
+  it('short pasted text + blocked link keeps the blocked message', async () => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    const { job } = await run({ extraText: `${'a'.repeat(50)} ${BLOG}` });
+    expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+    expect(mockExtract).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [199, false],
+    [200, true],
+  ])('boundary: %i non-URL chars -> model called = %s', async (n, called) => {
+    mockResolve.mockResolvedValue(resolved('blocked'));
+    mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
+    const { job } = await run({ extraText: `${'a'.repeat(n)} ${BLOG}` });
+    expect(mockExtract.mock.calls.length > 0).toBe(called);
+    if (!called) expect(job.extractionError).toBe(LINK_BLOCKED_MESSAGE);
+  });
+
+  it('URLs and extra whitespace do not count toward the length', () => {
+    expect(PASTED_TEXT_MIN_CHARS).toBe(200);
+    expect(pastedTextLength(`  ab \n\n  cd   ${BLOG} ${BLOG}x www.foo.com/bar`)).toBe(5);
+    expect(pastedTextLength(`${'a'.repeat(150)} https://x.test/${'p'.repeat(300)}`)).toBe(150);
+  });
+
+  it('a link that finds nothing still lets the pasted text reach the model', async () => {
+    mockResolve.mockResolvedValue(resolved('no_recipe'));
+    mockExtract.mockResolvedValue({ recipe: recipe('T'), status: 'llm', error: null } as never);
+    const { job } = await run({ extraText: PASTE });
+    expect(job.extractionStatus).toBe('llm');
+    expect(mockExtract).toHaveBeenCalledWith({ title: 'T', description: '' }, 'spoken words', {
+      linkedPage: null,
+      extraText: PASTE,
+    });
+  });
+
+  it('social-only links are ignored (falls back to caption link stage)', async () => {
+    mockExtract.mockResolvedValue(noRecipe());
+    await run({ extraText: 'https://www.instagram.com/p/abc/ https://www.facebook.com/x' });
+    expect(mockResolve).not.toHaveBeenCalled();
+    expect(mockFollow).toHaveBeenCalledTimes(1);
+  });
+
+  it('a plain re-extract reuses the stored pasted links', async () => {
+    mockResolve.mockResolvedValue(resolved('recipe'));
+    await run({ extraText: PASTE });
+    const { meta } = await run();
+    expect(mockResolve).toHaveBeenCalledTimes(2);
+    expect(mockResolve).toHaveBeenLastCalledWith([BLOG], { postUrl: POST_URL });
+    expect(meta.userInput).toEqual({ extraText: PASTE });
+    expect(meta.linkOutcomes).toEqual([{ url: 'example.com/recipe', result: 'recipe' }]);
   });
 });
