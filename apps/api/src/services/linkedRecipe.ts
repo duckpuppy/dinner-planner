@@ -10,7 +10,8 @@
 import * as cheerio from 'cheerio';
 import { isUsableRecipe, type ImportedRecipe } from '@dinner-planner/shared';
 import { importRecipeFromUrl } from './recipeImport.js';
-import { SsrfBlockedError, safeFetch } from './safeFetch.js';
+import { SsrfBlockedError } from './safeFetch.js';
+import { fetchPageWithFallback, isChallengePage } from './fetchPage.js';
 import { selectComments } from './recipeExtraction.js';
 import { isVideoCommentsEnabled } from './videoImportConfig.js';
 
@@ -177,20 +178,9 @@ export function extractCandidateUrls(texts: string[], postUrl: string): string[]
 // Resolution
 // ---------------------------------------------------------------------------
 
-const FETCH_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-};
-
-const CHALLENGE_MARKERS = ['Just a moment', 'cf-chl', 'Attention Required'];
 const BLOCKED_STATUSES = new Set([401, 403, 429]);
 
-export function isChallengePage(html: string): boolean {
-  const head = html.slice(0, 20_000);
-  return CHALLENGE_MARKERS.some((m) => head.includes(m));
-}
+export { isChallengePage };
 
 /** Readable text of a page: boilerplate removed, <article>/<main> preferred, capped. */
 export function extractPageText(html: string, maxChars = MAX_PAGE_TEXT): string {
@@ -233,15 +223,14 @@ interface TextFetch {
 }
 
 async function fetchPageText(url: string): Promise<TextFetch> {
-  const res = await safeFetch(url, {
-    headers: FETCH_HEADERS,
+  const res = await fetchPageWithFallback(url, {
     timeoutMs: 10_000,
     maxBytes: 2 * 1024 * 1024,
     maxRedirects: 5,
     allowedProtocols: ['https:'],
     allowedContentTypes: [/^text\/html\b/i, /^application\/xhtml\+xml\b/i],
   });
-  if (BLOCKED_STATUSES.has(res.status) || isChallengePage(res.body)) return { result: 'blocked' };
+  if (res.blocked || BLOCKED_STATUSES.has(res.status)) return { result: 'blocked' };
   if (!res.ok) return { result: 'error' };
   const text = extractPageText(res.body);
   return text.length >= MIN_USEFUL_TEXT ? { result: 'text', text } : { result: 'no_recipe' };

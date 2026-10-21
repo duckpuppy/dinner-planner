@@ -574,9 +574,33 @@ describe('importRecipeFromUrl', () => {
     expect(opts?.allowedProtocols).toEqual(['https:']);
     expect(opts?.maxBytes).toBe(2 * 1024 * 1024);
     expect(opts?.maxRedirects).toBe(5);
-    expect(opts?.headers?.['User-Agent']).toMatch(/Mozilla/);
+    // First attempt is the honest app identity; the browser set is a blocked-only fallback.
+    expect(opts?.headers?.['User-Agent']).toMatch(/^DinnerPlanner\//);
     expect(opts?.allowedContentTypes?.some((re) => re.test('text/html; charset=utf-8'))).toBe(true);
     expect(opts?.allowedContentTypes?.some((re) => re.test('application/json'))).toBe(false);
+  });
+
+  it('retries once with the browser header set when blocked, then succeeds', async () => {
+    mockedSafeFetch
+      .mockResolvedValueOnce({ ...okResult('Just a moment...'), status: 403, ok: false })
+      .mockResolvedValueOnce(okResult(makeHtml(BASE_RECIPE)));
+    const result = await importRecipeFromUrl('https://example.com/recipe');
+    expect(result.name).toBe('Spaghetti Bolognese');
+    expect(mockedSafeFetch).toHaveBeenCalledTimes(2);
+    expect(mockedSafeFetch.mock.calls[1]?.[1]?.headers?.['User-Agent']).toMatch(/Mozilla/);
+    expect(mockedSafeFetch.mock.calls[1]?.[1]?.headers?.['Sec-Fetch-Mode']).toBe('navigate');
+  });
+
+  it('reports HTTP 403 when still blocked after both attempts', async () => {
+    mockedSafeFetch.mockResolvedValue({ ...okResult('Just a moment...'), status: 403, ok: false });
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow('HTTP 403');
+    expect(mockedSafeFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a 404', async () => {
+    mockedSafeFetch.mockResolvedValue({ ...okResult('missing'), status: 404, ok: false });
+    await expect(importRecipeFromUrl('https://example.com/recipe')).rejects.toThrow('HTTP 404');
+    expect(mockedSafeFetch).toHaveBeenCalledTimes(1);
   });
 
   it('throws when page has no recipe', async () => {
