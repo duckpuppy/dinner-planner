@@ -2,13 +2,15 @@
  * Runtime switches for Ollama requests. Read lazily from process.env so tests can toggle them.
  */
 
-export const DEFAULT_OLLAMA_NUM_CTX = 8192;
-export const DEFAULT_OLLAMA_KEEP_ALIVE = '30m';
+export const DEFAULT_OLLAMA_NUM_CTX = 4096;
+export const DEFAULT_OLLAMA_KEEP_ALIVE = '5m';
 export const DEFAULT_OLLAMA_TEMPERATURE = 0;
 
 /**
- * OLLAMA_NUM_CTX: context window (tokens) requested per call. Ollama's own default is 4096
- * below 24 GiB VRAM, which can silently truncate long transcripts. Must be a positive integer.
+ * OLLAMA_NUM_CTX: context window (tokens) requested per call. Default 4096: typical imports are
+ * well under ~1k tokens, and a larger window raises KV-cache VRAM at model load, which can fail
+ * with out-of-memory on shared-GPU hosts. Raise it (e.g. 8192) for long video transcripts.
+ * Must be a positive integer.
  */
 export function getOllamaNumCtx(): number {
   const raw = process.env.OLLAMA_NUM_CTX?.trim();
@@ -18,8 +20,9 @@ export function getOllamaNumCtx(): number {
 }
 
 /**
- * OLLAMA_KEEP_ALIVE: how long Ollama keeps the model loaded after a call ("30m", "1h", "-1"
- * for forever, "0" to unload immediately). Bare integers are sent as numbers (seconds).
+ * OLLAMA_KEEP_ALIVE: how long Ollama keeps the model loaded after a call ("5m", "30m", "-1"
+ * for forever, "0" to unload immediately). Default 5m (Ollama's own default) so a shared GPU is
+ * not held longer than needed. Bare integers are sent as numbers (seconds).
  */
 export function getOllamaKeepAlive(): string | number {
   const raw = process.env.OLLAMA_KEEP_ALIVE?.trim();
