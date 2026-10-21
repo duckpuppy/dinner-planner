@@ -9,7 +9,7 @@ OLLAMA_URL=http://192.168.0.250:11434 pnpm eval:extraction -- --model gemma4-e4b
 # optional: --db /path/to/dinner.db   (a COPY of the prod DB; opened read-only)
 ```
 
-`OLLAMA_NUM_CTX`, `OLLAMA_KEEP_ALIVE` and `OLLAMA_TEMPERATURE` apply as in the app.
+`OLLAMA_NUM_CTX` (default 4096), `OLLAMA_KEEP_ALIVE` (default `5m`) and `OLLAMA_TEMPERATURE` apply as in the app. The defaults are deliberately modest: a larger context or a long keep-alive raises VRAM use at model load and caused out-of-memory start failures on a shared-GPU host. Set `OLLAMA_NUM_CTX=8192` to eval long-transcript cases untrimmed.
 
 ## Fixtures
 
